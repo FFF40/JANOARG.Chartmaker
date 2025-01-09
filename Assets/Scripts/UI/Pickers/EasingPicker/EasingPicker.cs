@@ -10,7 +10,7 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
-public class EasingPicker : MonoBehaviour, IPointerMoveHandler, IPointerDownHandler, IPointerUpHandler, IDragHandler, IEndDragHandler
+public class EasingPicker : Picker, IPointerMoveHandler, IPointerDownHandler, IPointerUpHandler, IDragHandler, IEndDragHandler
 {
     public static EasingPicker main;
 
@@ -47,8 +47,6 @@ public class EasingPicker : MonoBehaviour, IPointerMoveHandler, IPointerDownHand
     public TMP_InputField P2XField;
     public TMP_InputField P2YField;
 
-    [HideInInspector]
-    public bool isOpen;
     float loopTimer;
     bool isLooping;
 
@@ -59,11 +57,9 @@ public class EasingPicker : MonoBehaviour, IPointerMoveHandler, IPointerDownHand
     BasicEaseDirective cachedBasicEase = new(EaseFunction.Linear, EaseMode.In);
     CubicBezierEaseDirective cachedBezierEase = new (.25f, .1f, .25f, 1);
 
-    public Action OnSet;
-
     float[] values = new float[64];
 
-    public void Awake()
+    public override void Awake()
     {
         main = this;
 
@@ -101,18 +97,12 @@ public class EasingPicker : MonoBehaviour, IPointerMoveHandler, IPointerDownHand
             Balls.Add(ball);
         }
 
-        gameObject.SetActive(false);
+        base.Awake();
     }
 
-    public void Update()
+    public override void Update()
     {
-        if ((Input.GetMouseButtonDown(0) || Input.GetMouseButtonDown(1) || Input.GetMouseButtonDown(2))) 
-        {
-            if (!RectTransformUtility.RectangleContainsScreenPoint((RectTransform)transform, Input.mousePosition, null))
-            {
-                Close();
-            }
-        }
+        base.Update();
 
         if (isLooping && !isDragged)
         {
@@ -122,35 +112,15 @@ public class EasingPicker : MonoBehaviour, IPointerMoveHandler, IPointerDownHand
         }
     }
 
-    public void Open()
+    public override void Open()
     {
-        gameObject.SetActive(isOpen = true);
-
-        // Set popup position to mouse pointer position
-        RectTransform rt = (RectTransform)transform;
-        RectTransform parent = (RectTransform)rt.parent;
-        rt.anchoredPosition = (Vector2)Input.mousePosition - parent.rect.size / 2;
-        Rect rect = rt.rect;
-        rect.position += rt.anchoredPosition;
-        if (rect.xMin < parent.rect.width / -2) rt.anchoredPosition += Vector2.right * (-rect.xMin - parent.rect.width / 2);
-        if (rect.xMax > parent.rect.width / 2) rt.anchoredPosition += Vector2.left * (rect.xMax - parent.rect.width / 2);
-        if (rect.yMin < parent.rect.height / -2) rt.anchoredPosition += Vector2.up * (-rect.yMin - parent.rect.height / 2);
-        if (rect.yMax > parent.rect.height / 2) rt.anchoredPosition += Vector2.down * (rect.yMax - parent.rect.height / 2);
-
+        base.Open();
+        
+        UpdateUI();
         if (CurrentEasing is CubicBezierEaseDirective cbed) 
         {
             ResetBezierFields();
         }
-
-        StartCoroutine(Intro());
-        UpdateUI();
-    }
-
-    public void Close()
-    {
-        gameObject.SetActive(isOpen = false);
-        StopCoroutine(Intro());
-        OnSet = null;
     }
 
     public void CacheEase() 

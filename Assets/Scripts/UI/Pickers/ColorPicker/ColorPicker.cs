@@ -6,7 +6,7 @@ using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.UI;
 
-public class ColorPicker : MonoBehaviour
+public class ColorPicker : Picker
 {
     public static ColorPicker main;
 
@@ -23,15 +23,12 @@ public class ColorPicker : MonoBehaviour
     public ColorRect ColorRect;
     public FormEntryString HexField;
 
-    [HideInInspector]
-    public bool isOpen;
     public bool recursionBuster;
 
-    public Action OnSet;
-
-    public void Awake()
+    public override void Awake()
     {
         main = this;
+
         for (int a = 0; a < 4; a++)
         {
             int A = a;
@@ -69,36 +66,15 @@ public class ColorPicker : MonoBehaviour
                 UpdateUI();
             }
         };
-        gameObject.SetActive(false);
+
+        base.Awake();
     }
 
-    public void Update()
+    public override void Open()
     {
-        if ((Input.GetMouseButtonDown(0) || Input.GetMouseButtonDown(1) || Input.GetMouseButtonDown(2))) 
-        {
-            if (!RectTransformUtility.RectangleContainsScreenPoint((RectTransform)transform, Input.mousePosition, null))
-            {
-                Close();
-            }
-        }
-    }
+        base.Open();
 
-    public void Open()
-    {
-        gameObject.SetActive(isOpen = true);
-
-        // Set popup position to mouse pointer position
-        RectTransform rt = (RectTransform)transform;
-        RectTransform parent = (RectTransform)rt.parent;
-        rt.anchoredPosition = (Vector2)Input.mousePosition - parent.rect.size / 2;
-        Rect rect = rt.rect;
-        rect.position += rt.anchoredPosition;
-        if (rect.xMin < parent.rect.width / -2) rt.anchoredPosition += Vector2.right * (-rect.xMin - parent.rect.width / 2);
-        if (rect.xMax > parent.rect.width / 2) rt.anchoredPosition += Vector2.left * (rect.xMax - parent.rect.width / 2);
-        if (rect.yMin < parent.rect.height / -2) rt.anchoredPosition += Vector2.up * (-rect.yMin - parent.rect.height / 2);
-        if (rect.yMax > parent.rect.height / 2) rt.anchoredPosition += Vector2.down * (rect.yMax - parent.rect.height / 2);
-
-        StartCoroutine(Intro());
+        UpdateUI();
         UpdateHSV();
         UpdateHex();
         recursionBuster = true;
@@ -109,14 +85,6 @@ public class ColorPicker : MonoBehaviour
         }
         recursionBuster = false;
         OldColor.color = CurrentColor;
-        UpdateUI();
-    }
-
-    public void Close()
-    {
-        gameObject.SetActive(isOpen = false);
-        StopCoroutine(Intro());
-        OnSet = null;
     }
 
     public void UpdateHSV()
@@ -161,7 +129,7 @@ public class ColorPicker : MonoBehaviour
             Gradients[a].color2 = color;
         }
 
-        if (OnSet != null) OnSet();
+        OnSet?.Invoke();
     }
 
     IEnumerator Intro()

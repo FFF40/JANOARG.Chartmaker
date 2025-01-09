@@ -560,32 +560,24 @@ public class InspectorPanel : MonoBehaviour
 
     public void MakeLaneStyleEntry(Lane lane)
     {
-        var dropdown = SpawnForm<FormEntryLinkedDropdown, object>("Style", () => lane.StyleIndex, x => Chartmaker.main.SetItem(lane, "StyleIndex", x));
-        for (int a = 0; a < Chartmaker.main.CurrentChart.Pallete.LaneStyles.Count; a++) 
-        {
-            var item = Chartmaker.main.CurrentChart.Pallete.LaneStyles[a];
-            dropdown.ValidValues.Add(a, string.IsNullOrWhiteSpace(item.Name) ? "Lane Style " + a : item.Name);
-        }
-        dropdown.ValidValues.Add(-1, "<i>Invisible</i>");
-        dropdown.LinkButton.onClick.AddListener(() => {
-            if (lane.StyleIndex >= 0 && lane.StyleIndex < Chartmaker.main.CurrentChart.Pallete.LaneStyles.Count)
-                SetObject(Chartmaker.main.CurrentChart.Pallete.LaneStyles[lane.StyleIndex]);
-        });
+        var list = Chartmaker.main.CurrentChart.Pallete.LaneStyles;
+        var dropdown = SpawnForm<FormEntryObject, object>("Style", 
+            () => lane.StyleIndex < 0 || lane.StyleIndex >= list.Count ? null : list[lane.StyleIndex], 
+            (x) => Chartmaker.main.SetItem(lane, "StyleIndex", list.IndexOf((LaneStyle)x))
+        );
+        dropdown.CurrentIndex = lane.StyleIndex;
+        dropdown.SetType(ObjectPickerType.LaneStyle);
     }
 
     public void MakeHitStyleEntry(HitObject hit)
     {
-        var dropdown = SpawnForm<FormEntryLinkedDropdown, object>("Style", () => hit.StyleIndex, x => Chartmaker.main.SetItem(hit, "StyleIndex", x));
-        for (int a = 0; a < Chartmaker.main.CurrentChart.Pallete.HitStyles.Count; a++) 
-        {
-            var item = Chartmaker.main.CurrentChart.Pallete.HitStyles[a];
-            dropdown.ValidValues.Add(a, string.IsNullOrWhiteSpace(item.Name) ? "Hit Style " + a : item.Name);
-        }
-        dropdown.ValidValues.Add(-1, "<i>Invisible</i>");
-        dropdown.LinkButton.onClick.AddListener(() => {
-            if (hit.StyleIndex >= 0 && hit.StyleIndex < Chartmaker.main.CurrentChart.Pallete.HitStyles.Count)
-                SetObject(Chartmaker.main.CurrentChart.Pallete.HitStyles[hit.StyleIndex]);
-        });
+        var list = Chartmaker.main.CurrentChart.Pallete.HitStyles;
+        var dropdown = SpawnForm<FormEntryObject, object>("Style", 
+            () => hit.StyleIndex < 0 || hit.StyleIndex >= list.Count ? null : list[hit.StyleIndex], 
+            (x) => Chartmaker.main.SetItem(hit, "StyleIndex", list.IndexOf((HitStyle)x))
+        );
+        dropdown.CurrentIndex = hit.StyleIndex;
+        dropdown.SetType(ObjectPickerType.HitStyle);
     }
 
     public void MakeMultiEditForm(IList thing)
