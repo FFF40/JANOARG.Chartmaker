@@ -114,9 +114,10 @@ public class VersionCheckerModal : Modal
         {
             try 
             {
-#if UNITY_EDITOR
-                Debug.Log(request.downloadHandler.text);
-#endif
+                #if UNITY_EDITOR
+                // Debug.Log(request.downloadHandler.text);
+                #endif
+                
                 data = JsonUtility.FromJson<ReleaseData>("{\"Data\":" + request.downloadHandler.text + "}");
                 if (silent) 
                 {
