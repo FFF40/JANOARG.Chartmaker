@@ -32,7 +32,7 @@ public class QuickBuild
                 "#!/bin/bash",
                 "cd " + path.Replace(" ", "\\ "),
                 "tar -czvf Chartmaker-linux-x86_64.tar.gz Chartmaker-linux-x86_64/",
-                "zip Chartmaker-win-x86_64.zip Chartmaker-win-x86_64/*",
+                "zip -r Chartmaker-win-x86_64.zip Chartmaker-win-x86_64/*",
             });
             var process = new Process()
             {
