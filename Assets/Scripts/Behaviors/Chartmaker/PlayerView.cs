@@ -892,7 +892,7 @@ public class PlayerView : MonoBehaviour, IPointerDownHandler, IPointerUpHandler,
             {
                 image.rectTransform.sizeDelta = CoverBackground.rectTransform.sizeDelta;
                 image.rectTransform.anchoredPosition = Vector2.zero;
-                Vector2 imgSize = new Vector2(1, layer.Texture.height / layer.Texture.width) * 880 * layer.Scale;
+                Vector2 imgSize = new Vector2(1, (float)layer.Texture.height / layer.Texture.width) * 880 * layer.Scale;
                 image.uvRect = Rect2UV(new (
                     -CoverBackground.rectTransform.sizeDelta * .5f,
                     CoverBackground.rectTransform.sizeDelta
@@ -903,7 +903,7 @@ public class PlayerView : MonoBehaviour, IPointerDownHandler, IPointerUpHandler,
             }
             else 
             {
-                image.rectTransform.sizeDelta = new Vector2(1, layer.Texture.height / layer.Texture.width) * layer.Scale * 880;
+                image.rectTransform.sizeDelta = new Vector2(1, (float)layer.Texture.height / layer.Texture.width) * layer.Scale * 880;
                 image.rectTransform.anchoredPosition = layer.Position - parallaxOffset * layer.ParallaxFactor;
                 image.uvRect = new (0, 0, 1, 1);
             }

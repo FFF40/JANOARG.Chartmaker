@@ -153,7 +153,8 @@ public class NewSongModal : Modal
             throw new Exception("Please specify an audio file.");
         }
 
-        string path = Path.GetDirectoryName(Application.dataPath) + "/Songs";
+        string path = Helper.GetSongFolder();
+
         if (!Directory.Exists(path)) Directory.CreateDirectory(path);
         path += "/" + Codename;
         if (Directory.Exists(path)) 

@@ -106,13 +106,13 @@ public class FileModal : Modal
         item.Icon.sprite = HomeIcon;
 
         Dictionary<string, string> localFolders = new () {
-            {"Songs", "Songs"},
-            {"Renders", "Renders"},
+            {Helper.GetSongFolder(), "Songs"},
+            {Helper.GetRenderFolder(), "Renders"},
         };
 
         foreach (var specialFolder in localFolders) 
         {
-            string path = Path.Combine(Path.GetDirectoryName(Application.dataPath), specialFolder.Key);
+            string path = specialFolder.Key;
             if (Directory.Exists(path))
             {
                 item = GetItem();

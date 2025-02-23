@@ -384,7 +384,7 @@ public class RenderModal : Modal
             Chartmaker.main.LoaderPanel.ProgressLabel.text = $"Outputting video...";
             yield return new WaitUntil(() => busyFrags <= 0);
             
-            string folder = Path.Combine(Application.dataPath, "../Renders");
+            string folder = Helper.GetRenderFolder();
             Directory.CreateDirectory(folder);
             outputPath = Path.Combine(
                 folder, 
