@@ -38,6 +38,9 @@ public class InspectorPanel : MonoBehaviour
     [Space]
     public DebugStatsInspector DebugStatsSample;
     [Space]
+    public Button EaseCopyToRightButtonSample;
+    public EaseCopyToBottomItem EaseCopyToButtomItemSample;
+    [Space]
     public bool IsCollapsed;
     public bool IsCoverDirty;
     public RectTransform PanelHolder;
@@ -474,25 +477,29 @@ public class InspectorPanel : MonoBehaviour
 
                 SpawnForm<FormEntryHeader>("Transform");
                 SpawnForm<FormEntryVector2, Vector2>("Start Pos", () => step.StartPos, x => Chartmaker.main.SetItem(step, "StartPos", x));
+                SpawnForm<FormEntryVector2, Vector2>("End Pos", () => step.EndPos, x => Chartmaker.main.SetItem(step, "EndPos", x));
+                var easeHeader = SpawnForm<FormEntryLabel>("Easings");
+                easeHeader.TitleLabel.margin -= new Vector4(0, 0, 0, 4);
+                FormEntryEasing startX, startY, endX, endY;
                 SetEase2(
-                    SpawnForm<FormEntryEasing, IEaseDirective>("Start Ease", () => step.StartEaseX, 
+                    startX = SpawnForm<FormEntryEasing, IEaseDirective>("Start Ease", () => step.StartEaseX, 
                         x => Chartmaker.main.SetItem(step, "StartEaseX", x) 
                     ),
-                    SpawnForm<FormEntryEasing, IEaseDirective>("", () => step.StartEaseY, 
+                    startY = SpawnForm<FormEntryEasing, IEaseDirective>("", () => step.StartEaseY, 
                         x => Chartmaker.main.SetItem(step, "StartEaseY", x) 
                     )
                 );
-
-                SpawnForm<FormEntryVector2, Vector2>("End Pos", () => step.EndPos, x => Chartmaker.main.SetItem(step, "EndPos", x));
+                var cpBottom = Instantiate(EaseCopyToButtomItemSample, FormHolder);
                 SetEase2(
-                    SpawnForm<FormEntryEasing, IEaseDirective>("End Ease", () => step.EndEaseX, 
+                    endX = SpawnForm<FormEntryEasing, IEaseDirective>("End Ease", () => step.EndEaseX, 
                         x => Chartmaker.main.SetItem(step, "EndEaseX", x) 
                     ),
-                    SpawnForm<FormEntryEasing, IEaseDirective>("", () => step.EndEaseY, 
+                    endY = SpawnForm<FormEntryEasing, IEaseDirective>("", () => step.EndEaseY, 
                         x => Chartmaker.main.SetItem(step, "EndEaseY", x) 
                     )
                 );
-
+                cpBottom.SetFormItems(startX, startY, endX, endY);
+                SpawnForm<FormEntrySpace>();
                 SpawnForm<FormEntryFloat, float>("Speed", () => step.Speed, x => Chartmaker.main.SetItem(step, "Speed", x));
             }
             else if (CurrentObject is HitObject hit)
@@ -783,13 +790,21 @@ public class InspectorPanel : MonoBehaviour
 
     void SetEase2(FormEntryEasing easeX, FormEntryEasing easeY)
     {
+        var btn = Instantiate(EaseCopyToRightButtonSample, easeX.transform);
+        btn.onClick.AddListener(() => {
+            easeY.SetValue(easeX.CurrentValue);
+            easeY.Reset();
+        });
+
         easeX.TitleLabel.gameObject.SetActive(false);
         easeY.TitleLabel.gameObject.SetActive(false);
         easeY.ValueLabel.transform.parent.SetParent(easeX.transform);
         easeY.GetComponent<LayoutElement>().minHeight = 0;
+        easeY.GetComponent<LayoutElement>().ignoreLayout = true;
+        easeY.transform.SetAsFirstSibling();
+
         var lg = easeX.GetComponent<HorizontalLayoutGroup>();
         lg.padding.left = 10;
-        lg.spacing = 2;
     }
 
     public void OpenExtraModesMenu()
