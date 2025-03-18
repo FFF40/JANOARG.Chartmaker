@@ -788,10 +788,8 @@ public class PlayerView : MonoBehaviour, IPointerDownHandler, IPointerUpHandler,
     public Rect Rect2UV(Rect parent, Rect child) 
     {
         return new(
-            (parent.xMin - child.xMin) / child.width,
-            (parent.yMin - child.yMin) / child.height,
-            parent.width / child.width,
-            parent.height / child.height
+            (parent.min - child.min) / child.size,
+            parent.size / child.size
         );
     }
 
@@ -879,6 +877,7 @@ public class PlayerView : MonoBehaviour, IPointerDownHandler, IPointerUpHandler,
         CoverBackground.rectTransform.sizeDelta = Vector2.one * Chartmaker.main.CurrentSong.Cover.IconSize;
         CoverBackground.rectTransform.localScale = Vector2.one * IconRenderCanvas.sizeDelta.x / Chartmaker.main.CurrentSong.Cover.IconSize;
         CoverBackground.rectTransform.anchoredPosition3D = Vector3.zero;
+        CoverBackground.rectTransform.localRotation = Quaternion.identity;
         
         Vector2 parallaxOffset = Chartmaker.main.CurrentSong.Cover.IconCenter;
         
@@ -887,24 +886,25 @@ public class PlayerView : MonoBehaviour, IPointerDownHandler, IPointerUpHandler,
             RawImage image = CoverLayers[index];
 
             image.texture = layer.Texture;
+            image.rectTransform.localRotation = Quaternion.identity;
             
             if (layer.Tiling)
             {
                 image.rectTransform.sizeDelta = CoverBackground.rectTransform.sizeDelta;
-                image.rectTransform.anchoredPosition = Vector2.zero;
+                image.rectTransform.anchoredPosition3D = Vector2.zero;
                 Vector2 imgSize = new Vector2(1, (float)layer.Texture.height / layer.Texture.width) * 880 * layer.Scale;
                 image.uvRect = Rect2UV(new (
                     -CoverBackground.rectTransform.sizeDelta * .5f,
                     CoverBackground.rectTransform.sizeDelta
                 ), new (
-                    layer.Position - parallaxOffset * layer.ParallaxFactor - imgSize * .5f,
+                    layer.Position + parallaxOffset * layer.ParallaxFactor - imgSize * .5f,
                     imgSize
                 ));
             }
             else 
             {
                 image.rectTransform.sizeDelta = new Vector2(1, (float)layer.Texture.height / layer.Texture.width) * layer.Scale * 880;
-                image.rectTransform.anchoredPosition = layer.Position - parallaxOffset * layer.ParallaxFactor;
+                image.rectTransform.anchoredPosition3D = layer.Position + parallaxOffset * layer.ParallaxFactor;
                 image.uvRect = new (0, 0, 1, 1);
             }
 
@@ -937,7 +937,9 @@ public class PlayerView : MonoBehaviour, IPointerDownHandler, IPointerUpHandler,
 
         IconRenderCanvas.gameObject.SetActive(false);
         CoverBackground.rectTransform.SetParent(originalParent);
+        CoverBackground.rectTransform.localRotation = Quaternion.identity;
         CoverBackground.rectTransform.anchoredPosition3D = Vector3.zero;
+        CoverBackground.GetComponent<RectMask2D>().enabled = true;
         UpdateObjects();
     }
 }

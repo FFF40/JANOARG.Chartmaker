@@ -6051,7 +6051,7 @@ MonoBehaviour:
   BackButton: {fileID: 1478809413}
   DebugStatsSample: {fileID: 8311844125951479924, guid: 1fbd1f8b6fa14e84cb36b911454c948c, type: 3}
   EaseCopyToRightButtonSample: {fileID: 5372098700683617563, guid: 4c8ce988f02209d5ab557a8d1528bcee, type: 3}
-  EaseCopyToButtomItemSample: {fileID: 0}
+  EaseCopyToButtomItemSample: {fileID: 6426409857856121458, guid: 8d8adb91d49f4c5b5a48c0a5ba398cb3, type: 3}
   IsCollapsed: 0
   IsCoverDirty: 0
   PanelHolder: {fileID: 229728604}
