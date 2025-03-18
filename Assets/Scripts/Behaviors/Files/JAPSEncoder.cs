@@ -29,6 +29,8 @@ public class JAPSEncoder
 
         str += "\nGenre: " + song.Genre;
         str += "\nLocation: " + song.Location;
+
+        str += "\nPreview Range: " + EncodeVector(song.PreviewRange);
         
         str += "\n\n[RESOURCES]";
         str += "\nClip: " + clipName;

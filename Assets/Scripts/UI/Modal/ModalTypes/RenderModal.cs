@@ -108,30 +108,11 @@ public class RenderModal : Modal
         for (int a = 0; a < formats.Length; a++) formatField.ValidValues.Add(a, formats[a].ToString());
 
         SpawnForm<FormEntryHeader>("Time");
-        var timeField = SpawnForm<FormEntryVector2, Vector2>("Range (sec)", () => TimeRange, x => {
+        var timeField = SpawnForm<FormEntryTimeRange, Vector2>("Range (sec)", () => TimeRange, x => {
             TimeRange = new(x.x, Mathf.Max(x.x, x.y)); 
         });
         
         var timeActions = SpawnForm<FormEntryButton>("Set Full Song");
-        // --
-        timeActions.TitleLabel.text = "CT→Start";
-        var startBtn = Instantiate(timeActions.Button, timeActions.transform);
-        startBtn.GetComponent<LayoutElement>().preferredWidth = 15;
-        startBtn.onClick.AddListener(() => {
-            timeField.FieldX.text = InformationBar.main.sec.ToString();    
-            timeField.FieldY.text = Mathf.Max(InformationBar.main.sec, TimeRange.y).ToString();    
-        });
-        // --
-        timeActions.TitleLabel.text = "CT→End";
-        var endBtn = Instantiate(timeActions.Button, timeActions.transform);
-        endBtn.GetComponent<LayoutElement>().preferredWidth = 15;
-        endBtn.onClick.AddListener(() => {   
-            timeField.FieldY.text = InformationBar.main.sec.ToString();   
-            timeField.FieldX.text = Mathf.Min(InformationBar.main.sec, TimeRange.x).ToString();     
-        });
-        // --
-        timeActions.TitleLabel.text = "Set Full Song";
-        timeActions.Button.GetComponent<LayoutElement>().flexibleWidth = 2;
         timeActions.Button.onClick.AddListener(() => {
             timeField.FieldX.text = (-5).ToString();    
             timeField.FieldY.text = (Chartmaker.main.CurrentSong.Clip.length + 5).ToString();    

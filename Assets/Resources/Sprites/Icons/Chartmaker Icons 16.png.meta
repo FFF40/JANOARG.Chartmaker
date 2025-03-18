@@ -1466,6 +1466,27 @@ TextureImporter:
       indices: 
       edges: []
       weights: []
+    - serializedVersion: 2
+      name: To Current Time
+      rect:
+        serializedVersion: 2
+        x: 96
+        y: 416
+        width: 16
+        height: 16
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 08eaebf0b0f6c34c2a1efe9097762100
+      internalID: -1549619280
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
     outline: []
     physicsShape: []
     bones: []
@@ -1533,6 +1554,7 @@ TextureImporter:
       Separator: -1993552242
       Speed: -401747491
       Star: 653783558
+      To Current Time: -1549619280
       Twitter Icon: -654048039
       Undo: 50928159
       Up Arrow: -705145172

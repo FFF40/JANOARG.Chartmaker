@@ -126,17 +126,18 @@ public class JAPSDecoder
 
                     if (currentObject is PlayableSong Song)
                     {
-                             if (key == "Name")        song.SongName = value;
-                             if (key == "Alt Name")    song.AltSongName = value;
-                             if (key == "Artist")      song.SongArtist = value;
-                             if (key == "Alt Artist")  song.AltSongArtist = value;
-                             if (key == "Genre")       song.Genre = value;
-                             if (key == "Location")    song.Location = value;
+                             if (key == "Name")           song.SongName = value;
+                             if (key == "Alt Name")       song.AltSongName = value;
+                             if (key == "Artist")         song.SongArtist = value;
+                             if (key == "Alt Artist")     song.AltSongArtist = value;
+                             if (key == "Genre")          song.Genre = value;
+                             if (key == "Location")       song.Location = value;
+                             if (key == "Preview Range")  song.PreviewRange = ParseVector(value);
                              
-                             if (key == "Clip")        song.ClipPath = value;
+                             if (key == "Clip")           song.ClipPath = value;
                              
-                             if (key == "Background")  song.BackgroundColor = ParseColor(value);
-                             if (key == "Interface")   song.InterfaceColor = ParseColor(value);
+                             if (key == "Background")     song.BackgroundColor = ParseColor(value);
+                             if (key == "Interface")      song.InterfaceColor = ParseColor(value);
                     }
                     else if (currentObject is Cover cover)
                     {

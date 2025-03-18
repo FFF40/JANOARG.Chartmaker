@@ -229,6 +229,8 @@ public class InspectorPanel : MonoBehaviour
                 SpawnForm<FormEntrySpace>("");
                 SpawnForm<FormEntryString, string>("Genre", () => song.Genre, x => Chartmaker.main.SetItem(song, "Genre", x));
                 SpawnForm<FormEntryString, string>("Location", () => song.Location, x => Chartmaker.main.SetItem(song, "Location", x));
+                SpawnForm<FormEntrySpace>("");
+                SpawnForm<FormEntryTimeRange, Vector2>("Preview Range", () => song.PreviewRange, x => Chartmaker.main.SetItem(song, "PreviewRange", x));
                 
                 SpawnForm<FormEntryHeader>("Accent Colors");
                 SpawnForm<FormEntryColor, Color>("Background", () => song.BackgroundColor, x => Chartmaker.main.SetItem(song, "BackgroundColor", x));

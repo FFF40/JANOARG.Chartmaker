@@ -16,6 +16,7 @@ public class PlayableSong
     
     public string ClipPath;
     public AudioClip Clip;
+    public Vector2 PreviewRange = new (15, 30);
 
     public Color BackgroundColor = Color.black;
     public Color InterfaceColor = Color.white;
