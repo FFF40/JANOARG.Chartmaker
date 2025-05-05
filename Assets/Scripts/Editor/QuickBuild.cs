@@ -22,7 +22,7 @@ public class QuickBuild
         // Build for Linux
         BuildPipeline.BuildPlayer(new BuildPlayerOptions() {
             locationPathName = Path.Combine(path, "Chartmaker-linux-x86_64/Chartmaker.x86_64"),
-            target = BuildTarget.StandaloneLinux64,
+            target = BuildTarget.StandaloneLinux64
         });
 
         // Create Linux install script
@@ -43,8 +43,6 @@ public class QuickBuild
         
         // Zip files
         #if UNITY_EDITOR_LINUX
-        
-        
             string scriptPath = Path.Combine(path, "zip.sh");
             File.AppendAllLines(scriptPath, new string[] {
                 "#!/bin/bash",
