@@ -22,11 +22,29 @@ public class QuickBuild
         // Build for Linux
         BuildPipeline.BuildPlayer(new BuildPlayerOptions() {
             locationPathName = Path.Combine(path, "Chartmaker-linux-x86_64/Chartmaker.x86_64"),
-            target = BuildTarget.StandaloneLinux64
+            target = BuildTarget.StandaloneLinux64,
         });
 
+        // Create Linux install script
+        string linuxInstallScriptPath = Path.Combine(path, "Chartmaker-linux-x86_64/install.sh");
+        string installDir = $"/opt/{Application.productName}"; // Installation path
+        File.AppendAllLines(linuxInstallScriptPath, new string[]
+        {
+            "#!/bin/bash",
+            "PACKAGE_VERSION=" + Application.version,
+            "PACKAGE_RELEASE=1",
+            "PACKAGE_NAME=" + Application.productName,
+            $"INSTALL_PATH=\"{installDir}\" # Needs to be absolute from root"
+        });
+
+        string templatePath = Path.Combine(Application.dataPath, "Scripts/Editor/LinuxInstallScriptGenerator_TEMPLATE.sh");
+        string script = File.ReadAllText(templatePath);
+        File.AppendAllText(linuxInstallScriptPath, script);
+        
         // Zip files
         #if UNITY_EDITOR_LINUX
+        
+        
             string scriptPath = Path.Combine(path, "zip.sh");
             File.AppendAllLines(scriptPath, new string[] {
                 "#!/bin/bash",
