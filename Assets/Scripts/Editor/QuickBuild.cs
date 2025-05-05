@@ -31,9 +31,9 @@ public class QuickBuild
         File.AppendAllLines(linuxInstallScriptPath, new string[]
         {
             "#!/bin/bash",
-            "PACKAGE_VERSION=" + Application.version,
-            "PACKAGE_RELEASE=1",
-            "PACKAGE_NAME=" + Application.productName,
+            $"PACKAGE_VERSION='{Application.version}'",
+            "PACKAGE_RELEASE='1'",
+            $"PACKAGE_NAME='{Application.productName}'",
             $"INSTALL_PATH=\"{installDir}\" # Needs to be absolute from root"
         });
 
