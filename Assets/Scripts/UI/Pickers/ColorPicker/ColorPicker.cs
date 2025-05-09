@@ -25,6 +25,13 @@ public class ColorPicker : Picker
 
     public bool recursionBuster;
 
+    readonly Chartmaker Chartmaker;
+    int ColorValuePrefs;
+
+    // TODO: Make the FormEntryRange text displays 0 - 255  
+    // ^ just to a diff FormEntry ig 
+
+
     public override void Awake()
     {
         main = this;

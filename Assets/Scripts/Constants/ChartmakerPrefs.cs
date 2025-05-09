@@ -5,6 +5,7 @@ using UnityEngine;
 public class ChartmakerPrefs 
 {
     public bool MaximizeOnPlay;
+    public int ColorValues;
     public bool SaveOnQuit;
     public bool SaveOnPlay;
     public bool AutoUpdateCheck = true;
@@ -26,6 +27,7 @@ public class ChartmakerPrefs
     public void Load(Storage storage)
     {
         MaximizeOnPlay = storage.Get("PL:MaximizeOnPlay", MaximizeOnPlay);
+        ColorValues = storage.Get("PL:ColorValues", 0);
         SaveOnPlay = storage.Get("AS:SaveOnPlay", SaveOnPlay);
         SaveOnQuit = storage.Get("AS:SaveOnQuit", SaveOnQuit);
         AutoUpdateCheck = storage.Get("UP:AutoUpdateCheck", AutoUpdateCheck);
