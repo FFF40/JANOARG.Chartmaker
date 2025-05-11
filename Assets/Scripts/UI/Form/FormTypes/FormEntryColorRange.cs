@@ -19,35 +19,21 @@ public class FormEntryColorRange : FormEntry<float>
         Reset();
     }
 
-    ////Change range for mode
-    //public void ChangeColorPrefs()
-    //{
-    //    // if RGB 0-255
-    //    if (ColorValuePrefs == 0)
-    //    {
-    //        Range.maxValue = 255;
-    //        if (Range.value % 1 != 0)       Range.value = Mathf.Round(Range.value * 255);
-    //        Range.wholeNumbers = true;
-    //    }
-    //    else
-    //    {
-    //        Range.wholeNumbers = false;
-    //        if (Range.value > 1)            Range.value = Range.value / 255 ;
-    //        Range.maxValue = 1;
-    //    }
-    //}
-
+    //Adjust from slider
     public void RangeSet()
     {
         SetValue(Range.value);
-        Field.text = CurrentValue.ToString();
+        Field.text = Mathf.Round(CurrentValue * 255f).ToString();
     }
 
+    //Adjust from Text Box
     public void FieldSet()
     {
+        Debug.Log(Field.text);
         if (float.TryParse(Field.text, out float value))
         {
-            Range.value = value;
+            Range.value = value / 255f;
+            
             SetValue(Range.value);
         }
     }
@@ -55,6 +41,6 @@ public class FormEntryColorRange : FormEntry<float>
     public void Reset()
     {
         Range.value = CurrentValue;
-        Field.text = CurrentValue.ToString();
+        Field.text = Mathf.Round(CurrentValue * 255f).ToString();
     }
 }

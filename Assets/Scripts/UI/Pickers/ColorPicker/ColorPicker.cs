@@ -43,12 +43,11 @@ public class ColorPicker : Picker
         for (int a = 0; a < 4; a++)
         {
             int A = a;
-
-            Values[a].OnGet = () => ((byte)CurrentColor[A] /255f); 
+            Values[a].OnGet = () => CurrentColor[A];
             Values[a].OnSet = (x) => {
                 if (recursionBuster) return;
-                Values[A].CurrentValue = Mathf.Round(x * 255);
-                Debug.Log(Mathf.Round(x * 255));
+                x = Mathf.Round(x * 1000) / 1000;
+                Values[A].CurrentValue = x;
                 if (!Values[A].Field.isFocused) Values[A].Reset();
                 CurrentColor[A] = x;
                 UpdateHSV();
@@ -71,8 +70,8 @@ public class ColorPicker : Picker
                 recursionBuster = true;
                 for (int a = 0; a < 4; a++)
                 {
-                    //Values[a].CurrentValue = Mathf.Round(CurrentColor[a] * 1000) / 1000;
-                    Values[a].CurrentValue = Mathf.Round(CurrentColor[a] * 255);
+                    Values[a].CurrentValue = Mathf.Round(CurrentColor[a] * 1000) / 1000;
+                    //Values[a].CurrentValue = Mathf.Round(CurrentColor[a] * 255);
                     Values[a].Reset();
                 }
                 recursionBuster = false;
@@ -133,8 +132,8 @@ public class ColorPicker : Picker
         recursionBuster = true;
         for (int a = 0; a < 4; a++)
         {
-            //Values[a].CurrentValue = Mathf.Round(CurrentColor[a] * 1000) / 1000;
-            Values[a].CurrentValue = Mathf.Round(CurrentColor[a] * 255);
+            Values[a].CurrentValue = Mathf.Round(CurrentColor[a] * 1000) / 1000;
+            //Values[a].CurrentValue = Mathf.Round(CurrentColor[a] * 255);
             Values[a].Reset();
         }
         recursionBuster = false;
@@ -152,8 +151,8 @@ public class ColorPicker : Picker
         recursionBuster = true;
         for (int a = 0; a < 4; a++)
         {
-            //Values[a].CurrentValue = Mathf.Round(CurrentColor[a] * 1000) / 1000;
-            Values[a].CurrentValue = Mathf.Round(CurrentColor[a] * 255);
+            Values[a].CurrentValue = Mathf.Round(CurrentColor[a] * 1000) / 1000;
+            //Values[a].CurrentValue = Mathf.Round(CurrentColor[a] * 255);
             Values[a].Reset();
         }
         recursionBuster = false;
@@ -200,9 +199,7 @@ public class ColorPicker : Picker
     public string ColorToHex(Color color)
     {
         Color32 color32 = color;
-        Debug.Log(color32);
-        Debug.Log(color);
-        return (color32.r * 255).ToString("X2") + color32.g.ToString("X2") + color32.b.ToString("X2") + 
+        return color32.r.ToString("X2") + color32.g.ToString("X2") + color32.b.ToString("X2") + 
             (color.a == 1 ? "" : color32.a.ToString("X2"));
     }
     public Color? HexToColor(string text)
