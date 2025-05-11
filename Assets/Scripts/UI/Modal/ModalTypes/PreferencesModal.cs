@@ -61,7 +61,7 @@ public class PreferencesModal : Modal
                 storage.Set("PL:ColorValues", prefs.ColorValues = (int)x); IsDirty = true;
             });
             cursorDropdown.ValidValues.Add(0, "RGBA (0-255)");
-            cursorDropdown.ValidValues.Add(1, "RGBA (0-1)");
+            //cursorDropdown.ValidValues.Add(1, "RGBA (0-1)");
 
             SpawnForm<FormEntryHeader>("Auto-Save");
             SpawnForm<FormEntryBool, bool>("Save on Play", () => prefs.SaveOnPlay, x => {
