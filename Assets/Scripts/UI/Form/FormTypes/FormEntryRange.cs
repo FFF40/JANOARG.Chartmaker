@@ -10,9 +10,6 @@ public class FormEntryRange : FormEntry<float>
     public Slider Range;
     public TMP_InputField Field;
 
-    readonly Chartmaker Chartmaker;
-    int ColorValuePrefs = Chartmaker.Preferences.ColorValues;
-
     public new void Start()
     {
         base.Start();

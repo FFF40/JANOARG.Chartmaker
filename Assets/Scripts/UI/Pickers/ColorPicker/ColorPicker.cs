@@ -25,18 +25,6 @@ public class ColorPicker : Picker
 
     public bool recursionBuster;
 
-    readonly Chartmaker Chartmaker;
-    int ColorValuePrefs;
-
-    // TODO: Make the FormEntryRange text displays 0 - 255  
-    // ^ just to a diff FormEntry ig 
-
-    // TODO: Change every Values[a].CurrentValue = Mathf.Round(CurrentColor[a] * 1000) / 1000;
-    // to a condition/function
-
-    // TODO: Make Color Rect work
-    // Slider Position, Field Set not working
-
     public override void Awake()
     {
         main = this;
@@ -71,7 +59,6 @@ public class ColorPicker : Picker
                 for (int a = 0; a < 4; a++)
                 {
                     Values[a].CurrentValue = Mathf.Round(CurrentColor[a] * 1000) / 1000;
-                    //Values[a].CurrentValue = Mathf.Round(CurrentColor[a] * 255);
                     Values[a].Reset();
                 }
                 recursionBuster = false;
@@ -79,46 +66,6 @@ public class ColorPicker : Picker
             }
         };
 
-
-        #region for RGBA 0-1
-        //for (int a = 0; a < 4; a++)
-        //{
-        //    int A = a;
-        //    Values[a].OnGet = () => CurrentColor[A];
-        //    Values[a].OnSet = (x) => {
-        //        if (recursionBuster) return;
-        //        x = Mathf.Round(x * 1000) / 1000;
-        //        Values[A].CurrentValue = x;
-        //        if (!Values[A].Field.isFocused) Values[A].Reset();
-        //        CurrentColor[A] = x;
-        //        UpdateHSV();
-        //        UpdateHex();
-        //        UpdateUI();
-        //    };
-        //}
-        //HexField.OnGet = () => ColorToHex(CurrentColor);
-        //HexField.OnSet = (x) => {
-        //    if (recursionBuster) return;
-        //    Color? color = HexToColor(x);
-        //    if (color == null)
-        //    {
-        //        HexField.CurrentValue = ColorToHex(CurrentColor);
-        //    }
-        //    else
-        //    {
-        //        CurrentColor = (Color)color;
-        //        UpdateHSV();
-        //        recursionBuster = true;
-        //        for (int a = 0; a < 4; a++)
-        //        {
-        //            Values[a].CurrentValue = Mathf.Round(CurrentColor[a] * 1000) / 1000;
-        //            Values[a].Reset();
-        //        }
-        //        recursionBuster = false;
-        //        UpdateUI();
-        //    }
-        //};
-        #endregion
         base.Awake();
     }
 
@@ -133,7 +80,6 @@ public class ColorPicker : Picker
         for (int a = 0; a < 4; a++)
         {
             Values[a].CurrentValue = Mathf.Round(CurrentColor[a] * 1000) / 1000;
-            //Values[a].CurrentValue = Mathf.Round(CurrentColor[a] * 255);
             Values[a].Reset();
         }
         recursionBuster = false;
@@ -152,7 +98,6 @@ public class ColorPicker : Picker
         for (int a = 0; a < 4; a++)
         {
             Values[a].CurrentValue = Mathf.Round(CurrentColor[a] * 1000) / 1000;
-            //Values[a].CurrentValue = Mathf.Round(CurrentColor[a] * 255);
             Values[a].Reset();
         }
         recursionBuster = false;
@@ -195,7 +140,6 @@ public class ColorPicker : Picker
         rt.anchoredPosition += new Vector2(-2, 2);
     }
 
-    // TODO: Fix
     public string ColorToHex(Color color)
     {
         Color32 color32 = color;
