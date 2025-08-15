@@ -425,7 +425,7 @@ public class LaneGroup : Storyboardable, IDeepClonable<LaneGroup>
     {
         LaneGroup clone = new()
         {
-            Name = Name,
+            Name = Name + " (Clone)",
             Position = new Vector3(Position.x, Position.y, Position.z),
             Rotation = new Vector3(Rotation.x, Rotation.y, Rotation.z),
             Storyboard = Storyboard.DeepClone(),
