@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using JANOARG.Shared.Data.ChartInfo;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -61,7 +62,7 @@ public class PickerPanel : MonoBehaviour
         }
         else if (item == HierarchyPickerItem.LaneStyle) 
         {
-            LaneStyle target = chart.Pallete.LaneStyles.Count > 0 ? chart.Pallete.LaneStyles[0] : new LaneStyle() {
+            LaneStyle target = chart.Palette.LaneStyles.Count > 0 ? chart.Palette.LaneStyles[0] : new LaneStyle() {
                 LaneColor = song.InterfaceColor * new Color (1, 1, 1, .35f),
                 JudgeColor = song.InterfaceColor,
             };
@@ -72,7 +73,7 @@ public class PickerPanel : MonoBehaviour
         }
         else if (item == HierarchyPickerItem.HitStyle) 
         {
-            HitStyle target = chart.Pallete.HitStyles.Count > 0 ? chart.Pallete.HitStyles[0] : new HitStyle() {
+            HitStyle target = chart.Palette.HitStyles.Count > 0 ? chart.Palette.HitStyles[0] : new HitStyle() {
                 NormalColor = song.InterfaceColor,
                 CatchColor = Color.Lerp(song.InterfaceColor, song.BackgroundColor, .35f),
                 HoldTailColor = song.InterfaceColor * new Color (1, 1, 1, .35f),
@@ -95,13 +96,13 @@ public class PickerPanel : MonoBehaviour
                 Group = group,
             };
             lane.LaneSteps.Add(new LaneStep { 
-                StartPos = new(-8, 0),
-                EndPos = new(8, 0),
+                StartPointPosition = new(-8, 0),
+                EndPointPosition = new(8, 0),
                 Offset = (BeatPosition)InformationBar.main.beat
             });
             lane.LaneSteps.Add(new LaneStep { 
-                StartPos = new(-8, 0),
-                EndPos = new(8, 0),
+                StartPointPosition = new(-8, 0),
+                EndPointPosition = new(8, 0),
                 Offset = (BeatPosition)(InformationBar.main.beat + 1),
             });
             Chartmaker.main.AddItem(lane);

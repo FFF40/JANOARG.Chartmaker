@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using JANOARG.Shared.Data.ChartInfo;
 using TMPro;
 using Unity.VisualScripting;
 using UnityEngine;
@@ -104,7 +105,7 @@ public class HierarchyPanel : MonoBehaviour
                 chartItem.Children.Add(paletteItem = new () {
                     Name = "Palette",
                     Type = HierarchyItemType.Palette,
-                    Target = chart.Pallete
+                    Target = chart.Palette
                 });
 
                 HierarchyItem worldItem;
@@ -148,7 +149,7 @@ public class HierarchyPanel : MonoBehaviour
                 paletteItem.Children.Clear();
                     
                 int index = 0;
-                foreach (var style in chart.Pallete.LaneStyles)
+                foreach (var style in chart.Palette.LaneStyles)
                 {
                     HierarchyItem item = new () {
                         Name = string.IsNullOrWhiteSpace(style.Name) ? ("Lane Style " + index) : style.Name,
@@ -159,7 +160,7 @@ public class HierarchyPanel : MonoBehaviour
                     index++;
                 }
                 index = 0;
-                foreach (var style in chart.Pallete.HitStyles)
+                foreach (var style in chart.Palette.HitStyles)
                 {
                     HierarchyItem item = new () {
                         Name = string.IsNullOrWhiteSpace(style.Name) ? ("Hit Style " + index) : style.Name,

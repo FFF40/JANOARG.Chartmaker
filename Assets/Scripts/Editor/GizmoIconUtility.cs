@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEditor;
 using System.Collections;
+using JANOARG.Shared.Data.ChartInfo;
 using UnityEditor.Callbacks;
 
 public class GizmoIconUtility 

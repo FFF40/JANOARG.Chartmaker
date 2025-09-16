@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
+using JANOARG.Shared.Data.ChartInfo;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
@@ -405,9 +406,9 @@ public class PlayerView : MonoBehaviour, IPointerDownHandler, IPointerUpHandler,
                     if (man.Offset >= Chartmaker.main.SongSource.time)
                     {
                         Vector3 offset = lman.FinalRotation * Vector3.forward * (man.Distance - lman.CurrentDistance) + lman.FinalPosition;
-                        Vector2 wcenter = (man.CurrentStep.StartPos + man.CurrentStep.EndPos) / 2;
-                        Vector2 start = MainCamera.WorldToScreenPoint(lman.FinalRotation * man.CurrentStep.StartPos + offset);
-                        Vector2 end = MainCamera.WorldToScreenPoint(lman.FinalRotation * man.CurrentStep.EndPos + offset);
+                        Vector2 wcenter = (man.CurrentStep.StartPointPosition + man.CurrentStep.EndPointPosition) / 2;
+                        Vector2 start = MainCamera.WorldToScreenPoint(lman.FinalRotation * man.CurrentStep.StartPointPosition + offset);
+                        Vector2 end = MainCamera.WorldToScreenPoint(lman.FinalRotation * man.CurrentStep.EndPointPosition + offset);
                         Vector2 center = MainCamera.WorldToScreenPoint(lman.FinalRotation * wcenter + offset);
                         SelectedItemLine.gameObject.SetActive(true);
                         SelectedItemLine.position = (start + end) / 2;
@@ -611,9 +612,9 @@ public class PlayerView : MonoBehaviour, IPointerDownHandler, IPointerUpHandler,
                 Vector3 inv(Vector3 x) => Quaternion.Inverse(lman.FinalRotation) * (x - lman.FinalPosition);
 
                 Func<Vector3> get = 
-                    CurrentDragMode == HandleDragMode.Start ? (() => man.CurrentStep.StartPos) : 
-                    CurrentDragMode == HandleDragMode.Center ? (() => (man.CurrentStep.StartPos + man.CurrentStep.EndPos) / 2) : 
-                    CurrentDragMode == HandleDragMode.End ? (() => man.CurrentStep.EndPos) : null;
+                    CurrentDragMode == HandleDragMode.Start ? (() => man.CurrentStep.StartPointPosition) : 
+                    CurrentDragMode == HandleDragMode.Center ? (() => (man.CurrentStep.StartPointPosition + man.CurrentStep.EndPointPosition) / 2) : 
+                    CurrentDragMode == HandleDragMode.End ? (() => man.CurrentStep.EndPointPosition) : null;
                     
                 Vector3 gizmoAnchor = get();
 

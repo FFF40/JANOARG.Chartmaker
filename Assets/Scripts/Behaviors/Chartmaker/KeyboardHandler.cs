@@ -5,6 +5,7 @@ using UnityEngine.UI;
 using UnityEngine.EventSystems;
 using TMPro;
 using System.Linq;
+using JANOARG.Shared.Data.ChartInfo;
 
 public class KeyboardHandler : MonoBehaviour
 {

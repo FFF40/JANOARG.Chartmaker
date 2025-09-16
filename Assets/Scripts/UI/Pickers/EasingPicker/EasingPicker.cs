@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.ComponentModel.Design;
 using System.Globalization;
 using System.Text.RegularExpressions;
+using JANOARG.Shared.Data.ChartInfo;
 using TMPro;
 using Unity.VisualScripting;
 using UnityEngine;
@@ -215,14 +216,14 @@ public class EasingPicker : Picker, IPointerMoveHandler, IPointerDownHandler, IP
         }
 
         Vector2 p0 = rect.size * new Vector2(-0.5f, -0.5f);
-        Vector2 p1 = (cbed.P1 - new Vector2(0.5f, 0.5f)) * rect.size;
+        Vector2 p1 = (cbed.Point1 - new Vector2(0.5f, 0.5f)) * rect.size;
         GraphBezierHandles[0].anchoredPosition = p1;
         GraphBezierHandleLines[0].anchoredPosition = (p0 + p1) / 2;
         GraphBezierHandleLines[0].sizeDelta = new (Vector2.Distance(p0, p1), 1.25f);
         GraphBezierHandleLines[0].localEulerAngles = Vector3.forward * Vector2.SignedAngle(Vector2.right, p1 - p0);
         
         Vector2 p3 = rect.size * new Vector2(0.5f, 0.5f);
-        Vector2 p2 = (cbed.P2 - new Vector2(0.5f, 0.5f)) * rect.size;
+        Vector2 p2 = (cbed.Point2 - new Vector2(0.5f, 0.5f)) * rect.size;
         GraphBezierHandles[1].anchoredPosition = p2;
         GraphBezierHandleLines[1].anchoredPosition = (p2 + p3) / 2;
         GraphBezierHandleLines[1].sizeDelta = new (Vector2.Distance(p2, p3), 1.25f);
@@ -321,16 +322,16 @@ public class EasingPicker : Picker, IPointerMoveHandler, IPointerDownHandler, IP
     public void ResetBezierFields() 
     {
         CubicBezierEaseDirective cbed = (CubicBezierEaseDirective)CurrentEasing;
-        P1XField.SetTextWithoutNotify(cbed.P1.x.ToString());
-        P1YField.SetTextWithoutNotify(cbed.P1.y.ToString());
-        P2XField.SetTextWithoutNotify(cbed.P2.x.ToString());
-        P2YField.SetTextWithoutNotify(cbed.P2.y.ToString());
+        P1XField.SetTextWithoutNotify(cbed.Point1.x.ToString());
+        P1YField.SetTextWithoutNotify(cbed.Point1.y.ToString());
+        P2XField.SetTextWithoutNotify(cbed.Point2.x.ToString());
+        P2YField.SetTextWithoutNotify(cbed.Point2.y.ToString());
     }
 
     public void OnBezierFieldChange()
     {
         CubicBezierEaseDirective cbed = (CubicBezierEaseDirective)CurrentEasing;
-        Vector2 p1 = cbed.P1, p2 = cbed.P2;
+        Vector2 p1 = cbed.Point1, p2 = cbed.Point2;
         if (float.TryParse(P1XField.text, out float p1x) && float.TryParse(P1YField.text, out float p1y)) 
             p1.Set(Mathf.Clamp01(p1x), p1y);
         if (float.TryParse(P2XField.text, out float p2x) && float.TryParse(P2YField.text, out float p2y)) 
@@ -369,13 +370,13 @@ public class EasingPicker : Picker, IPointerMoveHandler, IPointerDownHandler, IP
             
             if (CurrentDragMode == EasingPickerDragMode.P1Handle)
             {
-                get = () => cbed.P1;
-                set = (x) => CurrentEasing = new CubicBezierEaseDirective(x, cbed.P2);
+                get = () => cbed.Point1;
+                set = (x) => CurrentEasing = new CubicBezierEaseDirective(x, cbed.Point2);
             }
             else
             {
-                get = () => cbed.P2;
-                set = (x) => CurrentEasing = new CubicBezierEaseDirective(cbed.P1, x);
+                get = () => cbed.Point2;
+                set = (x) => CurrentEasing = new CubicBezierEaseDirective(cbed.Point1, x);
             }
 
             Vector2 startValue = get();

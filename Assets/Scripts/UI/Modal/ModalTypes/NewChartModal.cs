@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
+using JANOARG.Shared.Data.ChartInfo;
 using TMPro;
 using UnityEngine;
 using UnityEngine.Events;
@@ -75,26 +76,26 @@ public class NewChartModal : Modal
         SpawnForm<FormEntryFloat, float>("Chart Constant", () => InitialValues.ChartConstant, x => InitialValues.ChartConstant = x);
         
         SpawnForm<FormEntryHeader>("Palette");
-        InitialValues.Pallete.BackgroundColor = song.BackgroundColor;
-        InitialValues.Pallete.InterfaceColor = song.InterfaceColor;
-        if (InitialValues.Pallete.LaneStyles.Count == 0) InitialValues.Pallete.LaneStyles.Add(new LaneStyle {
+        InitialValues.Palette.BackgroundColor = song.BackgroundColor;
+        InitialValues.Palette.InterfaceColor = song.InterfaceColor;
+        if (InitialValues.Palette.LaneStyles.Count == 0) InitialValues.Palette.LaneStyles.Add(new LaneStyle {
             LaneColor = song.InterfaceColor * new Color (1, 1, 1, .35f),
             JudgeColor = song.InterfaceColor,
         });
-        if (InitialValues.Pallete.HitStyles.Count == 0) InitialValues.Pallete.HitStyles.Add(new HitStyle {
+        if (InitialValues.Palette.HitStyles.Count == 0) InitialValues.Palette.HitStyles.Add(new HitStyle {
             NormalColor = song.InterfaceColor,
             CatchColor = Color.Lerp(song.InterfaceColor, song.BackgroundColor, .35f),
             HoldTailColor = song.InterfaceColor * new Color (1, 1, 1, .35f),
         });
-        SpawnForm<FormEntryColor, Color>("Background Color", () => InitialValues.Pallete.BackgroundColor, x => InitialValues.Pallete.BackgroundColor = x);
-        SpawnForm<FormEntryColor, Color>("Interface Color", () => InitialValues.Pallete.InterfaceColor, x => InitialValues.Pallete.InterfaceColor = x);
+        SpawnForm<FormEntryColor, Color>("Background Color", () => InitialValues.Palette.BackgroundColor, x => InitialValues.Palette.BackgroundColor = x);
+        SpawnForm<FormEntryColor, Color>("Interface Color", () => InitialValues.Palette.InterfaceColor, x => InitialValues.Palette.InterfaceColor = x);
         SpawnForm<FormEntrySpace>("");
-        SpawnForm<FormEntryColor, Color>("Lane Color", () => InitialValues.Pallete.LaneStyles[0].LaneColor, x => InitialValues.Pallete.LaneStyles[0].LaneColor = x);
-        SpawnForm<FormEntryColor, Color>("Lane Judge Color", () => InitialValues.Pallete.LaneStyles[0].JudgeColor, x => InitialValues.Pallete.LaneStyles[0].JudgeColor = x);
+        SpawnForm<FormEntryColor, Color>("Lane Color", () => InitialValues.Palette.LaneStyles[0].LaneColor, x => InitialValues.Palette.LaneStyles[0].LaneColor = x);
+        SpawnForm<FormEntryColor, Color>("Lane Judge Color", () => InitialValues.Palette.LaneStyles[0].JudgeColor, x => InitialValues.Palette.LaneStyles[0].JudgeColor = x);
         SpawnForm<FormEntrySpace>("");
-        SpawnForm<FormEntryColor, Color>("Normal Hit Color", () => InitialValues.Pallete.HitStyles[0].NormalColor, x => InitialValues.Pallete.HitStyles[0].NormalColor = x);
-        SpawnForm<FormEntryColor, Color>("Catch Hit Color", () => InitialValues.Pallete.HitStyles[0].CatchColor, x => InitialValues.Pallete.HitStyles[0].CatchColor = x);
-        SpawnForm<FormEntryColor, Color>("Hold Tail Color", () => InitialValues.Pallete.HitStyles[0].HoldTailColor, x => InitialValues.Pallete.HitStyles[0].HoldTailColor = x);
+        SpawnForm<FormEntryColor, Color>("Normal Hit Color", () => InitialValues.Palette.HitStyles[0].NormalColor, x => InitialValues.Palette.HitStyles[0].NormalColor = x);
+        SpawnForm<FormEntryColor, Color>("Catch Hit Color", () => InitialValues.Palette.HitStyles[0].CatchColor, x => InitialValues.Palette.HitStyles[0].CatchColor = x);
+        SpawnForm<FormEntryColor, Color>("Hold Tail Color", () => InitialValues.Palette.HitStyles[0].HoldTailColor, x => InitialValues.Palette.HitStyles[0].HoldTailColor = x);
 
         LayoutRebuilder.ForceRebuildLayoutImmediate(FormHolder);
         FormLayout.preferredHeight = FormHolderLayout.preferredHeight;

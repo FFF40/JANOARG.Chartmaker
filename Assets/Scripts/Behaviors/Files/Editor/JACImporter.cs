@@ -1,18 +1,20 @@
-using UnityEngine;
-using UnityEditor.AssetImporters;
 using System.IO;
+using JANOARG.Shared.Data.ChartInfo;
+using UnityEditor.AssetImporters;
+using UnityEngine;
 
-[ScriptedImporter(1, "jac")]
-public class JACImporter : ScriptedImporter
-{
-    public override void OnImportAsset(AssetImportContext ctx)
+
+    [ScriptedImporter(2, "jac", 1001)]
+    public class JACImporter : ScriptedImporter
     {
-        Chart chart = JACDecoder.Decode(File.ReadAllText(ctx.assetPath));
+        public override void OnImportAsset(AssetImportContext ctx)
+        {
+            Chart chart = JACDecoder.Decode(File.ReadAllText(ctx.assetPath));
 
-        ExternalChart ext = ScriptableObject.CreateInstance<ExternalChart>();
-        ext.Data = chart;
+            var ext = ScriptableObject.CreateInstance<ExternalChart>();
+            ext.Data = chart;
 
-        ctx.AddObjectToAsset("main obj", ext);
-        ctx.SetMainObject(ext);
+            ctx.AddObjectToAsset("main obj", ext);
+            ctx.SetMainObject(ext);
+        }
     }
-}

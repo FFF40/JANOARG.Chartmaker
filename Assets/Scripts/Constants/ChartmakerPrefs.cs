@@ -1,5 +1,6 @@
 
 
+using JANOARG.Shared.Data.ChartInfo;
 using UnityEngine;
 
 public class ChartmakerPrefs 

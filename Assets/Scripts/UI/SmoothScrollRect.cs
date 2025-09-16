@@ -1,4 +1,5 @@
 using System.Collections;
+using JANOARG.Shared.Data.ChartInfo;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;

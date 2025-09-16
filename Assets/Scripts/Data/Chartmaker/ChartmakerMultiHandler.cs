@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEditor;
 using System.Reflection;
+using JANOARG.Shared.Data.ChartInfo;
 
 public class ChartmakerMultiManager
 {
@@ -165,9 +166,9 @@ public class LerpableMultiHandler<T> : ChartmakerMultiHandler<T>
 
     public LerpableOperation Operation;
 
-    public string LerpSource = "Offset";
-    protected FieldInfo LerpField;
-    public IEaseDirective LerpEasing = new BasicEaseDirective(EaseFunction.Linear, EaseMode.In);
+    public    string     LerpSource = "Offset";
+    protected FieldInfo  LerpField;
+    public    IEaseDirective LerpEasing = new BasicEaseDirective(EaseFunction.Linear, EaseMode.In);
 
     public float LerpFrom;
     public float LerpTo;

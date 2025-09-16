@@ -1,3 +1,4 @@
+using JANOARG.Shared.Data.ChartInfo;
 using UnityEngine;
 
 public class ChartmakerMoveLaneAction : ChartmakerMoveAction<Lane>
@@ -13,17 +14,17 @@ public class ChartmakerMoveLaneAction : ChartmakerMoveAction<Lane>
         Item.Position += offset;
         foreach (Timestamp ts in Item.Storyboard.Timestamps)
         {
-            if (ts.ID == "Offset_X")
+            if (ts.ID == TimestampIDs.Offset_X)
             {
                 ts.From += offset.x;
                 ts.Target += offset.x;
             }
-            if (ts.ID == "Offset_Y")
+            if (ts.ID == TimestampIDs.Offset_Y)
             {
                 ts.From += offset.y;
                 ts.Target += offset.y;
             }
-            if (ts.ID == "Offset_Z")
+            if (ts.ID == TimestampIDs.Offset_Z)
             {
                 ts.From += offset.z;
                 ts.Target += offset.z;

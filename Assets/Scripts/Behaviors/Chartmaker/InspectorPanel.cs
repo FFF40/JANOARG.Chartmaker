@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Reflection;
 using System.Text.RegularExpressions;
+using JANOARG.Shared.Data.ChartInfo;
 using TMPro;
 using Unity.VisualScripting;
 using UnityEngine;
@@ -345,9 +346,9 @@ public class InspectorPanel : MonoBehaviour
                 SpawnForm<FormEntryFloat, float>("Chart Constant", () => chart.ChartConstant, 
                     x => Chartmaker.main.SetItem(chart, "ChartConstant", meta.ChartConstant = x));
             }
-            else if (CurrentObject is Pallete pallete)
+            else if (CurrentObject is Palette pallete)
             {
-                if (pallete != Chartmaker.main.CurrentChart?.Pallete)
+                if (pallete != Chartmaker.main.CurrentChart?.Palette)
                 {
                     SetObject(null);
                     return;
@@ -368,7 +369,7 @@ public class InspectorPanel : MonoBehaviour
             }
             else if (CurrentObject is LaneStyle laneStyle)
             {
-                if (Chartmaker.main.CurrentChart?.Pallete.LaneStyles.Contains(laneStyle) != true)
+                if (Chartmaker.main.CurrentChart?.Palette.LaneStyles.Contains(laneStyle) != true)
                 {
                     SetObject(null);
                     return;
@@ -384,7 +385,7 @@ public class InspectorPanel : MonoBehaviour
             }
             else if (CurrentObject is HitStyle hitStyle)
             {
-                if (Chartmaker.main.CurrentChart?.Pallete.HitStyles.Contains(hitStyle) != true)
+                if (Chartmaker.main.CurrentChart?.Palette.HitStyles.Contains(hitStyle) != true)
                 {
                     SetObject(null);
                     return;
@@ -484,8 +485,8 @@ public class InspectorPanel : MonoBehaviour
                 MakeOffsetEntry(() => step.Offset, x => Chartmaker.main.SetItem(step, "Offset", x));
 
                 SpawnForm<FormEntryHeader>("Transform");
-                SpawnForm<FormEntryVector2, Vector2>("Start Pos", () => step.StartPos, x => Chartmaker.main.SetItem(step, "StartPos", x));
-                SpawnForm<FormEntryVector2, Vector2>("End Pos", () => step.EndPos, x => Chartmaker.main.SetItem(step, "EndPos", x));
+                SpawnForm<FormEntryVector2, Vector2>("Start Pos", () => step.StartPointPosition, x => Chartmaker.main.SetItem(step, "StartPos", x));
+                SpawnForm<FormEntryVector2, Vector2>("End Pos", () => step.EndPointPosition, x => Chartmaker.main.SetItem(step, "EndPos", x));
                 var easeHeader = SpawnForm<FormEntryLabel>("Easings");
                 easeHeader.TitleLabel.margin -= new Vector4(0, 0, 0, 4);
                 FormEntryEasing startX, startY, endX, endY;
@@ -575,7 +576,7 @@ public class InspectorPanel : MonoBehaviour
 
     public void MakeLaneStyleEntry(Lane lane)
     {
-        var list = Chartmaker.main.CurrentChart.Pallete.LaneStyles;
+        var list = Chartmaker.main.CurrentChart.Palette.LaneStyles;
         var dropdown = SpawnForm<FormEntryObject, object>("Style", 
             () => lane.StyleIndex < 0 || lane.StyleIndex >= list.Count ? null : list[lane.StyleIndex], 
             (x) => Chartmaker.main.SetItem(lane, "StyleIndex", list.IndexOf((LaneStyle)x))
@@ -586,7 +587,7 @@ public class InspectorPanel : MonoBehaviour
 
     public void MakeHitStyleEntry(HitObject hit)
     {
-        var list = Chartmaker.main.CurrentChart.Pallete.HitStyles;
+        var list = Chartmaker.main.CurrentChart.Palette.HitStyles;
         var dropdown = SpawnForm<FormEntryObject, object>("Style", 
             () => hit.StyleIndex < 0 || hit.StyleIndex >= list.Count ? null : list[hit.StyleIndex], 
             (x) => Chartmaker.main.SetItem(hit, "StyleIndex", list.IndexOf((HitStyle)x))
@@ -780,7 +781,7 @@ public class InspectorPanel : MonoBehaviour
     public void GoBack()
     {
         if (CurrentTimestamp.Count > 0) SetObject(CurrentObject);
-        if (CurrentObject is LaneStyle or HitStyle) SetObject(Chartmaker.main.CurrentChart?.Pallete);
+        if (CurrentObject is LaneStyle or HitStyle) SetObject(Chartmaker.main.CurrentChart?.Palette);
         else SetObject(null);
     }
 

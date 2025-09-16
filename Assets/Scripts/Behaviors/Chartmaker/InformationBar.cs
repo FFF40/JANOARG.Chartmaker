@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using JANOARG.Shared.Data.ChartInfo;
 using TMPro;
 using UnityEditor;
 using UnityEngine;

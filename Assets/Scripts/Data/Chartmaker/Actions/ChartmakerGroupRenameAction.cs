@@ -1,3 +1,5 @@
+using JANOARG.Shared.Data.ChartInfo;
+
 public class ChartmakerGroupRenameAction: IChartmakerAction
 {
     public string From;

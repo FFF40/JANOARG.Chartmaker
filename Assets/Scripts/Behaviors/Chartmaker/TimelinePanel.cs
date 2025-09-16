@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using JANOARG.Shared.Data.ChartInfo;
 using TMPro;
 using Unity.VisualScripting;
 using UnityEngine;
@@ -1555,7 +1556,7 @@ public class TimelinePanel : MonoBehaviour, IPointerDownHandler, IPointerUpHandl
                             ID = type.ID,
                             Offset = (BeatPosition)(isDragged ? Mathf.Min(beatStart, beatEnd) : beatStart),
                             Duration = isDragged ? Mathf.Abs(beatStart - beatEnd) : 0,
-                            Target = type.Get(thing.Get(isDragged ? Mathf.Min(beatStart, beatEnd) : beatStart)),
+                            Target = type.StoryboardGetter(thing.GetStoryboardableObject(isDragged ? Mathf.Min(beatStart, beatEnd) : beatStart)),
                         };
                         if (sb.Timestamps.FindIndex(
                             x => x.ID == ts.ID && (
@@ -1579,13 +1580,13 @@ public class TimelinePanel : MonoBehaviour, IPointerDownHandler, IPointerUpHandl
                             Position = new(0, -4, 0)
                         };
                         lane.LaneSteps.Add(new LaneStep{ 
-                            StartPos = new(-8, 0),
-                            EndPos = new(8, 0),
+                            StartPointPosition = new(-8, 0),
+                            EndPointPosition = new(8, 0),
                             Offset = (BeatPosition)(isDragged ? Math.Min(beatStart, beatEnd) : beatStart)
                         });
                         lane.LaneSteps.Add(new LaneStep{ 
-                            StartPos = new(-8, 0),
-                            EndPos = new(8, 0),
+                            StartPointPosition = new(-8, 0),
+                            EndPointPosition = new(8, 0),
                             Offset = (BeatPosition)(isDragged ? Math.Max(beatStart, beatEnd) : beatStart + 1),
                         });
                         Chartmaker.main.AddItem(lane);
@@ -1597,10 +1598,10 @@ public class TimelinePanel : MonoBehaviour, IPointerDownHandler, IPointerUpHandl
 
                         if (InspectorPanel.main.CurrentHierarchyObject is not Lane lane) break;
 
-                        LanePosition basePos = ((Lane)lane.Get(timeEnd)).GetLanePosition(timeStart, timeStart, metronome);
+                        LanePosition basePos = ((Lane)lane.GetStoryboardableObject(timeEnd)).GetLanePosition(timeStart, timeStart, metronome);
                         LaneStep baseStep = new() {
-                            StartPos = basePos.StartPos,
-                            EndPos = basePos.EndPos,
+                            StartPointPosition = basePos.StartPosition,
+                            EndPointPosition = basePos.EndPosition,
                             Offset = (BeatPosition)(isDragged ? beatEnd : beatStart),
                         };
 

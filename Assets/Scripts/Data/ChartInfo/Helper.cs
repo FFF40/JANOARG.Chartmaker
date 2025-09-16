@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.IO;
+using JANOARG.Shared.Data.ChartInfo;
 using UnityEngine;
 
 public static class Helper 
@@ -41,7 +42,7 @@ public static class Helper
             is PlayableSong
             or Cover or CoverLayer
             or Chart 
-            or CameraController or Pallete
+            or CameraController or Palette
             or LaneStyle or HitStyle 
             or LaneGroup or Lane
             || (obj is IList list && IsHierarchyObject(list[0]))

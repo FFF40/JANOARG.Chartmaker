@@ -1,59 +1,60 @@
 ﻿using System;
-using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Serialization;
 
-[Serializable]
-public class PlayableSong
+namespace JANOARG.Shared.Data.ChartInfo
 {
-    public string SongName;
-    public string AltSongName;
-    public string SongArtist;
-    public string AltSongArtist;
-    public string Location = "Prototype";
-    public string Genre = "Genreless";
-    
-    public string ClipPath;
-    public AudioClip Clip;
-    public Vector2 PreviewRange = new (15, 30);
+    [Serializable]
+    public class PlayableSong
+    {
+        public string SongName;
+        public string AltSongName;
+        public string SongArtist;
+        public string AltSongArtist;
+        public string Location = "Prototype";
+        public string Genre    = "Genreless";
 
-    public Color BackgroundColor = Color.black;
-    public Color InterfaceColor = Color.white;
+        public string    ClipPath;
+        public AudioClip Clip;
+        public Vector2   PreviewRange = new(15, 30);
 
-    public Metronome Timing = new Metronome(140);
-    public Cover Cover = new();
+        public Color BackgroundColor = Color.black;
+        public Color InterfaceColor  = Color.white;
 
-    [FormerlySerializedAs("Charts")]
-    public List<Chart> ChartsOld = new List<Chart>();
+        public Metronome Timing = new(140);
+        public Cover     Cover  = new();
 
-    public List<ExternalChartMeta> Charts = new List<ExternalChartMeta>();
-}
+        [FormerlySerializedAs("Charts")] public List<Chart> ChartsOld = new();
 
-[Serializable]
-public class Cover
-{
-    public string ArtistName = "";
-    public string AltArtistName = "";
+        public List<ExternalChartMeta> Charts = new();
+    }
 
-    public string IconTarget = "icon.png";
-    public Sprite IconCover;
-    public Vector2 IconCenter;
-    public float IconSize = 24;
+    [Serializable]
+    public class Cover
+    {
+        public string ArtistName    = "";
+        public string AltArtistName = "";
 
-    public Color BackgroundColor;
+        public string  IconTarget = "icon.png";
+        public Sprite  IconCover;
+        public Vector2 IconCenter;
+        public float   IconSize = 24;
 
-    public List<CoverLayer> Layers = new();
-}
+        public Color BackgroundColor;
 
-[Serializable]
-public class CoverLayer
-{
-    public string Target;
-    public Texture2D Texture;
+        public List<CoverLayer> Layers = new();
+    }
 
-    public float Scale = 1;
-    public Vector2 Position;
-    public float ParallaxFactor = 0;
-    public bool Tiling;
+    [Serializable]
+    public class CoverLayer
+    {
+        public string    Target;
+        public Texture2D Texture;
+
+        public float   Scale = 1;
+        public Vector2 Position;
+        public float   ParallaxFactor;
+        public bool    Tiling;
+    }
 }

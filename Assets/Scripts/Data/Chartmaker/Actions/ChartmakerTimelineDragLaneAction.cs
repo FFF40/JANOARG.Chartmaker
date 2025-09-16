@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using JANOARG.Shared.Data.ChartInfo;
 
 public class ChartmakerTimelineDragLaneAction: IChartmakerAction
 {

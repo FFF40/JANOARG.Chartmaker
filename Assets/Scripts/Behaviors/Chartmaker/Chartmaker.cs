@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
 using System.Threading.Tasks;
+using JANOARG.Shared.Data.ChartInfo;
 using TMPro;
 using Unity.VisualScripting;
 using UnityEngine;
@@ -600,8 +601,8 @@ public class Chartmaker : MonoBehaviour
         IList list  => list.Count > 0 ? GetListTarget(list[0]) : throw new ArgumentException("Can't determine list target of an empty list"),
         Timestamp   => ((Storyboardable)InspectorPanel.main.CurrentObject).Storyboard.Timestamps,
         BPMStop     => CurrentSong.Timing.Stops,
-        LaneStyle   => CurrentChart.Pallete.LaneStyles,
-        HitStyle    => CurrentChart.Pallete.HitStyles,
+        LaneStyle   => CurrentChart.Palette.LaneStyles,
+        HitStyle    => CurrentChart.Palette.HitStyles,
         LaneGroup   => CurrentChart.Groups,
         Lane        => CurrentChart.Lanes,
         LaneStep    => InspectorPanel.main.CurrentHierarchyObject is Lane lane ? lane.LaneSteps : new(),
@@ -770,7 +771,7 @@ public class Chartmaker : MonoBehaviour
     {
         if (InspectorPanel.main.CurrentTimestamp?.Count > 0) return true;
         object currentItem = InspectorPanel.main.CurrentObject;
-        return currentItem is not (null or PlayableSong or Cover or CoverLayer or Chart or Pallete or CameraController) && currentItem != CurrentChart?.Groups;
+        return currentItem is not (null or PlayableSong or Cover or CoverLayer or Chart or Palette or CameraController) && currentItem != CurrentChart?.Groups;
     }
 
     public bool CanPaste()

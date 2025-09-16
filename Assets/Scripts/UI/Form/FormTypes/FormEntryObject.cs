@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using JANOARG.Shared.Data.ChartInfo;
 using TMPro;
 using Unity.VisualScripting;
 using UnityEngine;
@@ -58,11 +59,11 @@ public class FormEntryObject : FormEntry<object>
         ObjectPicker.main.OnSet = () => {
             if (Type == ObjectPickerType.LaneStyle)
             {
-                CurrentIndex = Chartmaker.main.CurrentChart.Pallete.LaneStyles.IndexOf((LaneStyle)ObjectPicker.main.CurrentObject);
+                CurrentIndex = Chartmaker.main.CurrentChart.Palette.LaneStyles.IndexOf((LaneStyle)ObjectPicker.main.CurrentObject);
             }
             else if (Type == ObjectPickerType.HitStyle)
             {
-                CurrentIndex = Chartmaker.main.CurrentChart.Pallete.HitStyles.IndexOf((HitStyle)ObjectPicker.main.CurrentObject);
+                CurrentIndex = Chartmaker.main.CurrentChart.Palette.HitStyles.IndexOf((HitStyle)ObjectPicker.main.CurrentObject);
             }
             SetValue(ObjectPicker.main.CurrentObject);
             Reset();

@@ -1,4 +1,5 @@
 using System;
+using JANOARG.Shared.Data.ChartInfo;
 
 public class Tutorials 
 {

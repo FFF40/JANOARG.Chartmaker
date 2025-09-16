@@ -1,3 +1,4 @@
+using JANOARG.Shared.Data.ChartInfo;
 using TMPro;
 
 public class FormEntryBeatPosition : FormEntry<BeatPosition>

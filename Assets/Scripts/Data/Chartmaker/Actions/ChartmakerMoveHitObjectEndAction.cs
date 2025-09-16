@@ -1,3 +1,4 @@
+using JANOARG.Shared.Data.ChartInfo;
 using UnityEngine;
 
 public class ChartmakerMoveHitObjectEndAction : ChartmakerMoveAction<HitObject>
@@ -13,7 +14,7 @@ public class ChartmakerMoveHitObjectEndAction : ChartmakerMoveAction<HitObject>
         Item.Length += offset.x;
         foreach (Timestamp ts in Item.Storyboard.Timestamps)
         {
-            if (ts.ID == "Length")
+            if (ts.ID == TimestampIDs.Length)
             {
                 ts.From += offset.x;
                 ts.Target += offset.x;

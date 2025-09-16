@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.ComponentModel.Design;
 using System.Globalization;
 using System.Text.RegularExpressions;
+using JANOARG.Shared.Data.ChartInfo;
 using TMPro;
 using Unity.VisualScripting;
 using UnityEngine;
@@ -63,7 +64,7 @@ public class ObjectPicker : Picker
         if (Type == ObjectPickerType.LaneStyle) 
         {
             int index = 0;
-            foreach (LaneStyle style in Chartmaker.main.CurrentChart.Pallete.LaneStyles)
+            foreach (LaneStyle style in Chartmaker.main.CurrentChart.Palette.LaneStyles)
             {
                 AddItem(style, string.IsNullOrEmpty(style.Name) ? "Lane Style " + index : style.Name, LaneStyleIcon);
                 index++;
@@ -72,7 +73,7 @@ public class ObjectPicker : Picker
         else if (Type == ObjectPickerType.HitStyle) 
         {
             int index = 0;
-            foreach (HitStyle style in Chartmaker.main.CurrentChart.Pallete.HitStyles)
+            foreach (HitStyle style in Chartmaker.main.CurrentChart.Palette.HitStyles)
             {
                 AddItem(style, string.IsNullOrEmpty(style.Name) ? "Hit Style " + index : style.Name, HitStyleIcon);
                 index++;

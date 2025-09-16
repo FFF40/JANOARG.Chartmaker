@@ -1,3 +1,4 @@
+using JANOARG.Shared.Data.ChartInfo;
 using UnityEngine;
 
 public class ChartmakerMoveLaneEndAction : ChartmakerMoveAction<Lane>
@@ -12,15 +13,15 @@ public class ChartmakerMoveLaneEndAction : ChartmakerMoveAction<Lane>
     {
         foreach (LaneStep step in Item.LaneSteps)
         {
-            step.EndPos += (Vector2)offset;
+            step.EndPointPosition += (Vector2)offset;
             foreach (Timestamp ts in step.Storyboard.Timestamps)
             {
-                if (ts.ID == "EndPos_X")
+                if (ts.ID == TimestampIDs.EndPos_X)
                 {
                     ts.From += offset.x;
                     ts.Target += offset.x;
                 }
-                if (ts.ID == "EndPos_Y")
+                if (ts.ID == TimestampIDs.EndPos_Y)
                 {
                     ts.From += offset.y;
                     ts.Target += offset.y;
