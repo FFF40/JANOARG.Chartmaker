@@ -6,6 +6,7 @@ using JANOARG.Chartmaker.UI.Cursor;
 using JANOARG.Chartmaker.UI.NativeUI;
 using JANOARG.Chartmaker.UI.Themeable;
 using JANOARG.Shared.Data.ChartInfo;
+using JANOARG.Chartmaker.Utils;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;

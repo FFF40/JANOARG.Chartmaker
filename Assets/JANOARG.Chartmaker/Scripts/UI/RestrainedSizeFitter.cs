@@ -1,10 +1,11 @@
 using UnityEditor;
+#if UNITY_EDITOR
 using UnityEngine;
 using UnityEngine.UI;
+#endif
 
 namespace JANOARG.Chartmaker.UI
 {
-#endif
     
     public class RestrainedSizeFitter : ContentSizeFitter {
     

@@ -1,6 +1,7 @@
 using JANOARG.Chartmaker.Behaviors.Chartmaker;
 using JANOARG.Chartmaker.UI.Pickers.ObjectPicker;
 using JANOARG.Shared.Data.ChartInfo;
+using JANOARG.Chartmaker.Utils;
 using TMPro;
 using Unity.VisualScripting;
 using UnityEngine.UI;

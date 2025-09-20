@@ -1,5 +1,6 @@
 using JANOARG.Chartmaker.UI.Pickers.EasingPicker;
 using JANOARG.Shared.Data.ChartInfo;
+using JANOARG.Chartmaker.Utils;
 using TMPro;
 
 namespace JANOARG.Chartmaker.UI.Form.FormTypes

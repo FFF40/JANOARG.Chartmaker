@@ -7,6 +7,7 @@ using JANOARG.Chartmaker.Data.Chartmaker.Actions;
 using JANOARG.Chartmaker.UI.Cursor;
 using JANOARG.Chartmaker.UI.NativeUI;
 using JANOARG.Shared.Data.ChartInfo;
+using JANOARG.Chartmaker.Utils;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;

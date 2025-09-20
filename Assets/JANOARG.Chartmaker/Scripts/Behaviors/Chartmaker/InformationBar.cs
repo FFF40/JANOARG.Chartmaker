@@ -8,6 +8,7 @@ using JANOARG.Chartmaker.UI.Modal.ModalTypes;
 using JANOARG.Chartmaker.UI.Themeable;
 using JANOARG.Chartmaker.Utils;
 using JANOARG.Shared.Data.ChartInfo;
+using JANOARG.Chartmaker.Utils;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;

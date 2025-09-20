@@ -13,6 +13,7 @@ using JANOARG.Chartmaker.UI.Modal.ModalTypes;
 using JANOARG.Chartmaker.UI.NativeUI;
 using JANOARG.Chartmaker.UI.Themeable;
 using JANOARG.Shared.Data.ChartInfo;
+using JANOARG.Chartmaker.Utils;
 using JANOARG.Shared.Data.Files;
 using TMPro;
 using UnityEngine;

@@ -1,12 +1,14 @@
 using UnityEditor;
 using UnityEditor.UI;
+
+#if UNITY_EDITOR
 using UnityEngine.Events;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
+#endif
 
 namespace JANOARG.Chartmaker.UI
 {
-#endif
 
     public class RightClickButton : Button
     {

@@ -6,6 +6,7 @@ using JANOARG.Chartmaker.Behaviors.Chartmaker;
 using JANOARG.Chartmaker.UI.ContextMenu;
 using JANOARG.Chartmaker.Utils;
 using JANOARG.Shared.Data.ChartInfo;
+using JANOARG.Chartmaker.Utils;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;

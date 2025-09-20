@@ -3,6 +3,7 @@ using JANOARG.Chartmaker.UI.Modal;
 using JANOARG.Chartmaker.UI.Modal.ModalTypes;
 using JANOARG.Chartmaker.UI.Tooltip;
 using JANOARG.Shared.Data.ChartInfo;
+using JANOARG.Chartmaker.Utils;
 using UnityEngine;
 using UnityEngine.UI;
 

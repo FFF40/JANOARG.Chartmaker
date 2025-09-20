@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using JANOARG.Shared.Data.ChartInfo;
+using JANOARG.Chartmaker.Utils;
 using UnityEngine;
 
 namespace JANOARG.Chartmaker.Behaviors.Chartmaker

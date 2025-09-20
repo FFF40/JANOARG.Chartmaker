@@ -5,6 +5,7 @@ using JANOARG.Chartmaker.UI.ContextMenu;
 using JANOARG.Chartmaker.UI.Modal;
 using JANOARG.Chartmaker.UI.Modal.ModalTypes;
 using JANOARG.Shared.Data.ChartInfo;
+using JANOARG.Chartmaker.Utils;
 using UnityEngine;
 
 namespace JANOARG.Chartmaker.Behaviors.Chartmaker

@@ -1,6 +1,7 @@
 using JANOARG.Chartmaker.Behaviors.Chartmaker;
 using JANOARG.Chartmaker.Utils;
 using JANOARG.Shared.Data.ChartInfo;
+using JANOARG.Chartmaker.Utils;
 using UnityEngine;
 using FFTWindow = JANOARG.Chartmaker.Utils.FFTWindow;
 
