@@ -15,15 +15,4 @@ namespace JANOARG.Chartmaker.UI
         public TMP_Text         SongNameLabel;
         public Graphic          Background;
     }
-
-    [Serializable]
-    public struct RecentSong
-    {
-        public string Path;
-        public string IconPath;
-        public string SongName;
-        public string SongArtist;
-        public Color  BackgroundColor;
-        public Color  InterfaceColor;
-    }
 }

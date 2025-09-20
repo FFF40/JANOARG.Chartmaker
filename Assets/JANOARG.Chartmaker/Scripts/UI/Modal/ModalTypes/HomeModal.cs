@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
 using JANOARG.Chartmaker.UI.ContextMenu;
+using JANOARG.Shared.Data.Chartmaker;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;

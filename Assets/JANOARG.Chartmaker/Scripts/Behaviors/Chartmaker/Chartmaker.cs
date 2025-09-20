@@ -19,6 +19,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.Assertions;
 using UnityEngine.Networking;
+using JANOARG.Shared.Data.Chartmaker;
 
 namespace JANOARG.Chartmaker.Behaviors.Chartmaker
 {
