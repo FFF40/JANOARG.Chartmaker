@@ -6055,6 +6055,9 @@ MonoBehaviour:
   IsCollapsed: 0
   IsCoverDirty: 0
   PanelHolder: {fileID: 229728604}
+  references:
+    version: 2
+    RefIds: []
 --- !u!114 &229728608
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -35661,7 +35664,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 832106872}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 3312d7739989d2b4e91e6319e9a96d76, type: 3}
   m_Name: 
@@ -68173,7 +68176,6 @@ MonoBehaviour:
   HitObjectOptionsHolder: {fileID: 1770230419}
   Options: {fileID: 59132111}
   TickSample: {fileID: 7071825629113767241, guid: 035b2329f8eb8be48af90977503e2d0a, type: 3}
-  Ticks: []
   ItemSample: {fileID: 3539771160069313087, guid: 0d36befeb6f6f1249aa5ea738f7093da, type: 3}
   Items: []
   ItemTailSample: {fileID: 8485379777505357285, guid: 6d8463ed22515124abd5eeacbb2d8b5a, type: 3}

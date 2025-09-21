@@ -15,6 +15,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
+using UnityEngine.Assertions;
 
 namespace JANOARG.Chartmaker.Behaviors.Chartmaker
 {
@@ -94,7 +95,9 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
         [Header("Samples")]
         public TimelineTick TickSample;
         [HideInInspector]
-        public List<TimelineTick> Ticks;
+        public LinkedList<TimelineTick> Ticks = new();
+        [HideInInspector]
+        public Stack<TimelineTick> IdleTicks = new();
 
         public TimelineItem ItemSample;
         [HideInInspector]
@@ -131,6 +134,9 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
         public IList DraggingItem;
         float        DraggingItemOffset;
 
+        float tickLastDensity = 0;
+        Vector2 tickLastRange = Vector2.zero;
+
         public void Awake()
         {
             main = this;
@@ -160,14 +166,14 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
 
             if (isDragged && (int)dragMode % 2 == 1 && dragMode != TimelineDragMode.TimelineDrag)
             {
-                float density = (PeekRange.y - PeekRange.x) / TicksHolder.rect.width;
+                float density = (PeekRange.y - PeekRange.x) / ItemsHolder.rect.width;
                 float offset = 0;
 
                 if (dragEnd.x < 50)
                     offset = -Mathf.Pow(50 - dragEnd.x, 2f) * density;
             
-                if (dragEnd.x > TicksHolder.rect.width - 50)
-                    offset = Mathf.Pow(dragEnd.x - TicksHolder.rect.width + 50, 2f) * density;
+                if (dragEnd.x > ItemsHolder.rect.width - 50)
+                    offset = Mathf.Pow(dragEnd.x - ItemsHolder.rect.width + 50, 2f) * density;
             
                 if (offset != 0)
                 {
@@ -257,6 +263,22 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
 
         }
 
+        public void ResetTimelineTicks()
+        {
+            Metronome metronome = Chartmaker.main.CurrentSong.Timing;
+            float density = (PeekRange.y - PeekRange.x) * metronome.GetStop(PeekRange.x, out _).BPM / ItemsHolder.rect.width / 2;
+
+            while (Ticks.Count > 0)
+            {
+                var tick = Ticks.Last.Value;
+                tick.gameObject.SetActive(false);
+                IdleTicks.Push(tick);
+                Ticks.RemoveLast();
+            }
+            tickLastDensity = density;
+            tickLastRange = PeekRange;
+        }
+
         public void UpdateTimeline(bool forced = false)
         {
             if (lastLimit != PeekRange || lastPlayed != Chartmaker.main.SongSource.isPlaying || forced)
@@ -265,75 +287,126 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                 lastPlayed = Chartmaker.main.SongSource.isPlaying;
                 Metronome metronome = Chartmaker.main.CurrentSong.Timing;
 
-                int count = 0;
-
+                // Update timeline ticks
                 if (metronome.Stops.Count > 0)
                 {
-                    float density = (PeekRange.y - PeekRange.x) * metronome.GetStop(PeekRange.x, out _).BPM / TicksHolder.rect.width / 8;
+                    float density = (PeekRange.y - PeekRange.x) * metronome.GetStop(PeekRange.x, out _).BPM / ItemsHolder.rect.width / 2;
 
-                    Color color = Themer.main.Keys["TimelineTickMain"];
+                    Color tickColor = Themer.main.Keys["TimelineTickMain"];
+
+                    TimelineTick PopTick()
+                    {
+                        TimelineTick tick = IdleTicks.Count > 0
+                            ? IdleTicks.Pop()
+                            : Instantiate(TickSample, TicksHolder);
+                        tick.gameObject.SetActive(true);
+                        return tick;
+                    }
+
+                    void PutTick(TimelineTick tick)
+                    {
+                        tick.gameObject.SetActive(false);
+                        IdleTicks.Push(tick);
+                    }
 
                     if (density != 0)
                     {
                         float factor = Mathf.Log(density, SeparationFactor);
-                    
-                        BeatPosition beat = BeatFloor(metronome.ToBeat(PeekRange.x), Mathf.FloorToInt(factor), SeparationFactor);
-                        BeatPosition interval = BeatInterval(Mathf.FloorToInt(factor), SeparationFactor);
-                    
-                        float end = metronome.ToBeat(PeekRange.y);
-                   
-                        while (beat < end)
-                        {
-                            TimelineTick tick;
-                            if (Ticks.Count <= count) 
-                                Ticks.Add(tick = Instantiate(TickSample, TicksHolder));
-                            else 
-                                tick = Ticks[count];
 
-                            float beatDensity = GetSeparationFactor(beat, SeparationFactor) - factor;
+                        void SetTick(TimelineTick tick, BeatPosition beat)
+                        {
+                            tick.Beat = beat;
 
                             RectTransform rt = (RectTransform)tick.transform;
-                            rt.anchorMin = new (
-                                (metronome.ToSeconds(beat) - PeekRange.x) / (PeekRange.y - PeekRange.x),
+                            rt.anchorMin = new(
+                                (metronome.ToSeconds(beat) - tickLastRange.x) / (tickLastRange.y - tickLastRange.x),
                                 0f
                             );
                             rt.anchorMax = new(rt.anchorMin.x, 1);
 
-                            tick.Image.color = GetBeatColor(beat) * new Color(1, 1, 1, Mathf.Clamp01((Mathf.Pow(1.5f, beatDensity) - 1) / (Mathf.Pow(1.5f, 3) - 1)) * .5f);
-                            tick.Label.color = color;
+                            float beatDensity = GetSeparationFactor(beat, SeparationFactor) - factor + 1;
+                            float tickAlpha = Mathf.Clamp01(beatDensity / 2) * 0.5f;
+
+                            tick.Image.color = GetBeatColor(beat) * new Color(1, 1, 1, tickAlpha);
+                            tick.Label.color = tickColor;
                             tick.Label.alpha = Mathf.Clamp01(beatDensity - 2.5f) * .5f;
-                            if (tick.Label.alpha > 0) 
+                            if (tick.Label.alpha > 0)
                                 tick.Label.text = beat.ToString();
+                        }
 
-                            beat += interval;
-                            count++;
+                        // Reset tick list
+                        if (
+                            !(Math.Abs(tickLastDensity / density - 1) < 0.0001f) // when zoom changes
+                            || (tickLastRange.x >= PeekRange.y) || (tickLastRange.y <= PeekRange.x) // when last range and current range has no overlap
+                        )
+                        {
+                            ResetTimelineTicks();
+                        }
 
-                            if (count > 1000)
-                                break;
+                        TicksHolder.anchorMin = new Vector2((tickLastRange.x - PeekRange.x) / (tickLastRange.y - tickLastRange.x), 0);
+                        TicksHolder.anchorMax = TicksHolder.anchorMin + Vector2.one;
+
+                        BeatPosition interval = BeatInterval(Mathf.FloorToInt(factor), SeparationFactor);
+                        BeatPosition beatTargetStart = BeatFloor(metronome.ToBeat(PeekRange.x), Mathf.FloorToInt(factor), SeparationFactor);
+                        BeatPosition beatTargetEnd = BeatFloor(metronome.ToBeat(PeekRange.y) + interval, Mathf.FloorToInt(factor), SeparationFactor);
+
+                        if (Ticks.Count == 0)
+                        {
+                            var tick = PopTick();
+                            SetTick(tick, beatTargetStart + interval);
+                            Ticks.AddFirst(tick);
+                        }
+
+                        BeatPosition beatCurrentStart = Ticks.First.Value.Beat;
+                        BeatPosition beatCurrentEnd = Ticks.Last.Value.Beat;
+
+                        while (beatCurrentStart < beatTargetStart)
+                        {
+                            PutTick(Ticks.First.Value);
+                            Ticks.RemoveFirst();
+                            beatCurrentStart = Ticks.First.Value.Beat;
+                        }
+                        while (beatCurrentEnd > beatTargetEnd)
+                        {
+                            PutTick(Ticks.Last.Value);
+                            Ticks.RemoveLast();
+                            beatCurrentEnd = Ticks.Last.Value.Beat;
+                        }
+
+                        beatCurrentStart -= interval;
+                        beatCurrentEnd += interval;
+
+                        while (beatCurrentStart > beatTargetStart)
+                        {
+                            var tick = PopTick();
+                            SetTick(tick, beatCurrentStart);
+                            Ticks.AddFirst(tick);
+                            beatCurrentStart -= interval;
+                        }
+                        while (beatCurrentEnd < beatTargetEnd)
+                        {
+                            var tick = PopTick();
+                            SetTick(tick, beatCurrentEnd);
+                            Ticks.AddLast(tick);
+                            beatCurrentEnd += interval;
                         }
                     }
                 }
-            
-                while (Ticks.Count > count)
-                {
-                    Destroy(Ticks[^1].gameObject);
-                    Ticks.RemoveAt(Ticks.Count - 1);
-                }
 
                 // Update border rects
-                SongStartRect.anchorMax = new (
-                    Mathf.InverseLerp(PeekRange.x, PeekRange.y, 0), 
+                SongStartRect.anchorMax = new(
+                    Mathf.InverseLerp(PeekRange.x, PeekRange.y, 0),
                     SongStartRect.anchorMax.y
                 );
-                SongEndRect.anchorMin = new (
-                    Mathf.InverseLerp(PeekRange.x, PeekRange.y, Chartmaker.main.CurrentSong.Clip.length), 
+                SongEndRect.anchorMin = new(
+                    Mathf.InverseLerp(PeekRange.x, PeekRange.y, Chartmaker.main.CurrentSong.Clip.length),
                     SongEndRect.anchorMin.y
                 );
 
                 UpdateItems();
                 UpdateWaveform();
             }
-            else if (waveTimeouted) 
+            else if (waveTimeouted)
             {
                 UpdateWaveform();
             }
@@ -403,7 +476,7 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             int count = 0, tailCount = 0, labelCount = 0, graphCount = 0, sbcount = 0;
             Metronome metronome = Chartmaker.main.CurrentSong.Timing;
         
-            float density = (PeekRange.y - PeekRange.x) / TicksHolder.rect.width;
+            float density = (PeekRange.y - PeekRange.x) / ItemsHolder.rect.width;
             List<float> times = new();
 
             Blocker.SetActive(false);
@@ -675,7 +748,7 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                                 TMP_Text label = AddLabel(lane.Name);
                                 label.overflowMode = TextOverflowModes.Ellipsis;
                                 RectTransform labelRectTransform = label.rectTransform;
-                                labelRectTransform.anchorMin = new (Math.Max(15 / TicksHolder.rect.width, tailRectTransform.anchorMin.x), 1);
+                                labelRectTransform.anchorMin = new (Math.Max(15 / ItemsHolder.rect.width, tailRectTransform.anchorMin.x), 1);
                                 labelRectTransform.anchorMax = tailRectTransform.anchorMax;
                                 labelRectTransform.anchoredPosition = new(8, -24 * zPosition - 5);
                                 labelCount++;
@@ -1199,7 +1272,7 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
         {
             Metronome metronome = Chartmaker.main.CurrentSong.Timing;
         
-            float density = (PeekRange.y - PeekRange.x) * metronome.GetStop(time, out _).BPM / TicksHolder.rect.width / 8;
+            float density = (PeekRange.y - PeekRange.x) * metronome.GetStop(time, out _).BPM / ItemsHolder.rect.width / 8;
             float factor = Mathf.Floor(Mathf.Log(density, SeparationFactor));
             float step = Mathf.Pow(SeparationFactor, factor + 1);
         
@@ -1210,7 +1283,7 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
         {
             Metronome metronome = Chartmaker.main.CurrentSong.Timing;
        
-            float density = (PeekRange.y - PeekRange.x) * metronome.GetStop(beat, out _).BPM / TicksHolder.rect.width / 8;
+            float density = (PeekRange.y - PeekRange.x) * metronome.GetStop(beat, out _).BPM / ItemsHolder.rect.width / 8;
             float factor = Mathf.Floor(Mathf.Log(density, SeparationFactor));
             float step = Mathf.Pow(SeparationFactor, -1 - factor);
         
@@ -1484,7 +1557,7 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                 {
                     case TimelineDragMode.TimelineDrag:
                     {
-                        float offset = Mathf.Clamp(-eventData.delta.x * (PeekRange.y - PeekRange.x) / TicksHolder.rect.width, limit.x - PeekRange.x, limit.y - PeekRange.y);
+                        float offset = Mathf.Clamp(-eventData.delta.x * (PeekRange.y - PeekRange.x) / ItemsHolder.rect.width, limit.x - PeekRange.x, limit.y - PeekRange.y);
                         PeekRange.x += offset;
                         PeekRange.y += offset;
 
@@ -1654,7 +1727,7 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                 
                         Metronome metronome = Chartmaker.main.CurrentSong.Timing;
 
-                        float density = (PeekRange.y - PeekRange.x) * metronome.GetStop(timeEnd, out _).BPM / TicksHolder.rect.width / 8;
+                        float density = (PeekRange.y - PeekRange.x) * metronome.GetStop(timeEnd, out _).BPM / ItemsHolder.rect.width / 8;
                         float factor = Mathf.Floor(Mathf.Log(density, SeparationFactor));
                         float step = Mathf.Pow(SeparationFactor, factor + 1);
                         float beat = Mathf.Round(metronome.ToBeat(timeEnd) / step) * step;
@@ -1918,7 +1991,7 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                 float currentXRange = PeekRange.x - (center - PeekRange.x) * (zoom - 1);
                 float currentYRange = PeekRange.y - (center - PeekRange.y) * (zoom - 1);
 
-                UnityEngine.Debug.Log($"{PeekRange.x} -> {currentXRange}, {PeekRange.y} -> {currentYRange}");
+                // UnityEngine.Debug.Log($"{PeekRange.x} -> {currentXRange}, {PeekRange.y} -> {currentYRange}");
 
                 PeekRange.x = Mathf.Clamp(currentXRange, PeekLimit.x, PeekRange.y);
                 PeekRange.y = Mathf.Clamp(currentYRange, PeekRange.x, PeekLimit.y);
@@ -1929,7 +2002,7 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
 
                 Metronome metronome = chartmaker.CurrentSong.Timing;
                 float bpm = metronome.GetStop(chartmaker.SongSource.time, out _).BPM;
-                float density = (PeekRange.y - PeekRange.x) * bpm / TicksHolder.rect.width / 8;
+                float density = (PeekRange.y - PeekRange.x) * bpm / ItemsHolder.rect.width / 8;
                 float factor = Mathf.Floor(Mathf.Log(density, SeparationFactor));
                 float step = Mathf.Pow(SeparationFactor, factor + 1);
 
@@ -1945,7 +2018,7 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             else
             {
                 float offset = Mathf.Clamp(
-                    (PeekRange.y - PeekRange.x) / TicksHolder.rect.width * 50 * -eventData.scrollDelta.y,
+                    (PeekRange.y - PeekRange.x) / ItemsHolder.rect.width * 50 * -eventData.scrollDelta.y,
                     PeekLimit.x - PeekRange.x,
                     PeekLimit.y - PeekRange.y
                 );
