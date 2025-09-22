@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using JANOARG.Chartmaker.UI.Modal;
 using JANOARG.Chartmaker.UI.Modal.ModalTypes;
+using JANOARG.Chartmaker.UI.Themeable.ThemeableTypes;
 using JANOARG.Chartmaker.UI.Tooltip;
 using JANOARG.Shared.Data.ChartInfo;
 using JANOARG.Chartmaker.Utils;
@@ -16,6 +17,8 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
         public TimelinePickerMode CurrentTimelinePickerMode;
         public List<Button>       HierarchyButtons;
         public List<Button>       TimelineButtons;
+
+        public ContextualItemThemeable ContextColour;
     
         public GameObject HierarchySongItems;
         public GameObject HierarchyChartItems;
@@ -176,6 +179,21 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             TimelineButtons[6].gameObject.SetActive(tMode == TimelineMode.LaneSteps);
             TimelineButtons[7].gameObject.SetActive(tMode == TimelineMode.HitObjects);
             TimelineButtons[8].gameObject.SetActive(tMode == TimelineMode.HitObjects);
+            
+            // Change colour of the context button, MS Office style
+            ContextColour.Mode = tMode;
+            // ContextColour.color = tMode switch
+            // {
+            //     // Where's my 255 RGB values :despair:
+            //     TimelineMode.Storyboard => new Color(41/255f, 207/255f, 35/255f, 1f),
+            //     TimelineMode.Timing     => new Color(170/255f, 35/255f, 207/255f, 1f),
+            //     TimelineMode.Lanes      => new Color(49/255f, 35/255f, 207/255f, 1f),
+            //     TimelineMode.LaneSteps  => new Color(35/255f, 144/255f, 207/255f, 1f),
+            //     TimelineMode.HitObjects => new Color(207/255f, 132/255f, 35/255f, 1f),
+            //     _                       => new Color(ContextColour.color.r, ContextColour.color.g, ContextColour.color.b, 0f),
+            //
+            // };
+            
 
             HierarchyMode hMode = HierarchyPanel.main.CurrentMode;
             HierarchySongItems.gameObject.SetActive(hMode == HierarchyMode.PlayableSong);
