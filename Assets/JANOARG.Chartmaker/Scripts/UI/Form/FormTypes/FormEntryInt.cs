@@ -1,3 +1,4 @@
+using System.Linq;
 using TMPro;
 
 namespace JANOARG.Chartmaker.UI.Form.FormTypes
@@ -17,8 +18,20 @@ namespace JANOARG.Chartmaker.UI.Form.FormTypes
     
         public void SetValue(string value)
         {
-            if (int.TryParse(value, out int v)) 
-                SetValue(v);
+            // Check if it looks like a math expression (contains an operator)
+            if (MathableInputField.OpList.Any(op => value.Contains(op)))
+            {
+                SetValue(value);
+
+                return;
+            }
+
+            // Fallback: raw integer parse
+            if (int.TryParse(value, out int intValue))
+            {
+                SetValue(intValue);
+            }
         }
+
     }
 }
