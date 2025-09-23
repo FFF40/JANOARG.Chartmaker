@@ -32,6 +32,5 @@ namespace JANOARG.Chartmaker.UI.Form.FormTypes
                 SetValue(intValue);
             }
         }
-
     }
 }
