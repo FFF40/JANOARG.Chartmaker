@@ -154,8 +154,10 @@ MonoBehaviour:
   - Key: TimelineModeTiming
     Value: {r: 0.7606162, g: 0, b: 0.96908164, a: 1}
   - Key: TimelineModeLanes
-    Value: {r: 0.331453, g: 0.27848738, b: 0.9052475, a: 1}
+    Value: {r: 0.51833284, g: 0.4721455, b: 1, a: 1}
   - Key: TimelineModeLaneSteps
     Value: {r: 0.1752387, g: 0.61961925, b: 0.8764631, a: 1}
   - Key: TimelineModeHitObjects
     Value: {r: 0.87983733, g: 0.55033207, b: 0.12417194, a: 1}
+  - Key: PickerBackground
+    Value: {r: 0, g: 0, b: 0, a: 1}

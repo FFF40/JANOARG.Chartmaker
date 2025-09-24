@@ -4,7 +4,6 @@ using JANOARG.Chartmaker.UI.Modal.ModalTypes;
 using JANOARG.Chartmaker.UI.Themeable.ThemeableTypes;
 using JANOARG.Chartmaker.UI.Tooltip;
 using JANOARG.Shared.Data.ChartInfo;
-using JANOARG.Chartmaker.Utils;
 using UnityEngine;
 using UnityEngine.UI;
 using JANOARG.Shared.Utils;
@@ -193,14 +192,23 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                 TimelinePanel.main.LaneStepTab,
                 TimelinePanel.main.HitObjectTab,
             };
-            TimelineHighlighterHolder.SetParent(
-                System.Array.Find(timelineTabs, x => !x.interactable).transform
-            );
-            TimelineHighlighterHolder.anchoredPosition = Vector2.zero;
-            TimelineHighlighterHolder.sizeDelta *= new Vector2Frag(x: 0);
-            TimelineHighlighter.ID = PickerHighlighter.ID = "TimelineMode" + tMode;
-            TimelineHighlighter.SetColors();
-            PickerHighlighter.SetColors();
+            Button activeTab = System.Array.Find(timelineTabs, x => !x.interactable);
+            if (activeTab)
+            {
+                TimelineHighlighterHolder.SetParent(
+                    activeTab.transform
+                );
+                TimelineHighlighterHolder.anchoredPosition = Vector2.zero;
+                TimelineHighlighterHolder.sizeDelta *= new Vector2Frag(x: 0);
+                TimelineHighlighter.gameObject.SetActive(true);
+                TimelineHighlighter.ID = PickerHighlighter.ID = "TimelineMode" + tMode;
+                TimelineHighlighter.SetColors();
+                PickerHighlighter.SetColors();
+            }
+            else
+            {
+                TimelineHighlighter.gameObject.SetActive(false);
+            }
 
             HierarchyMode hMode = HierarchyPanel.main.CurrentMode;
             HierarchySongItems.SetActive(hMode == HierarchyMode.PlayableSong);

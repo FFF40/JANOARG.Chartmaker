@@ -159,3 +159,5 @@ MonoBehaviour:
     Value: {r: 0.039215688, g: 0.36078432, b: 0.54901963, a: 1}
   - Key: TimelineModeHitObjects
     Value: {r: 0.45882353, g: 0.28627452, b: 0.05882353, a: 1}
+  - Key: PickerBackground
+    Value: {r: 1, g: 0.95, b: 1, a: 1}
