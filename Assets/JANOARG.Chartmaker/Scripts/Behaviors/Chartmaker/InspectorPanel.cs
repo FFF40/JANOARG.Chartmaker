@@ -900,9 +900,9 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
         {
             if (snap)
                 width = width < 172 
-                    ? 25 : 320;
+                    ? 27 : 320;
             else
-                width = Mathf.Clamp(width, 25, 320);
+                width = Mathf.Clamp(width, 27, 320);
 
             PanelHolder.anchoredPosition = new(320 - width, PanelHolder.anchoredPosition.y);
         
@@ -923,7 +923,7 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
     
         public void Collapse()
         {
-            ResizeInspector(25, true);
+            ResizeInspector(27, true);
         }
     
         public void Restore()

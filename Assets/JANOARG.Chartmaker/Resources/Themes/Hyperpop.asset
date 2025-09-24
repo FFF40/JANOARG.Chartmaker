@@ -83,18 +83,18 @@ MonoBehaviour:
     Value: {r: 0, g: 0, b: 0, a: 1}
   - Key: VisualizerHighlighted
     Value: {r: 0, g: 0.15, b: 0, a: 1}
+  - Key: HierarchyItemSelected
+    Value: {r: 0, g: 1, b: 1, a: 0.5019608}
   - Key: VisualizerPressed
     Value: {r: 0, g: 0.25, b: 0, a: 1}
   - Key: VisualizerBorder
     Value: {r: 1, g: 1, b: 1, a: 1}
-  - Key: VisualizerContent
-    Value: {r: 0, g: 1, b: 0, a: 1}
-  - Key: HierarchyItemSelected
-    Value: {r: 0, g: 1, b: 1, a: 0.5019608}
   - Key: InspectorHeader
     Value: {r: 1, g: 0.9, b: 1, a: 1}
+  - Key: VisualizerContent
+    Value: {r: 0, g: 1, b: 0, a: 1}
   - Key: PickerItemActive
-    Value: {r: 0, g: 0.75, b: 1, a: 1}
+    Value: {r: 0, g: 0.75, b: 1, a: 0.4}
   - Key: TimelineBackground
     Value: {r: 1, g: 0.9, b: 1, a: 1}
   - Key: TimelineBackgroundStart
@@ -148,4 +148,16 @@ MonoBehaviour:
   - Key: BlockerContent
     Value: {r: 1, g: 1, b: 1, a: 1}
   - Key: HeaderInactiveBackground
+    Value: {r: 1, g: 1, b: 1, a: 1}
+  - Key: TimelineModeStoryboard
+    Value: {r: 0.20769235, g: 1, b: 0.18461537, a: 1}
+  - Key: TimelineModeTiming
+    Value: {r: 0.79874206, g: 0.081761, b: 1, a: 1}
+  - Key: TimelineModeLanes
+    Value: {r: 0.2948719, g: 0.23076922, b: 1, a: 1}
+  - Key: TimelineModeLaneSteps
+    Value: {r: 0.07142854, g: 0.6571429, b: 1, a: 1}
+  - Key: TimelineModeHitObjects
+    Value: {r: 1, g: 0.62393165, b: 0.12820512, a: 1}
+  - Key: PickerBackground
     Value: {r: 1, g: 1, b: 1, a: 1}

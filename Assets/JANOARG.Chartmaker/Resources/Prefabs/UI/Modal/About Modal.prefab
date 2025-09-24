@@ -2563,7 +2563,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_Padding:
-    m_Left: 18
+    m_Left: 16
     m_Right: 10
     m_Top: 2
     m_Bottom: 10
@@ -2596,7 +2596,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  SlantStart: 15
+  SlantStart: 10
   SlantEnd: 0
   ExpandStart: 0
   ExpandEnd: 0

@@ -468,7 +468,7 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             {
                 case TimelineMode.Storyboard when InspectorPanel.main.CurrentObject is Storyboardable thing:
                 {
-                    TimestampType[] types = (TimestampType[])thing.GetType().GetField("TimestampTypes").GetValue(null);
+                    TimestampType[] types = (TimestampType[])thing.timestampTypes;
                     Storyboard storyboard = thing.Storyboard;
 
                     StoryboardEntryMaterial.SetColor(OutlineColor, Themer.main.Keys["Background0"] + new Color(0, 0, 0, 1));
@@ -1832,7 +1832,7 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
        
             Chartmaker.main.TimelineHolder.anchoredPosition = new(
                 Chartmaker.main.TimelineHolder.sizeDelta.x, 
-                -Mathf.Pow(Mathf.Max(104 - height, 0) / 64, 2) * 32
+                -Mathf.Pow(Mathf.Max(106 - height, 0) / 64, 2) * 32
             );
        
             Chartmaker.main.TimelineHolder.sizeDelta = new (
