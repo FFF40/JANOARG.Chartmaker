@@ -1,10 +1,10 @@
-using UnityEditor;
-using UnityEditor.UI;
-
-#if UNITY_EDITOR
 using UnityEngine.Events;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
+#if UNITY_EDITOR
+using UnityEditor;
+using UnityEditor.UI;
+
 #endif
 
 namespace JANOARG.Chartmaker.UI
@@ -28,7 +28,7 @@ namespace JANOARG.Chartmaker.UI
     public class RightClickButtonInspector : ButtonEditor {
         public override void OnInspectorGUI(){
             base.OnInspectorGUI();
-            serializedObject.Update();
+            this.serializedObject.Update();
      
             EditorGUILayout.PropertyField(serializedObject.FindProperty("onRightClick"));
         

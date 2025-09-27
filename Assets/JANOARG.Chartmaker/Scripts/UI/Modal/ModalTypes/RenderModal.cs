@@ -3,6 +3,8 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
+using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using JANOARG.Chartmaker.Behaviors.Chartmaker;
@@ -47,27 +49,329 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
 
         string FFmpegVersion;
 
-        RenderFormat[] formats =
+        // I'm not gonna make 3 different enums for this
+        enum MediaFormats
         {
-            new RenderFormat {
-                Extension = "mp4",
-                VideoFormat = "h264",
-                AudioFormat = "mp3",
-                CRFRange = new (26, 16),
-            },
-            new RenderFormat {
-                Extension = "mp4",
-                VideoFormat = "h264",
-                AudioFormat = "aac",
-                CRFRange = new (26, 16),
-            },
-            new RenderFormat {
-                Extension = "webm",
-                VideoFormat = "vp8",
-                AudioFormat = "libvorbis",
-                CRFRange = new (63, 4),
-            },
+            // File Formats
+            mp4,
+            webm,
+            mkv,
+            mov,
+            flv,
+            
+            // Video encodings
+            h264,
+            h265,
+            vp8,
+            vp9,
+            av1,
+            
+            // Audio encodings
+            aac,
+            mp3,
+            vorbis,
+            opus,
+            alac,
+            pcm
+            
+        }
+
+        struct RenderFormatItem
+        {
+            public MediaFormats Tag;
+            public string FfmpegArg;
+            public string Description;
+            public MediaFormats[] Compatibility;
+        }
+        
+        private readonly Dictionary<string, string> _formatDisplayNames = new Dictionary<string, string>
+        {
+            { "mp4",  "MP4 Video"             },
+            { "webm", "WebM Video"            },
+            { "mkv",  "Matroska Video (mkv)"  },
+            { "mov",  "QuickTime Movie (mov)" },
+            { "flv",  "Flash Video (flv)"     }
         };
+
+        private RenderFormatItem[] _VideoEncoding = 
+        {
+            // H.264
+            new() { 
+                Tag = MediaFormats.h264,
+                FfmpegArg = "h264",
+                Description = "H.264/AVC (Legacy)",
+                Compatibility = new[] { MediaFormats.mp4, MediaFormats.mkv, MediaFormats.mov, MediaFormats.flv }
+            },
+            new() { 
+                Tag = MediaFormats.h264,
+                FfmpegArg = "libx264",
+                Description = "H.264/AVC (Software)",
+                Compatibility = new[] { MediaFormats.mp4, MediaFormats.mkv, MediaFormats.mov, MediaFormats.flv }
+            },
+            new() { 
+                Tag = MediaFormats.h264,
+                FfmpegArg = "h264_amf",
+                Description = "H.264/AVC (AMD)",
+                Compatibility = new[] { MediaFormats.mp4, MediaFormats.mkv, MediaFormats.mov, MediaFormats.flv }
+            },
+            new() { 
+                Tag = MediaFormats.h264,
+                FfmpegArg = "h264_nvenc",
+                Description = "H.264/AVC (NVIDIA)",
+                Compatibility = new[] { MediaFormats.mp4, MediaFormats.mkv, MediaFormats.mov, MediaFormats.flv }
+            },
+            new() { 
+                Tag = MediaFormats.h264,
+                FfmpegArg = "h264_qsv",
+                Description = "H.264/AVC (Intel QSV)",
+                Compatibility = new[] { MediaFormats.mp4, MediaFormats.mkv, MediaFormats.mov, MediaFormats.flv }
+            },
+            new() { 
+                Tag = MediaFormats.h264,
+                FfmpegArg = "h264_vulkan",
+                Description = "H.264/AVC (Vulkan)",
+                Compatibility = new[] { MediaFormats.mp4, MediaFormats.mkv, MediaFormats.mov }
+            },
+            new() { 
+                Tag = MediaFormats.h264,
+                FfmpegArg = "h264_vaapi",
+                Description = "H.264/AVC (VA-API)",
+                Compatibility = new[] { MediaFormats.mp4, MediaFormats.mkv, MediaFormats.mov }
+            },
+
+            // H.265
+            new() { 
+                Tag = MediaFormats.h265,
+                FfmpegArg = "libx265",
+                Description = "H.265/HEVC (Software)",
+                Compatibility = new[] { MediaFormats.mp4, MediaFormats.mkv, MediaFormats.mov }
+            },
+            new() { 
+                Tag = MediaFormats.h265,
+                FfmpegArg = "hevc_amf",
+                Description = "H.265/HEVC (AMD)",
+                Compatibility = new[] { MediaFormats.mp4, MediaFormats.mkv, MediaFormats.mov }
+            },
+            new() { 
+                Tag = MediaFormats.h265,
+                FfmpegArg = "hevc_nvenc",
+                Description = "H.265/HEVC (NVIDIA)",
+                Compatibility = new[] { MediaFormats.mp4, MediaFormats.mkv, MediaFormats.mov }
+            },
+            new() { 
+                Tag = MediaFormats.h265,
+                FfmpegArg = "hevc_qsv",
+                Description = "H.265/HEVC (Intel QSV)",
+                Compatibility = new[] { MediaFormats.mp4, MediaFormats.mkv, MediaFormats.mov }
+            },
+
+            // VPX
+            new() { 
+                Tag = MediaFormats.vp8,
+                FfmpegArg = "vp8",
+                Description = "VP8 (Legacy)",
+                Compatibility = new[] { MediaFormats.webm, MediaFormats.mkv }
+            },
+            new() { 
+                Tag = MediaFormats.vp8,
+                FfmpegArg = "libvpx",
+                Description = "VP8 (Software)",
+                Compatibility = new[] { MediaFormats.webm, MediaFormats.mkv }
+            },
+            new() { 
+                Tag = MediaFormats.vp8,
+                FfmpegArg = "vp8_vaapi",
+                Description = "VP8 (VA-API)",
+                Compatibility = new[] { MediaFormats.webm, MediaFormats.mkv }
+            },
+
+            new() { 
+                Tag = MediaFormats.vp9,
+                FfmpegArg = "vp9",
+                Description = "VP9 (Legacy)",
+                Compatibility = new[] { MediaFormats.webm, MediaFormats.mkv }
+            },
+            new() { 
+                Tag = MediaFormats.vp9,
+                FfmpegArg = "libvpx-vp9",
+                Description = "VP9 (Software)",
+                Compatibility = new[] { MediaFormats.webm, MediaFormats.mkv }
+            },
+            new() { 
+                Tag = MediaFormats.vp9,
+                FfmpegArg = "vp9_vaapi",
+                Description = "VP9 (VA-API)",
+                Compatibility = new[] { MediaFormats.webm, MediaFormats.mkv }
+            },
+            new() { 
+                Tag = MediaFormats.vp9,
+                FfmpegArg = "vp9_qsv",
+                Description = "VP9 (Intel QSV)",
+                Compatibility = new[] { MediaFormats.webm, MediaFormats.mkv }
+            },
+
+            // AV1
+            new() { 
+                Tag = MediaFormats.av1,
+                FfmpegArg = "libaom-av1",
+                Description = "AV1 (AOMedia)",
+                Compatibility = new[] { MediaFormats.webm, MediaFormats.mkv }
+            },
+            new() { 
+                Tag = MediaFormats.av1,
+                FfmpegArg = "librav1e",
+                Description = "AV1 (rav1e)",
+                Compatibility = new[] { MediaFormats.webm, MediaFormats.mkv }
+            },
+            new() { 
+                Tag = MediaFormats.av1,
+                FfmpegArg = "libsvtav1",
+                Description = "AV1 (SVT)",
+                Compatibility = new[] { MediaFormats.webm, MediaFormats.mkv }
+            },
+            new() { 
+                Tag = MediaFormats.av1,
+                FfmpegArg = "av1_nvenc",
+                Description = "AV1 (NVIDIA)",
+                Compatibility = new[] { MediaFormats.webm, MediaFormats.mkv }
+            },
+            new() { 
+                Tag = MediaFormats.av1,
+                FfmpegArg = "av1_qsv",
+                Description = "AV1 (Intel QSV)",
+                Compatibility = new[] { MediaFormats.webm, MediaFormats.mkv }
+            },
+            new() { 
+                Tag = MediaFormats.av1,
+                FfmpegArg = "av1_amf",
+                Description = "AV1 (AMD)",
+                Compatibility = new[] { MediaFormats.webm, MediaFormats.mkv }
+            },
+            new() { 
+                Tag = MediaFormats.av1,
+                FfmpegArg = "av1_vaapi",
+                Description = "AV1 (VA-API)",
+                Compatibility = new[] { MediaFormats.webm, MediaFormats.mkv }
+            }
+        };
+
+        
+        private RenderFormatItem[] _AudioEncoding = 
+        {
+            new() {
+                Tag = MediaFormats.aac,
+                FfmpegArg = "aac",
+                Description = "AAC",
+                Compatibility = new[] { MediaFormats.mp4, MediaFormats.mov, MediaFormats.mkv }
+            },
+            new() {
+                Tag = MediaFormats.mp3,
+                FfmpegArg = "mp3",
+                Description = "MP3",
+                Compatibility = new[] { MediaFormats.mp4, MediaFormats.mkv }
+            },
+            
+            // Opus
+            new() {
+                Tag = MediaFormats.opus,
+                FfmpegArg = "opus",
+                Description = "Opus Audio (Legacy)",
+                Compatibility = new[] { MediaFormats.webm, MediaFormats.mkv }
+            },
+            new() {
+                Tag = MediaFormats.opus,
+                FfmpegArg = "libopus",
+                Description = "Opus Audio",
+                Compatibility = new[] { MediaFormats.webm, MediaFormats.mkv }
+            },
+            
+            // Vorbis
+            new() {
+                Tag = MediaFormats.vorbis,
+                FfmpegArg = "vorbis",
+                Description = "Vorbis Audio (Legacy)",
+                Compatibility = new[] { MediaFormats.webm, MediaFormats.mkv }
+            },
+            new() {
+                Tag = MediaFormats.vorbis,
+                FfmpegArg = "libvorbis",
+                Description = "Vorbis Audio",
+                Compatibility = new[] { MediaFormats.webm, MediaFormats.mkv }
+            },
+            
+            // Apple
+            new() {
+                Tag = MediaFormats.alac,
+                FfmpegArg = "alac",
+                Description = "Apple Lossless Audio",
+                Compatibility = new[] { MediaFormats.mov, MediaFormats.mp4 }
+            },
+            
+            // PCM variants
+            new() {
+                Tag = MediaFormats.pcm,
+                FfmpegArg = "pcm_s16le",
+                Description = "PCM 16-bit Signed Little Endian",
+                Compatibility = new[] { MediaFormats.mkv, MediaFormats.mov }
+            },
+            new() {
+                Tag = MediaFormats.pcm,
+                FfmpegArg = "pcm_s24le",
+                Description = "PCM 24-bit Signed Little Endian",
+                Compatibility = new[] { MediaFormats.mkv, MediaFormats.mov }
+            },
+            new() {
+                Tag = MediaFormats.pcm,
+                FfmpegArg = "pcm_s32le",
+                Description = "PCM 32-bit Signed Little Endian",
+                Compatibility = new[] { MediaFormats.mkv, MediaFormats.mov }
+            },
+            new() {
+                Tag = MediaFormats.pcm,
+                FfmpegArg = "pcm_s64le",
+                Description = "PCM 64-bit Signed Little Endian",
+                Compatibility = new[] { MediaFormats.mkv }
+            },
+            new() {
+                Tag = MediaFormats.pcm,
+                FfmpegArg = "pcm_s8",
+                Description = "PCM 8-bit Signed",
+                Compatibility = new[] { MediaFormats.mkv, MediaFormats.mov }
+            },
+            new() {
+                Tag = MediaFormats.pcm,
+                FfmpegArg = "pcm_vidc",
+                Description = "PCM Archimedes VIDC",
+                Compatibility = new[] { MediaFormats.mkv }
+            },
+            new() {
+                Tag = MediaFormats.pcm,
+                FfmpegArg = "pcm_alaw",
+                Description = "PCM A-law",
+                Compatibility = new[] { MediaFormats.mkv }
+            },
+            new() {
+                Tag = MediaFormats.pcm,
+                FfmpegArg = "pcm_mulaw",
+                Description = "PCM Mu-law",
+                Compatibility = new[] { MediaFormats.mkv }
+            }
+        };
+
+        private Camera _Camera;
+
+
+        Vector2 GetCRFRange(MediaFormats format) => format switch
+        {
+            // x/h.264 typical range
+            MediaFormats.mp4  => new Vector2(51, 18),  // min 18 for high quality, max 51
+            MediaFormats.webm => new Vector2(63, 4),   // correct as is
+            MediaFormats.mkv  => new Vector2(51, 18),  // typically uses h.264/h.265
+            MediaFormats.mov  => new Vector2(51, 18),  // typically uses h.264
+            MediaFormats.flv  => new Vector2(51, 18),  // typically uses h.264
+            _ => throw new InvalidOperationException()
+        };
+        
 
         public void Awake()
         {
@@ -86,6 +390,7 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
 
         new void Start()
         {
+            _Camera = Camera.main;
             base.Start();
             Prefs.Load(Behaviors.Chartmaker.Chartmaker.PreferencesStorage);
 
@@ -142,10 +447,60 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
             SpawnForm<FormEntryString, string>("Output", () => OutputPath, x => {
                 OutputPath = x; 
             });
-            var formatField = SpawnForm<FormEntryDropdown, object>("Format", () => Prefs.OutputType, x => {
-                Prefs.OutputType = (int)x; 
-            });
-            for (int a = 0; a < formats.Length; a++) formatField.ValidValues.Add(a, formats[a].ToString());
+            
+            // Pre declaration for allowing dropdown item updates
+            FormEntryDropdown videoEncoderField = null; 
+            FormEntryDropdown audioEncoderField = null; 
+
+            // Helper method to update encoder options
+            void UpdateEncoderOptions(FormEntryDropdown field, RenderFormatItem[] encoders)
+            {
+                if (field == null) 
+                    return;
+    
+                field.ValidValues.Clear();
+                for (int i = 0; i < encoders.Length; i++)
+                {
+                    var encoder = encoders[i];
+                    if (encoder.Compatibility.Contains((MediaFormats)Prefs.OutputType))
+                        field.ValidValues.Add(i, encoder.Description);
+                }
+            }
+
+            // Create format field
+            var formatField = SpawnForm<FormEntryDropdown, object>("File Format", () => Prefs.OutputType, x => {
+                    
+                    Prefs.OutputType = (int)x;
+                    
+                    UpdateEncoderOptions(videoEncoderField, _VideoEncoding);
+                    
+                    UpdateEncoderOptions(audioEncoderField, _AudioEncoding);
+                    
+                }
+            );
+
+            // Add format options
+            foreach (var (format, displayName) in _formatDisplayNames.Select((kvp, i) => (i, kvp.Value)))
+            {
+                formatField.ValidValues.Add(format, displayName);
+            }
+
+            // Create video encoder field
+            videoEncoderField = SpawnForm<FormEntryDropdown, object>("Video Encoding", () => Prefs.VideoEncoder, v => {
+                    Prefs.VideoEncoder = (int)v;
+                    UpdateEncoderOptions(audioEncoderField, _AudioEncoding);
+                }
+            );
+            UpdateEncoderOptions(videoEncoderField, _VideoEncoding);
+
+            
+            // Create audio encoder field
+            audioEncoderField = SpawnForm<FormEntryDropdown, object>("Audio Encoding", 
+                () => Prefs.AudioEncoder, 
+                a => Prefs.AudioEncoder = (int)a
+            );
+            UpdateEncoderOptions(audioEncoderField, _AudioEncoding);
+            
 
             SpawnForm<FormEntryHeader>("Time");
             var timeField = SpawnForm<FormEntryTimeRange, Vector2>("Range (sec)", () => TimeRange, x => {
@@ -254,10 +609,50 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
             });
 
             SpawnForm<FormEntrySpace>();
-            var vqualField = SpawnForm<FormEntryRange, float>("Video Quality", () => Prefs.VideoQuality * 100, x => {
+
+            FormEntryRange vqualField = null;
+            FormEntryFloat vbitrateField = null;
+            
+            var vOptions = SpawnForm<FormEntryBool, bool>("Adaptive Bitrate", () => Prefs.IsAdaptive, o =>
+            {
+                Prefs.IsAdaptive = o;
+
+                switch (o)
+                {
+                    case true:
+                        vqualField.gameObject.SetActive(true);
+                        vbitrateField.gameObject.SetActive(false);
+                        break;
+                    case false:
+                        vqualField.gameObject.SetActive(false);
+                        vbitrateField.gameObject.SetActive(true);
+
+                        break;
+                }
+            });
+            
+            vqualField = SpawnForm<FormEntryRange, float>("Video Quality", () => Prefs.VideoQuality * 100, x => {
                 Prefs.VideoQuality = x / 100; PrefsDirty = true;
             });
             vqualField.Range.maxValue = 100; vqualField.Range.wholeNumbers = true;
+
+            vbitrateField = SpawnForm<FormEntryFloat, float>("Video Bitrate (kbps)", () => Prefs.VideoBitRate, v =>
+            {
+                Prefs.VideoBitRate = v;
+            });
+
+            switch (Prefs.IsAdaptive)
+            {
+                case true:
+                    vqualField.gameObject.SetActive(true);
+                    vbitrateField.gameObject.SetActive(false);
+                    break;
+                case false:
+                    vqualField.gameObject.SetActive(false);
+                    vbitrateField.gameObject.SetActive(true);
+                    break;
+            }
+            
             SpawnForm<FormEntryInt, int>("Audio Bitrate (kbps)", () => Prefs.AudioBitRate, x => {
                 Prefs.AudioBitRate = x; PrefsDirty = true;
             });
@@ -311,151 +706,254 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
             StartCoroutine(RenderRoutine());
         }
 
+        private string _EtaString;
+
         public IEnumerator RenderRoutine() 
         {
+            InitializeETATracking();
+            
             IsAnimating = true;
-
-            Behaviors.Chartmaker.Chartmaker.main.Loader.SetActive(true);
-            Behaviors.Chartmaker.Chartmaker.main.LoaderPanel.ActionLabel.text = "Rendering...";
-            Behaviors.Chartmaker.Chartmaker.main.LoaderPanel.ProgressBar.value = 0;
-
-            Behaviors.Chartmaker.Chartmaker.main.LoaderPanel.ProgressLabel.text = "Initializing...";
+            
+            
+            var chartmaker = Behaviors.Chartmaker.Chartmaker.main;
+            var loaderPanel = chartmaker.LoaderPanel;
+            
+            chartmaker.Loader.SetActive(true);
+            loaderPanel.ActionLabel.text = "Rendering...";
+            loaderPanel.ProgressBar.value = 0;
+            loaderPanel.ProgressLabel.text = "Initializing...";
+            
             yield return new WaitForSeconds(.5f);
 
-            // Initiate camera
-            RenderTexture rtex = new (Prefs.Resolution.x, Prefs.Resolution.y, 24);
-            Camera camera = Camera.main;
-            camera.targetTexture = rtex;
+            // Pre-calculate constants
+            var resolution = Prefs.Resolution;
+            var frameRate = Prefs.FrameRate;
+            var timeRange = TimeRange;
+            
+            float delta = 1f / frameRate;
+            int totalFrames = Mathf.CeilToInt((timeRange.y - timeRange.x) * frameRate);
+            float camHeight = Mathf.Min(1f, 7f / 4f * resolution.x / resolution.y) * 0.9f;
+            float fov = Mathf.Atan2(Mathf.Tan(30f * Mathf.Deg2Rad), camHeight) * 2f * Mathf.Rad2Deg;
+            
+            Vector2 crfRange = GetCRFRange((MediaFormats)Prefs.VideoEncoder);
+            int crf = Mathf.RoundToInt(Mathf.LerpUnclamped(crfRange.x, crfRange.y, Prefs.VideoQuality));
+            
+            string videoFormatArg = _VideoEncoding[Prefs.VideoEncoder].FfmpegArg;
+            string audioFormatArg = _AudioEncoding[Prefs.AudioEncoder].FfmpegArg;
+            string extensionArg = ((MediaFormats)Prefs.OutputType).ToString();
+
+            // Setup camera and render texture
+            RenderTexture rtex = new RenderTexture(resolution.x, resolution.y, 24, RenderTextureFormat.ARGB32);
+            //QualitySettings.antiAliasing = 0; TODO: Add Anti-Aliasing config
+            _Camera.targetTexture = rtex;
+            _Camera.rect = new Rect(0, 0, resolution.x, resolution.y);
+            _Camera.fieldOfView = fov;
             rtex.Create();
 
-            Texture2D tex = new (Prefs.Resolution.x, Prefs.Resolution.y);
+            // Use RGB24 format for direct byte access - no alpha channel needed
+            Texture2D tex = new Texture2D(resolution.x, resolution.y, TextureFormat.RGB24, false);
+            Rect rectConfig = new Rect(0, 0, resolution.x, resolution.y);
 
-            long sessionID = Random.Range(0, 2147483647) << 32 | Random.Range(0, 2147483647);
-            string 
-                sessionDir = Path.Combine(Path.GetTempPath(), $"JANOARG Chartmaker/Render_{sessionID:X16}"),
-                framesDir = Path.Combine(sessionDir, "Frames"),
-                fragmentsDir = Path.Combine(sessionDir, "Fragments"),
-                outputPath = "";
+            // Setup output path
+            string folder = Helper.GetRenderFolder();
+            Directory.CreateDirectory(folder);
+            string outputPath = Path.Combine(folder, 
+                (string.IsNullOrWhiteSpace(OutputPath) ? DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString() : OutputPath) 
+                + "." + extensionArg);
 
-            // TODO: handle rendering errors
-            // bool isError = false;
-            // string error = "";
-    
-            try 
-            {
-                // Initiate temp folder
-                Directory.CreateDirectory(framesDir);
-                Directory.CreateDirectory(fragmentsDir);
+            // Cache commonly used objects
+            var songSource = chartmaker.SongSource;
+            var informationBar = InformationBar.main;
+            var playerView = PlayerView.main;
 
-                // Render frames
-                float time = TimeRange.x;
-                int frames = 1, frags = 1;
-                float delta = 1 / Prefs.FrameRate;
-                float camHeight = Math.Min(1, 7 / 4f * tex.width / tex.height) * 0.9f;
-                float fov = Mathf.Atan2(Mathf.Tan(30 * Mathf.Deg2Rad), camHeight) * 2 * Mathf.Rad2Deg;
-                int queuedFrames = 1, busyFrags = 0;
-           
-                RenderFormat format = formats[Prefs.OutputType];
-
-                int totalFrames = (int)((TimeRange.y - TimeRange.x) * Prefs.FrameRate);
-                int crf = Mathf.RoundToInt(Mathf.LerpUnclamped(format.CRFRange.x, format.CRFRange.y, Prefs.VideoQuality));
-
-                Behaviors.Chartmaker.Chartmaker.main.LoaderPanel.ProgressLabel.text = $"Rendering frames... ({frames}/{totalFrames})";
-
-                IEnumerator makeFragment(int start, int end)
-                {
-                    int frag = frags;
-                    frags++;
-                    busyFrags++;
-               
-                    string args = 
-                        $"-start_number {start} -r {Prefs.FrameRate} "
-                        + "-i \"" + Path.Combine(framesDir, "%d.png") + "\" "
-                        + $"-vframes {end - start + 1} -r {Prefs.FrameRate} -pix_fmt yuv420p "
-                        + $"-vcodec {format.VideoFormat} "
-                        + $"-crf {crf} " 
-                        + "\"" + Path.Combine(fragmentsDir, $"{frag}.{format.Extension}") + "\" ";
-                    // Debug.Log(args);
+            // FFmpeg process setup
+            Process ffmpegProcess = null;
+            Stream ffmpegInputStream = null;
+            Task ffmpegTask = null;
+            
+                // Setup FFmpeg arguments for streaming input
+                string qualityOptions = Prefs.IsAdaptive ? $"-crf {crf}" : $"-b:v {Prefs.VideoBitRate}k";
+                string audioPath = Path.Combine(Path.GetDirectoryName(chartmaker.CurrentSongPath), chartmaker.CurrentSong.ClipPath);
                 
-                    Task<ProcessOutput> task = ffmpeg(args, x => UnityEngine.Debug.Log(x));
-                    yield return new WaitUntil(() => task.IsCompleted);
-                    for (int a = start; a <= end; a++) File.Delete(Path.Combine(framesDir, $"{a}.png"));
-                    busyFrags--;
-                }
+                string ffmpegArgs = $"-f rawvideo -pix_fmt rgb24 -s {resolution.x}x{resolution.y} -r {frameRate} -i pipe:0 " +
+                                   $"-ss {timeRange.x} -t {timeRange.y - timeRange.x} -i \"{audioPath}\" " +
+                                   $"-vcodec {videoFormatArg} -acodec {audioFormatArg} " +
+                                   $"{qualityOptions} -b:a {Prefs.AudioBitRate}k " +
+                                   $"-pix_fmt rgb24 -y \"{outputPath}\"";
 
-                while (time < TimeRange.y)
+                // Start FFmpeg process
+                ProcessStartInfo startInfo = new ProcessStartInfo(Prefs.FFmpegPath)
                 {
-                    Behaviors.Chartmaker.Chartmaker.main.SongSource.time = Mathf.Clamp(time, 0, Behaviors.Chartmaker.Chartmaker.main.SongSource.clip.length);
-                    InformationBar.main.Update();
-                    PlayerView.main.UpdateObjects();
+                    Arguments = ffmpegArgs,
+                    UseShellExecute = false,
+                    RedirectStandardInput = true,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    CreateNoWindow = true
+                };
+
+                ffmpegProcess = new Process { StartInfo = startInfo };
+                ffmpegProcess.Start();
+                ffmpegInputStream = ffmpegProcess.StandardInput.BaseStream;
+
+                // Start async task to read FFmpeg output (for debugging/logging)
+                ffmpegTask = Task.Run(() =>
+                {
+                    try
+                    {
+                        string line;
+                        while ((line = ffmpegProcess.StandardError.ReadLine()) != null)
+                        {
+                            UnityEngine.Debug.Log($"FFmpeg: {line}");
+                        }
+                    }
+                    catch (Exception e)
+                    {
+                        UnityEngine.Debug.LogError($"FFmpeg output reading error: {e.Message}");
+                    }
+                });
+
+                float time = timeRange.x;
+                int frameIndex = 0;
+
+                loaderPanel.ProgressLabel.text = $"Streaming frames... (0/{totalFrames})";
+
+                // Pre-allocate buffer for raw frame data
+                int frameSize = (resolution.x * resolution.y) * 3; // RGB24 = 3 bytes per pixel
+                byte[] frameBuffer = new byte[frameSize];
+
+                // Main rendering loop
+                while (time < timeRange.y && frameIndex < totalFrames)
+                {
+                    // Update scene
+                    songSource.time = Mathf.Clamp(time, 0f, songSource.clip.length);
+                    informationBar.Update();
+                    playerView.UpdateObjects();
                     yield return null;
+
+
+                    // Render frame
                     RenderTexture.active = rtex;
-                    camera.rect = new Rect(0, 0, tex.width, tex.height); 
-                    camera.fieldOfView = fov;
-                    camera.Render();
-                    tex.ReadPixels(new Rect(0, 0, tex.width, tex.height), 0, 0);
+                    _Camera.Render();
+                    tex.ReadPixels(rectConfig, 0, 0);
                     tex.Apply();
-                    File.WriteAllBytes(Path.Combine(framesDir, $"{frames}.png"), tex.EncodeToPNG());
+
+                    // Get raw RGB data directly
+                    byte[] rawData = tex.GetRawTextureData();
+                    
+                    // Unity's texture data might need to be flipped vertically for FFmpeg
+                    int stride = resolution.x * 3; // 3 bytes per pixel for RGB24
+            
+                    for (int y = 0; y < resolution.y; y++)
+                    {
+                        int srcOffset = (resolution.y - 1 - y) * stride;
+                        int dstOffset = y * stride;
+                        Array.Copy(rawData, srcOffset, frameBuffer, dstOffset, stride);
+                    }
+                    
+                    // Stream directly to FFmpeg
+                    try
+                    {
+                        ffmpegInputStream.Write(frameBuffer, 0, frameSize);
+                        ffmpegInputStream.Flush();
+                    }
+                    catch (Exception e)
+                    {
+                        UnityEngine.Debug.LogError($"Failed to write frame {frameIndex}: {e.Message}");
+                        break;
+                    }
 
                     time += delta;
-                    frames++;
-                    if (frames % 100 == 1 && frames != 1) 
+                    frameIndex++;
+                    UpdateETAProgress(frameIndex, totalFrames);;
+
+                    // Update progress less frequently for performance
+                    if (frameIndex % 10 == 0 || frameIndex == totalFrames)
                     {
-                        if (busyFrags >= 3) yield return new WaitUntil(() => busyFrags < 3);
-                        StartCoroutine(makeFragment(frames - 100, frames - 1));
-                        queuedFrames = frames;
+                        loaderPanel.ProgressLabel.text = $"Streaming frames... ({frameIndex}/{totalFrames}) {_EtaString}";
+                        loaderPanel.ProgressBar.value = (float)frameIndex / totalFrames;
                     }
+                }
+
+                // Close the input stream to signal end of video data
+                ffmpegInputStream?.Close();
                 
-                    Behaviors.Chartmaker.Chartmaker.main.LoaderPanel.ProgressLabel.text = $"Rendering frames... ({frames}/{totalFrames})";
-                    Behaviors.Chartmaker.Chartmaker.main.LoaderPanel.ProgressBar.value = (float)frames / totalFrames;
-                }
-                StartCoroutine(makeFragment(queuedFrames, frames - 1));
-
-                Behaviors.Chartmaker.Chartmaker.main.LoaderPanel.ProgressLabel.text = "Outputting video...";
-                yield return new WaitUntil(() => busyFrags <= 0);
-            
-                string folder = Helper.GetRenderFolder();
-                Directory.CreateDirectory(folder);
-                outputPath = Path.Combine(
-                    folder, 
-                    (string.IsNullOrWhiteSpace(OutputPath) ? DateTimeOffset.UtcNow.ToUnixTimeSeconds() : OutputPath) + "." + format.Extension
-                );
-
-                using(var stream = File.OpenWrite(Path.Combine(sessionDir, "demux.txt")))
-                using(var writer = new StreamWriter(stream))
+                loaderPanel.ProgressLabel.text = "Finalizing video...";
+                
+                // Wait for FFmpeg to finish processing
+                if (ffmpegProcess != null && !ffmpegProcess.HasExited)
                 {
-                    for (int a = 1; a < frags; a++) writer.WriteLine("file '" + Path.Combine(fragmentsDir, $"{a}.{format.Extension}") + "'");
+                    // Wait for FFmpeg to complete, but with timeout
+                    bool finished = ffmpegProcess.WaitForExit(30000); // 30 second timeout
+                    if (!finished)
+                    {
+                        UnityEngine.Debug.LogWarning("FFmpeg process timed out, forcing termination");
+                        ffmpegProcess.Kill();
+                    }
                 }
+
+                // Wait for output reading task to complete
+                if (ffmpegTask != null)
                 {
-                    string args = 
-                        " -f concat -safe 0 " 
-                        + "-i \"" + Path.Combine(sessionDir, "demux.txt") + "\" "
-                        + $"-ss {TimeRange.x} -t {TimeRange.y - TimeRange.x} " 
-                        + "-i \"" + Path.Combine(Path.GetDirectoryName(Behaviors.Chartmaker.Chartmaker.main.CurrentSongPath), Behaviors.Chartmaker.Chartmaker.main.CurrentSong.ClipPath) + "\" "
-                        + $"-r {Prefs.FrameRate} "
-                        + $"-vcodec {format.VideoFormat} -acodec {format.AudioFormat} "
-                        + $"-crf {crf} -b:a {Prefs.AudioBitRate}k "
-                        + "\"" + outputPath + "\" ";
-                    Task<ProcessOutput> task = ffmpeg(args, x => UnityEngine.Debug.Log(x));
-                    yield return new WaitUntil(() => task.IsCompleted);
-                    UnityEngine.Debug.Log(task.Result);
+                    try
+                    {
+                        ffmpegTask.Wait(5000); // 5 second timeout
+                    }
+                    catch (Exception e)
+                    {
+                        UnityEngine.Debug.LogWarning($"FFmpeg output task error: {e.Message}");
+                    }
                 }
-            }
-            finally 
             {
-                Directory.Delete(framesDir, true);
-                Directory.Delete(fragmentsDir, true);
+                // Cleanup
+                try
+                {
+                    ffmpegProcess?.Kill();
+                    ffmpegProcess?.Dispose();
+                    ffmpegInputStream?.Close();
+                    
+                }
+                catch (Exception e)
+                {
+                    UnityEngine.Debug.LogWarning($"Cleanup error: {e.Message}");
+                }
 
-                camera.targetTexture = null;
+                _Camera.targetTexture = null;
                 RenderTexture.active = null;
-                Destroy(rtex);
+                
+                if (rtex != null)
+                {
+                    rtex.Release();
+                    Destroy(rtex);
+                }
+                if (tex != null)
+                {
+                    Destroy(tex);
+                }
 
                 Close();
-                Behaviors.Chartmaker.Chartmaker.main.Loader.SetActive(false);
-                if (Prefs.OpenOnComplete && !string.IsNullOrEmpty(outputPath)) Application.OpenURL("file://" + outputPath);
+                chartmaker.Loader.SetActive(false);
+                
+                if (Prefs.OpenOnComplete && !string.IsNullOrEmpty(outputPath)) 
+                {
+                    Application.OpenURL("file://" + outputPath);
+                }
+                
                 IsAnimating = false;
+                chartmaker.Notify("Render completed!");
+            }
+        }
 
-                Behaviors.Chartmaker.Chartmaker.main.Notify("Render completed!");
+        // Helper method to flip image data vertically (Unity textures are bottom-up, FFmpeg expects top-down)
+        private void FlipVertically(byte[] source, int width, int height, byte[] destination)
+        {
+            int stride = width * 3; // 3 bytes per pixel for RGB24
+            
+            for (int y = 0; y < height; y++)
+            {
+                int srcOffset = (height - 1 - y) * stride;
+                int dstOffset = y * stride;
+                Array.Copy(source, srcOffset, destination, dstOffset, stride);
             }
         }
         async Task<ProcessOutput> cmd(string file, string args, Action<string> onLineRead = null) 
@@ -466,7 +964,7 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
                 UseShellExecute = false,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
-                CreateNoWindow = false
+                CreateNoWindow = true
             };
 
             Process process = new()
@@ -512,7 +1010,102 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
         T SpawnForm<T, U>(string title, Func<U> get, Action<U> set) where T : FormEntry<U>
             => Formmaker.main.Spawn<T, U>(FormHolder, title, get, set);
 
+        
+        // ETA Stuff
+        private System.Diagnostics.Stopwatch renderStopwatch;
+        private Queue<float> recentFrameTimes;
+        private float lastEtaUpdateTime;
+        private const int ETA_SAMPLE_SIZE = 30; // Number of frames to average for ETA calculation
+        private const float ETA_UPDATE_INTERVAL = 1f; // Update ETA every second
+
+        // Initialize ETA tracking (add this at the start of RenderRoutine)
+        private void InitializeETATracking()
+        {
+            renderStopwatch = System.Diagnostics.Stopwatch.StartNew();
+            recentFrameTimes = new Queue<float>(ETA_SAMPLE_SIZE);
+            lastEtaUpdateTime = 0f;
+        }
+        
+        private void UpdateETAProgress(int currentFrame, int totalFrames)
+        {
+            float currentTime = (float)renderStopwatch.Elapsed.TotalSeconds;
+            
+            // Track frame time for moving average
+            if (recentFrameTimes.Count > 0)
+            {
+                float frameTime = currentTime - lastEtaUpdateTime;
+                recentFrameTimes.Enqueue(frameTime);
+                
+                if (recentFrameTimes.Count > ETA_SAMPLE_SIZE)
+                {
+                    recentFrameTimes.Dequeue();
+                }
+            }
+            else
+            {
+                // First frame, add a reasonable initial estimate
+                recentFrameTimes.Enqueue(0.1f);
+            }
+            
+            lastEtaUpdateTime = currentTime;
+            
+            // Calculate ETA every second or every 10 frames (whichever comes first)
+            if (currentFrame % 10 == 0 || (currentTime - lastEtaUpdateTime) >= ETA_UPDATE_INTERVAL)
+            { 
+                _EtaString = ETAString(currentFrame, totalFrames, currentTime);
+            }
+        }
+
+        // Format progress text with ETA information
+        private string ETAString(int currentFrame, int totalFrames, float elapsedSeconds)
+        {
+            float progress = (float)currentFrame / totalFrames;
+            
+            if (currentFrame < 5 || recentFrameTimes.Count == 0)
+            {
+                // Not enough data for accurate ETA, show basic progress
+                return string.Empty;
+            }
+            
+            // Calculate average frame time from recent samples
+            float averageFrameTime = recentFrameTimes.Sum() / recentFrameTimes.Count;
+            
+            // Calculate ETA based on remaining frames
+            int remainingFrames = totalFrames - currentFrame;
+            float estimatedTimeRemaining = remainingFrames * averageFrameTime;
+            
+            // Calculate current fps
+            float currentFPS = recentFrameTimes.Count > 0 ? 1f / averageFrameTime : 0f;
+            
+            string etaText = FormatTimeSpan(estimatedTimeRemaining);
+            string elapsedText = FormatTimeSpan(elapsedSeconds);
+            
+            return $"ETA: {etaText} | Elapsed: {elapsedText} | {currentFPS:F1} fps";
+        }
+
+        // Helper method to format time spans nicely
+        private string FormatTimeSpan(float seconds)
+        {
+            if (seconds < 0) return "calculating...";
+            
+            TimeSpan timeSpan = TimeSpan.FromSeconds(seconds);
+            
+            if (timeSpan.TotalHours >= 1)
+            {
+                return $"{(int)timeSpan.TotalHours}h {timeSpan.Minutes}m {timeSpan.Seconds}s";
+            }
+            else if (timeSpan.TotalMinutes >= 1)
+            {
+                return $"{timeSpan.Minutes}m {timeSpan.Seconds}s";
+            }
+            else
+            {
+                return $"{timeSpan.Seconds}s";
+            }
+        }
+        
     }
+    
 
     public class RenderPrefs 
     {
@@ -525,6 +1118,10 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
         public int        AudioBitRate = 128;
 
         public bool OpenOnComplete = true;
+        public int VideoEncoder { get; set; }
+        public int AudioEncoder { get; set; }
+        public float VideoBitRate { get; set; }
+        public bool IsAdaptive { get; set; }
 
         public void Load(Storage storage)
         {
