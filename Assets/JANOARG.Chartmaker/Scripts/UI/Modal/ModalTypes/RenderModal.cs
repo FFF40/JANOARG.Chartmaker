@@ -371,7 +371,7 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
             MediaFormats.h265  => new Vector2(51, 18), 
             MediaFormats.vp8   => new Vector2(63, 4), 
             MediaFormats.vp9   => new Vector2(63, 4), 
-            _ => throw new ArgumentException("Invalid media format " + format)
+            _ => new Vector2(63, 0), 
         };
         
 
@@ -401,6 +401,7 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
             FFmpegProcess.StandardOutput.BaseStream?.Close();
             FFmpegProcess.StandardError.BaseStream?.Close();
             FFmpegProcess.Dispose();
+            FFmpegProcess = null;
         }
 
         new void Start()
@@ -863,7 +864,6 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
                         {
                             ffmpegInputStream.Write(frame, 0, frame.Length);
                             ffmpegInputStream.Flush();
-
                         }
                         else
                             Thread.Sleep(1);
@@ -910,6 +910,11 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
                         int srcOffset = (resolution.y - 1 - y) * stride;
                         int dstOffset = y * stride;
                         Array.Copy(rawData, srcOffset, frameBuffer, dstOffset, stride);
+                    }
+
+                    if (FFmpegProcess.HasExited)
+                    {
+                        throw new Exception("FFmpeg process ended prematurely. Your copy of FFmpeg might not support the selected encoders.");
                     }
 
                     // Queue frame for FFmpeg
@@ -988,12 +993,13 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
             {
                 UnityEngine.Debug.LogException(e);
 
-                // Prevent the error modal from writing into the scene when rendering 
+                // Prevent the error modal from interfering with the scene when rendering 
                 // is interrupted via exiting play mode on unity editor
                 #if UNITY_EDITOR
                 if (!Application.isPlaying) return;
                 #endif
                 
+                transform.Translate(2 * Screen.height * Vector2.up);
                 ThrowRenderModal(e, rtex, tex);
             }
             finally
@@ -1034,34 +1040,6 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
                         Render();
                         break;
                     case 1:
-                        errorModal.BodyLabel.text += "\nCleaning up.";
-                        try
-                        {
-                            KillFFmpegProcess();
-                        }
-                        // ReSharper disable once InconsistentNaming
-                        catch (Exception in_e)
-                        {
-                            UnityEngine.Debug.LogWarning($"Cleanup error: {in_e.Message}");
-                        }
-                        
-                        _Camera.targetTexture = null;
-                        RenderTexture.active = null;
-                
-                        if (rtex != null)
-                        {
-                            rtex.Release();
-                            Destroy(rtex);
-                        }
-                        if (tex != null)
-                        {
-                            Destroy(tex);
-                        }
-
-                        Close();
-                        Behaviors.Chartmaker.Chartmaker.main.Loader.SetActive(false);
-
-                        Destroy(errorModal.gameObject);
                         break;
                 }
             });
