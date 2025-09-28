@@ -1,11 +1,13 @@
 using System;
 using System.Collections;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading;
 using System.Threading.Tasks;
 using JANOARG.Chartmaker.Behaviors.Chartmaker;
 using JANOARG.Chartmaker.UI.ContextMenu;
@@ -607,15 +609,26 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
                     getItem(  "300fps",                   300)
                 ), (RectTransform)fpsPresets.Button.transform);
             });
+            SpawnForm<FormEntrySpace>();
+
+            var antiAliasingField = SpawnForm<FormEntryDropdown, object>("Anti-Aliasing", () => Prefs.AntiAliasing, a =>
+            {
+                Prefs.AntiAliasing = (int)a;
+            });
+            antiAliasingField.ValidValues.Add(0,      "None");
+            antiAliasingField.ValidValues.Add(2,   "2x MSAA");
+            antiAliasingField.ValidValues.Add(4,   "4x MSAA");
+            antiAliasingField.ValidValues.Add(8,   "8x MSAA");
+            antiAliasingField.ValidValues.Add(16, "16x MSAA");
 
             SpawnForm<FormEntrySpace>();
 
             FormEntryRange vqualField = null;
             FormEntryFloat vbitrateField = null;
             
-            var vOptions = SpawnForm<FormEntryBool, bool>("Adaptive Bitrate", () => Prefs.IsAdaptive, o =>
+            var vOptions = SpawnForm<FormEntryBool, bool>("Adaptive Bitrate", () => Prefs.AdaptiveBitrate, o =>
             {
-                Prefs.IsAdaptive = o;
+                Prefs.AdaptiveBitrate = o;
 
                 switch (o)
                 {
@@ -641,7 +654,7 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
                 Prefs.VideoBitRate = v;
             });
 
-            switch (Prefs.IsAdaptive)
+            switch (Prefs.AdaptiveBitrate)
             {
                 case true:
                     vqualField.gameObject.SetActive(true);
@@ -703,83 +716,100 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
         public void Render() 
         {
             transform.Translate(2 * Screen.height * Vector2.down);
-            StartCoroutine(RenderRoutine());
+            
+            _ = RenderRoutine();
         }
 
         private string _EtaString;
 
-        public IEnumerator RenderRoutine() 
+        private Queue<float> _RecentFrameTimes;
+        public async Task RenderRoutine()
         {
-            InitializeETATracking();
-            
-            IsAnimating = true;
-            
-            
-            var chartmaker = Behaviors.Chartmaker.Chartmaker.main;
-            var loaderPanel = chartmaker.LoaderPanel;
-            
-            chartmaker.Loader.SetActive(true);
-            loaderPanel.ActionLabel.text = "Rendering...";
-            loaderPanel.ProgressBar.value = 0;
-            loaderPanel.ProgressLabel.text = "Initializing...";
-            
-            yield return new WaitForSeconds(.5f);
-
-            // Pre-calculate constants
-            var resolution = Prefs.Resolution;
-            var frameRate = Prefs.FrameRate;
-            var timeRange = TimeRange;
-            
-            float delta = 1f / frameRate;
-            int totalFrames = Mathf.CeilToInt((timeRange.y - timeRange.x) * frameRate);
-            float camHeight = Mathf.Min(1f, 7f / 4f * resolution.x / resolution.y) * 0.9f;
-            float fov = Mathf.Atan2(Mathf.Tan(30f * Mathf.Deg2Rad), camHeight) * 2f * Mathf.Rad2Deg;
-            
-            Vector2 crfRange = GetCRFRange((MediaFormats)Prefs.VideoEncoder);
-            int crf = Mathf.RoundToInt(Mathf.LerpUnclamped(crfRange.x, crfRange.y, Prefs.VideoQuality));
-            
-            string videoFormatArg = _VideoEncoding[Prefs.VideoEncoder].FfmpegArg;
-            string audioFormatArg = _AudioEncoding[Prefs.AudioEncoder].FfmpegArg;
-            string extensionArg = ((MediaFormats)Prefs.OutputType).ToString();
-
-            // Setup camera and render texture
-            RenderTexture rtex = new RenderTexture(resolution.x, resolution.y, 24, RenderTextureFormat.ARGB32);
-            //QualitySettings.antiAliasing = 0; TODO: Add Anti-Aliasing config
-            _Camera.targetTexture = rtex;
-            _Camera.rect = new Rect(0, 0, resolution.x, resolution.y);
-            _Camera.fieldOfView = fov;
-            rtex.Create();
-
-            // Use RGB24 format for direct byte access - no alpha channel needed
-            Texture2D tex = new Texture2D(resolution.x, resolution.y, TextureFormat.RGB24, false);
-            Rect rectConfig = new Rect(0, 0, resolution.x, resolution.y);
-
-            // Setup output path
-            string folder = Helper.GetRenderFolder();
-            Directory.CreateDirectory(folder);
-            string outputPath = Path.Combine(folder, 
-                (string.IsNullOrWhiteSpace(OutputPath) ? DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString() : OutputPath) 
-                + "." + extensionArg);
-
-            // Cache commonly used objects
-            var songSource = chartmaker.SongSource;
-            var informationBar = InformationBar.main;
-            var playerView = PlayerView.main;
-
             // FFmpeg process setup
             Process ffmpegProcess = null;
             Stream ffmpegInputStream = null;
             Task ffmpegTask = null;
+
+            Texture2D tex = null;
+            RenderTexture rtex = null;
+            try
+            {
+
+
+                InitializeETATracking();
+            
+                IsAnimating = true;
+            
+            
+                var chartmaker = Behaviors.Chartmaker.Chartmaker.main;
+                var loaderPanel = chartmaker.LoaderPanel;
+            
+                chartmaker.Loader.SetActive(true);
+                loaderPanel.ActionLabel.text = "Rendering...";
+                loaderPanel.ProgressBar.value = 0;
+                loaderPanel.ProgressLabel.text = "Initializing...";
+            
+                await Task.Delay(100);
+
+                // Pre-calculate constants
+                var resolution = Prefs.Resolution;
+                var frameRate = Prefs.FrameRate;
+                var timeRange = TimeRange;
+            
+                float delta = 1f / frameRate;
+                int totalFrames = Mathf.CeilToInt((timeRange.y - timeRange.x) * frameRate);
+                float camHeight = Mathf.Min(1f, 7f / 4f * resolution.x / resolution.y) * 0.9f;
+                float fov = Mathf.Atan2(Mathf.Tan(30f * Mathf.Deg2Rad), camHeight) * 2f * Mathf.Rad2Deg;
+            
+                Vector2 crfRange = GetCRFRange((MediaFormats)Prefs.VideoEncoder);
+                int crf = Mathf.RoundToInt(Mathf.LerpUnclamped(crfRange.x, crfRange.y, Prefs.VideoQuality));
+            
+                string videoFormatArg = _VideoEncoding[Prefs.VideoEncoder].FfmpegArg;
+                string audioFormatArg = _AudioEncoding[Prefs.AudioEncoder].FfmpegArg;
+                string extensionArg = ((MediaFormats)Prefs.OutputType).ToString();
+
+                // Setup camera and render texture
+                int originalAntiAliasing;
+                try
+                {
+                    rtex = new RenderTexture(resolution.x, resolution.y, 24, RenderTextureFormat.ARGB32);
+                    originalAntiAliasing = QualitySettings.antiAliasing;
+                    QualitySettings.antiAliasing = Prefs.AntiAliasing;
+                    _Camera.targetTexture = rtex;
+                    _Camera.rect = new Rect(0, 0, resolution.x, resolution.y);
+                    _Camera.fieldOfView = fov;
+                    rtex.Create();
+                }
+                catch (Exception e)
+                {
+                    throw new Exception("Failed to create render texture: " + e.Message);;
+                }
+
+                // Use RGB24 format for direct byte access - no alpha channel needed
+                tex = new Texture2D(resolution.x, resolution.y, TextureFormat.RGB24, false);
+                Rect rectConfig = new Rect(0, 0, resolution.x, resolution.y);
+
+                // Setup output path
+                string folder = Helper.GetRenderFolder();
+                Directory.CreateDirectory(folder);
+                string outputPath = Path.Combine(folder, 
+                    (string.IsNullOrWhiteSpace(OutputPath) ? DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString() : OutputPath) 
+                    + "." + extensionArg);
+
+                // Cache commonly used objects
+                var songSource = chartmaker.SongSource;
+                var informationBar = InformationBar.main;
+                var playerView = PlayerView.main;
             
                 // Setup FFmpeg arguments for streaming input
-                string qualityOptions = Prefs.IsAdaptive ? $"-crf {crf}" : $"-b:v {Prefs.VideoBitRate}k";
+                string qualityOptions = Prefs.AdaptiveBitrate ? $"-crf {crf}" : $"-b:v {Prefs.VideoBitRate}k";
                 string audioPath = Path.Combine(Path.GetDirectoryName(chartmaker.CurrentSongPath), chartmaker.CurrentSong.ClipPath);
-                
+            
                 string ffmpegArgs = $"-f rawvideo -pix_fmt rgb24 -s {resolution.x}x{resolution.y} -r {frameRate} -i pipe:0 " +
-                                   $"-ss {timeRange.x} -t {timeRange.y - timeRange.x} -i \"{audioPath}\" " +
-                                   $"-vcodec {videoFormatArg} -acodec {audioFormatArg} " +
-                                   $"{qualityOptions} -b:a {Prefs.AudioBitRate}k " +
-                                   $"-pix_fmt rgb24 -y \"{outputPath}\"";
+                                    $"-ss {timeRange.x} -t {timeRange.y - timeRange.x} -i \"{audioPath}\" " +
+                                    $"-vcodec {videoFormatArg} -acodec {audioFormatArg} " +
+                                    $"{qualityOptions} -b:a {Prefs.AudioBitRate}k " +
+                                    $"-pix_fmt rgb24 -y \"{outputPath}\"";
 
                 // Start FFmpeg process
                 ProcessStartInfo startInfo = new ProcessStartInfo(Prefs.FFmpegPath)
@@ -818,6 +848,34 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
 
                 loaderPanel.ProgressLabel.text = $"Streaming frames... (0/{totalFrames})";
 
+                ConcurrentQueue<byte[]> frameQueue = new();
+                bool rendering = true;
+                
+                // Piping thread
+                var pipingThread = new Thread(() => 
+                {
+                    while (rendering || !frameQueue.IsEmpty) 
+                    {
+                        if (frameQueue.TryDequeue(out var frame)) 
+                        {
+                            ffmpegInputStream.Write(frame, 0, frame.Length);
+                            ffmpegInputStream.Flush();
+                            
+                        } 
+                        else 
+                            Thread.Sleep(1);
+                    }
+                    if (rendering && frameQueue.IsEmpty) 
+                    {
+                        UnityEngine.Debug.Log("Waiting for new frame.");
+                    }
+                    
+                    if (!rendering)
+                        ffmpegInputStream.Close();
+                });
+                
+                pipingThread.Start();
+                
                 // Pre-allocate buffer for raw frame data
                 int frameSize = (resolution.x * resolution.y) * 3; // RGB24 = 3 bytes per pixel
                 byte[] frameBuffer = new byte[frameSize];
@@ -829,21 +887,21 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
                     songSource.time = Mathf.Clamp(time, 0f, songSource.clip.length);
                     informationBar.Update();
                     playerView.UpdateObjects();
-                    yield return null;
-
-
+                    time += delta;
+                    
                     // Render frame
                     RenderTexture.active = rtex;
                     _Camera.Render();
+
                     tex.ReadPixels(rectConfig, 0, 0);
                     tex.Apply();
 
                     // Get raw RGB data directly
                     byte[] rawData = tex.GetRawTextureData();
-                    
+            
                     // Unity's texture data might need to be flipped vertically for FFmpeg
                     int stride = resolution.x * 3; // 3 bytes per pixel for RGB24
-            
+    
                     for (int y = 0; y < resolution.y; y++)
                     {
                         int srcOffset = (resolution.y - 1 - y) * stride;
@@ -851,35 +909,33 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
                         Array.Copy(rawData, srcOffset, frameBuffer, dstOffset, stride);
                     }
                     
-                    // Stream directly to FFmpeg
-                    try
-                    {
-                        ffmpegInputStream.Write(frameBuffer, 0, frameSize);
-                        ffmpegInputStream.Flush();
-                    }
-                    catch (Exception e)
-                    {
-                        UnityEngine.Debug.LogError($"Failed to write frame {frameIndex}: {e.Message}");
-                        break;
-                    }
-
-                    time += delta;
+                    // Queue frame for FFmpeg
+                    frameQueue.Enqueue((byte[])frameBuffer.Clone());
+                    
                     frameIndex++;
                     UpdateETAProgress(frameIndex, totalFrames);;
 
-                    // Update progress less frequently for performance
-                    if (frameIndex % 10 == 0 || frameIndex == totalFrames)
+                    // Update progress less frequently (by average fps) for performance
+                    float averageFrameTime = _RecentFrameTimes.Count > 0 
+                        ? _RecentFrameTimes.Sum() / _RecentFrameTimes.Count : 0.033f; // fallback to ~30fps
+                    float averageFPS = averageFrameTime > 0 
+                        ? 1f / averageFrameTime : 30f;
+                    int yieldInterval = Mathf.Clamp(Mathf.RoundToInt(averageFPS), 10, 120);
+
+                    if (frameIndex % yieldInterval == 0 || frameIndex == totalFrames)
                     {
                         loaderPanel.ProgressLabel.text = $"Streaming frames... ({frameIndex}/{totalFrames}) {_EtaString}";
                         loaderPanel.ProgressBar.value = (float)frameIndex / totalFrames;
+                        await Task.Yield();
                     }
                 }
 
                 // Close the input stream to signal end of video data
-                ffmpegInputStream?.Close();
+                rendering = false;
+                pipingThread.Join();
                 
                 loaderPanel.ProgressLabel.text = "Finalizing video...";
-                
+            
                 // Wait for FFmpeg to finish processing
                 if (ffmpegProcess != null && !ffmpegProcess.HasExited)
                 {
@@ -904,58 +960,106 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
                         UnityEngine.Debug.LogWarning($"FFmpeg output task error: {e.Message}");
                     }
                 }
-            {
-                // Cleanup
-                try
-                {
-                    ffmpegProcess?.Kill();
-                    ffmpegProcess?.Dispose();
-                    ffmpegInputStream?.Close();
-                    
-                }
-                catch (Exception e)
-                {
-                    UnityEngine.Debug.LogWarning($"Cleanup error: {e.Message}");
-                }
-
-                _Camera.targetTexture = null;
-                RenderTexture.active = null;
-                
-                if (rtex != null)
-                {
-                    rtex.Release();
-                    Destroy(rtex);
-                }
-                if (tex != null)
-                {
-                    Destroy(tex);
-                }
-
-                Close();
-                chartmaker.Loader.SetActive(false);
-                
-                if (Prefs.OpenOnComplete && !string.IsNullOrEmpty(outputPath)) 
-                {
-                    Application.OpenURL("file://" + outputPath);
-                }
-                
-                IsAnimating = false;
-                chartmaker.Notify("Render completed!");
-            }
-        }
-
-        // Helper method to flip image data vertically (Unity textures are bottom-up, FFmpeg expects top-down)
-        private void FlipVertically(byte[] source, int width, int height, byte[] destination)
-        {
-            int stride = width * 3; // 3 bytes per pixel for RGB24
+                QualitySettings.antiAliasing = originalAntiAliasing;
             
-            for (int y = 0; y < height; y++)
+                {
+                    // Cleanup
+                    try
+                    {
+                        ffmpegProcess?.Kill();
+                        ffmpegProcess?.Dispose();
+                    
+                    }
+                    catch (Exception e)
+                    {
+                        UnityEngine.Debug.LogWarning($"Cleanup error: {e.Message}");
+                    }
+
+                    _Camera.targetTexture = null;
+                    RenderTexture.active = null;
+                
+                    if (rtex != null)
+                    {
+                        rtex.Release();
+                        Destroy(rtex);
+                    }
+                    if (tex != null)
+                    {
+                        Destroy(tex);
+                    }
+
+                    Close();
+                    chartmaker.Loader.SetActive(false);
+                
+                    if (Prefs.OpenOnComplete && !string.IsNullOrEmpty(outputPath)) 
+                    {
+                        Application.OpenURL("file://" + outputPath);
+                    }
+                
+                    IsAnimating = false;
+                    chartmaker.Notify("Render completed!");
+                }
+            }
+            catch (Exception e)
             {
-                int srcOffset = (height - 1 - y) * stride;
-                int dstOffset = y * stride;
-                Array.Copy(source, srcOffset, destination, dstOffset, stride);
+                ThrowRenderModal(e, ffmpegProcess, rtex, tex);
             }
         }
+
+        private void ThrowRenderModal(Exception e, Process ffmpegProcess, RenderTexture rtex, Texture tex)
+        {
+            DialogModal errorModal = ModalHolder.main.Spawn<DialogModal>();
+
+            errorModal.SetDialog("Error rendering!", e.Message, new[] { "Retry", "OK" }, i =>
+            {
+                switch (i)
+                {
+                    case 0:
+                        Render();
+                        break;
+                    case 1:
+                        errorModal.BodyLabel.text += "\nCleaning up.";
+                        try
+                        {
+                            if (ffmpegProcess == null)
+                            {
+                            }
+                            else
+                            {
+                                ffmpegProcess.Kill();
+                                ffmpegProcess.Dispose();
+                                ffmpegProcess.StandardInput.BaseStream?.Close();
+                            }
+
+                        }
+                        // ReSharper disable once InconsistentNaming
+                        catch (Exception in_e)
+                        {
+                            UnityEngine.Debug.LogWarning($"Cleanup error: {in_e.Message}");
+                        }
+                        
+                        _Camera.targetTexture = null;
+                        RenderTexture.active = null;
+                
+                        if (rtex != null)
+                        {
+                            rtex.Release();
+                            Destroy(rtex);
+                        }
+                        if (tex != null)
+                        {
+                            Destroy(tex);
+                        }
+
+                        Close();
+                        Behaviors.Chartmaker.Chartmaker.main.Loader.SetActive(false);
+
+                        Destroy(errorModal.gameObject);
+                        break;
+                }
+            });
+        }
+        
         async Task<ProcessOutput> cmd(string file, string args, Action<string> onLineRead = null) 
         {
             ProcessStartInfo startInfo = new(file)
@@ -1013,7 +1117,6 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
         
         // ETA Stuff
         private System.Diagnostics.Stopwatch renderStopwatch;
-        private Queue<float> recentFrameTimes;
         private float lastEtaUpdateTime;
         private const int ETA_SAMPLE_SIZE = 30; // Number of frames to average for ETA calculation
         private const float ETA_UPDATE_INTERVAL = 1f; // Update ETA every second
@@ -1022,7 +1125,7 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
         private void InitializeETATracking()
         {
             renderStopwatch = System.Diagnostics.Stopwatch.StartNew();
-            recentFrameTimes = new Queue<float>(ETA_SAMPLE_SIZE);
+            _RecentFrameTimes = new Queue<float>(ETA_SAMPLE_SIZE);
             lastEtaUpdateTime = 0f;
         }
         
@@ -1031,20 +1134,20 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
             float currentTime = (float)renderStopwatch.Elapsed.TotalSeconds;
             
             // Track frame time for moving average
-            if (recentFrameTimes.Count > 0)
+            if (_RecentFrameTimes.Count > 0)
             {
                 float frameTime = currentTime - lastEtaUpdateTime;
-                recentFrameTimes.Enqueue(frameTime);
+                _RecentFrameTimes.Enqueue(frameTime);
                 
-                if (recentFrameTimes.Count > ETA_SAMPLE_SIZE)
+                if (_RecentFrameTimes.Count > ETA_SAMPLE_SIZE)
                 {
-                    recentFrameTimes.Dequeue();
+                    _RecentFrameTimes.Dequeue();
                 }
             }
             else
             {
                 // First frame, add a reasonable initial estimate
-                recentFrameTimes.Enqueue(0.1f);
+                _RecentFrameTimes.Enqueue(0.1f);
             }
             
             lastEtaUpdateTime = currentTime;
@@ -1061,26 +1164,26 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
         {
             float progress = (float)currentFrame / totalFrames;
             
-            if (currentFrame < 5 || recentFrameTimes.Count == 0)
+            if (currentFrame < 5 || _RecentFrameTimes.Count == 0)
             {
                 // Not enough data for accurate ETA, show basic progress
                 return string.Empty;
             }
             
             // Calculate average frame time from recent samples
-            float averageFrameTime = recentFrameTimes.Sum() / recentFrameTimes.Count;
+            float averageFrameTime = _RecentFrameTimes.Sum() / _RecentFrameTimes.Count;
             
             // Calculate ETA based on remaining frames
             int remainingFrames = totalFrames - currentFrame;
             float estimatedTimeRemaining = remainingFrames * averageFrameTime;
             
             // Calculate current fps
-            float currentFPS = recentFrameTimes.Count > 0 ? 1f / averageFrameTime : 0f;
+            float currentFPS = _RecentFrameTimes.Count > 0 ? 1f / averageFrameTime : 0f;
             
             string etaText = FormatTimeSpan(estimatedTimeRemaining);
             string elapsedText = FormatTimeSpan(elapsedSeconds);
             
-            return $"ETA: {etaText} | Elapsed: {elapsedText} | {currentFPS:F1} fps";
+            return $"\nETA: {etaText} | Elapsed: {elapsedText} | {currentFPS:F1} fps";
         }
 
         // Helper method to format time spans nicely
@@ -1116,12 +1219,16 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
         public float      FrameRate    = 30;
         public float      VideoQuality = 0.6f;
         public int        AudioBitRate = 128;
-
+        public float      VideoBitRate = 3200;
+     
+        public int VideoEncoder;
+        public int AudioEncoder;
+        
         public bool OpenOnComplete = true;
-        public int VideoEncoder { get; set; }
-        public int AudioEncoder { get; set; }
-        public float VideoBitRate { get; set; }
-        public bool IsAdaptive { get; set; }
+
+        public bool AdaptiveBitrate;
+        
+        public int AntiAliasing;
 
         public void Load(Storage storage)
         {
@@ -1130,11 +1237,22 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
 
             Resolution.x = storage.Get("RD:Resolution.X", Resolution.x);
             Resolution.y = storage.Get("RD:Resolution.Y", Resolution.y);
-            FrameRate = storage.Get("RD:FrameRate", FrameRate);
+           
+            FrameRate    = storage.Get("RD:FrameRate", FrameRate);
+            
             VideoQuality = storage.Get("RD:VideoQuality", VideoQuality);
+            
             AudioBitRate = storage.Get("RD:AudioBitRate", AudioBitRate);
-
-            OpenOnComplete = storage.Get("RD:OpenOnComplete", OpenOnComplete);
+            VideoBitRate = storage.Get("RD:VideoBitRate", VideoBitRate);
+            
+            VideoEncoder = storage.Get("RD:VideoEncoder", VideoEncoder);
+            AudioEncoder = storage.Get("RD:AudioEncoder", AudioEncoder);
+            
+            OpenOnComplete  = storage.Get("RD:OpenOnComplete", OpenOnComplete);
+         
+            AdaptiveBitrate = storage.Get("RD:AdaptiveBitrate", AdaptiveBitrate);
+           
+            AntiAliasing = storage.Get("RD:AntiAliasing", AntiAliasing);
         }
 
         public void Save(Storage storage)
@@ -1144,23 +1262,22 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
 
             storage.Set("RD:Resolution.X", Resolution.x);
             storage.Set("RD:Resolution.Y", Resolution.y);
+         
             storage.Set("RD:FrameRate", FrameRate);
+          
             storage.Set("RD:VideoQuality", VideoQuality);
+            
             storage.Set("RD:AudioBitRate", AudioBitRate);
-
+            storage.Set("RD:VideoBitRate", VideoBitRate);
+          
+            storage.Set("RD:VideoEncoder", VideoEncoder);
+            storage.Set("RD:AudioEncoder", AudioEncoder);
+            
             storage.Set("RD:OpenOnComplete", OpenOnComplete);
-        }
-    }
-
-    public class RenderFormat {
-        public string  Extension;
-        public string  AudioFormat;
-        public string  VideoFormat;
-        public Vector2 CRFRange;
-
-        public override string ToString() 
-        {
-            return $".{Extension} (audio {AudioFormat}, video {VideoFormat})";
+         
+            storage.Set("RD:AdaptiveBitrate", AdaptiveBitrate);
+           
+            storage.Set("RD:AntiAliasing", AntiAliasing);
         }
     }
 
