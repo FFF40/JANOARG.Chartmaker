@@ -794,10 +794,12 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
 
                 // Setup output path
                 string folder = Helper.GetRenderFolder();
+                
                 Directory.CreateDirectory(folder);
-                string outputPath = Path.Combine(folder,
-                    (string.IsNullOrWhiteSpace(OutputPath) ? DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString() : OutputPath)
-                    + "." + extensionArg);
+                
+                string outputPath = Path.Combine(
+                    folder,
+                    (string.IsNullOrWhiteSpace(OutputPath) ? DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString() : OutputPath) + "." + extensionArg);
 
                 // Cache commonly used objects
                 var songSource = chartmaker.SongSource;
@@ -812,7 +814,9 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
                                     $"-ss {timeRange.x} -t {timeRange.y - timeRange.x} -i \"{audioPath}\" " +
                                     $"-vcodec {videoFormatArg} -acodec {audioFormatArg} " +
                                     $"{qualityOptions} -b:a {Prefs.AudioBitRate}k " +
-                                    $"-pix_fmt rgb24 -y \"{outputPath}\"";
+                                    $"-y \"{outputPath}\"";
+                
+                UnityEngine.Debug.Log("FFmpeg args: " + ffmpegArgs);
 
                 // Start FFmpeg process
                 ProcessStartInfo startInfo = new ProcessStartInfo(Prefs.FFmpegPath)
@@ -854,16 +858,27 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
 
                 ConcurrentQueue<byte[]> frameQueue = new();
                 bool rendering = true;
-
-                // Piping thread
+                bool brokenPipe = false;
+                Exception Pipe_e = null;
+                
                 var pipingThread = new Thread(() =>
                 {
                     while (rendering || !frameQueue.IsEmpty)
                     {
                         if (frameQueue.TryDequeue(out var frame))
                         {
-                            ffmpegInputStream.Write(frame, 0, frame.Length);
-                            ffmpegInputStream.Flush();
+                            try
+                            {
+                                ffmpegInputStream.Write(frame, 0, frame.Length);
+                                ffmpegInputStream.Flush();
+                            }
+                            catch (Exception e)
+                            {
+                                Pipe_e = e;
+                                brokenPipe = true;
+                                rendering = false;
+                            }
+
                         }
                         else
                             Thread.Sleep(1);
@@ -938,6 +953,13 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
                         loaderPanel.ProgressLabel.text = $"Streaming frames... ({frameIndex}/{totalFrames})\n{_EtaString}";
                         loaderPanel.ProgressBar.value = (float)frameIndex / totalFrames;
                         await Task.Yield();
+                    }
+
+                    if (brokenPipe)
+                    {
+                        Exception e = new TaskCanceledException($"Broken pipe to FFmpeg - it may have crashed: \n{Pipe_e.Message} \n\nTry using another configuration?");
+                        ThrowRenderModal(e, rtex, tex);
+                        throw e;
                     }
 
                     if (cancelFlag)
