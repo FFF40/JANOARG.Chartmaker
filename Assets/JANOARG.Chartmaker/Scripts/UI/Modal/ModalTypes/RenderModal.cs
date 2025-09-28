@@ -50,6 +50,7 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
         public bool IsAnimating;
 
         string FFmpegVersion;
+        Process FFmpegProcess;
 
         // I'm not gonna make 3 different enums for this
         enum MediaFormats
@@ -60,14 +61,14 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
             mkv,
             mov,
             flv,
-            
+
             // Video encodings
             h264,
             h265,
             vp8,
             vp9,
             av1,
-            
+
             // Audio encodings
             aac,
             mp3,
@@ -75,7 +76,7 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
             opus,
             alac,
             pcm
-            
+
         }
 
         struct RenderFormatItem
@@ -95,21 +96,9 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
             { "flv",  "Flash Video (flv)"     }
         };
 
-        private RenderFormatItem[] _VideoEncoding = 
+        private readonly RenderFormatItem[] _VideoEncoders = 
         {
             // H.264
-            new() { 
-                Tag = MediaFormats.h264,
-                FfmpegArg = "h264",
-                Description = "H.264/AVC (Legacy)",
-                Compatibility = new[] { MediaFormats.mp4, MediaFormats.mkv, MediaFormats.mov, MediaFormats.flv }
-            },
-            new() { 
-                Tag = MediaFormats.h264,
-                FfmpegArg = "libx264",
-                Description = "H.264/AVC (Software)",
-                Compatibility = new[] { MediaFormats.mp4, MediaFormats.mkv, MediaFormats.mov, MediaFormats.flv }
-            },
             new() { 
                 Tag = MediaFormats.h264,
                 FfmpegArg = "h264_amf",
@@ -140,14 +129,20 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
                 Description = "H.264/AVC (VA-API)",
                 Compatibility = new[] { MediaFormats.mp4, MediaFormats.mkv, MediaFormats.mov }
             },
+            new() { 
+                Tag = MediaFormats.h264,
+                FfmpegArg = "libx264",
+                Description = "H.264/AVC (Software)",
+                Compatibility = new[] { MediaFormats.mp4, MediaFormats.mkv, MediaFormats.mov, MediaFormats.flv }
+            },
+            new() { 
+                Tag = MediaFormats.h264,
+                FfmpegArg = "h264",
+                Description = "H.264/AVC (Legacy)",
+                Compatibility = new[] { MediaFormats.mp4, MediaFormats.mkv, MediaFormats.mov, MediaFormats.flv }
+            },
 
             // H.265
-            new() { 
-                Tag = MediaFormats.h265,
-                FfmpegArg = "libx265",
-                Description = "H.265/HEVC (Software)",
-                Compatibility = new[] { MediaFormats.mp4, MediaFormats.mkv, MediaFormats.mov }
-            },
             new() { 
                 Tag = MediaFormats.h265,
                 FfmpegArg = "hevc_amf",
@@ -166,12 +161,18 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
                 Description = "H.265/HEVC (Intel QSV)",
                 Compatibility = new[] { MediaFormats.mp4, MediaFormats.mkv, MediaFormats.mov }
             },
+            new() { 
+                Tag = MediaFormats.h265,
+                FfmpegArg = "libx265",
+                Description = "H.265/HEVC (Software)",
+                Compatibility = new[] { MediaFormats.mp4, MediaFormats.mkv, MediaFormats.mov }
+            },
 
             // VPX
             new() { 
                 Tag = MediaFormats.vp8,
-                FfmpegArg = "vp8",
-                Description = "VP8 (Legacy)",
+                FfmpegArg = "vp8_vaapi",
+                Description = "VP8 (VA-API)",
                 Compatibility = new[] { MediaFormats.webm, MediaFormats.mkv }
             },
             new() { 
@@ -182,23 +183,11 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
             },
             new() { 
                 Tag = MediaFormats.vp8,
-                FfmpegArg = "vp8_vaapi",
-                Description = "VP8 (VA-API)",
+                FfmpegArg = "vp8",
+                Description = "VP8 (Legacy)",
                 Compatibility = new[] { MediaFormats.webm, MediaFormats.mkv }
             },
 
-            new() { 
-                Tag = MediaFormats.vp9,
-                FfmpegArg = "vp9",
-                Description = "VP9 (Legacy)",
-                Compatibility = new[] { MediaFormats.webm, MediaFormats.mkv }
-            },
-            new() { 
-                Tag = MediaFormats.vp9,
-                FfmpegArg = "libvpx-vp9",
-                Description = "VP9 (Software)",
-                Compatibility = new[] { MediaFormats.webm, MediaFormats.mkv }
-            },
             new() { 
                 Tag = MediaFormats.vp9,
                 FfmpegArg = "vp9_vaapi",
@@ -209,6 +198,18 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
                 Tag = MediaFormats.vp9,
                 FfmpegArg = "vp9_qsv",
                 Description = "VP9 (Intel QSV)",
+                Compatibility = new[] { MediaFormats.webm, MediaFormats.mkv }
+            },
+            new() { 
+                Tag = MediaFormats.vp9,
+                FfmpegArg = "libvpx-vp9",
+                Description = "VP9 (Software)",
+                Compatibility = new[] { MediaFormats.webm, MediaFormats.mkv }
+            },
+            new() { 
+                Tag = MediaFormats.vp9,
+                FfmpegArg = "vp9",
+                Description = "VP9 (Legacy)",
                 Compatibility = new[] { MediaFormats.webm, MediaFormats.mkv }
             },
 
@@ -258,7 +259,7 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
         };
 
         
-        private RenderFormatItem[] _AudioEncoding = 
+        private readonly RenderFormatItem[] _AudioEncoders = 
         {
             new() {
                 Tag = MediaFormats.aac,
@@ -276,28 +277,28 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
             // Opus
             new() {
                 Tag = MediaFormats.opus,
-                FfmpegArg = "opus",
-                Description = "Opus Audio (Legacy)",
+                FfmpegArg = "libopus",
+                Description = "Opus Audio",
                 Compatibility = new[] { MediaFormats.webm, MediaFormats.mkv }
             },
             new() {
                 Tag = MediaFormats.opus,
-                FfmpegArg = "libopus",
-                Description = "Opus Audio",
+                FfmpegArg = "opus",
+                Description = "Opus Audio (Legacy)",
                 Compatibility = new[] { MediaFormats.webm, MediaFormats.mkv }
             },
             
             // Vorbis
             new() {
                 Tag = MediaFormats.vorbis,
-                FfmpegArg = "vorbis",
-                Description = "Vorbis Audio (Legacy)",
+                FfmpegArg = "libvorbis",
+                Description = "Vorbis Audio",
                 Compatibility = new[] { MediaFormats.webm, MediaFormats.mkv }
             },
             new() {
                 Tag = MediaFormats.vorbis,
-                FfmpegArg = "libvorbis",
-                Description = "Vorbis Audio",
+                FfmpegArg = "vorbis",
+                Description = "Vorbis Audio (Legacy)",
                 Compatibility = new[] { MediaFormats.webm, MediaFormats.mkv }
             },
             
@@ -366,12 +367,11 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
         Vector2 GetCRFRange(MediaFormats format) => format switch
         {
             // x/h.264 typical range
-            MediaFormats.mp4  => new Vector2(51, 18),  // min 18 for high quality, max 51
-            MediaFormats.webm => new Vector2(63, 4),   // correct as is
-            MediaFormats.mkv  => new Vector2(51, 18),  // typically uses h.264/h.265
-            MediaFormats.mov  => new Vector2(51, 18),  // typically uses h.264
-            MediaFormats.flv  => new Vector2(51, 18),  // typically uses h.264
-            _ => throw new InvalidOperationException()
+            MediaFormats.h264  => new Vector2(51, 18), 
+            MediaFormats.h265  => new Vector2(51, 18), 
+            MediaFormats.vp8   => new Vector2(63, 4), 
+            MediaFormats.vp9   => new Vector2(63, 4), 
+            _ => throw new ArgumentException("Invalid media format " + format)
         };
         
 
@@ -383,11 +383,24 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
 
         public void OnDestroy()
         {
+            if (FFmpegProcess != null)
+            {
+                KillFFmpegProcess();
+            }
             if (PrefsDirty)
             {
                 Prefs.Save(Behaviors.Chartmaker.Chartmaker.PreferencesStorage);
                 Behaviors.Chartmaker.Chartmaker.main.StartSavePrefsRoutine();
             }
+        }
+
+        private void KillFFmpegProcess()
+        {
+            if (!FFmpegProcess.HasExited) FFmpegProcess.Kill();
+            FFmpegProcess.StandardInput.BaseStream?.Close();
+            FFmpegProcess.StandardOutput.BaseStream?.Close();
+            FFmpegProcess.StandardError.BaseStream?.Close();
+            FFmpegProcess.Dispose();
         }
 
         new void Start()
@@ -469,39 +482,6 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
                 }
             }
 
-            // Create format field
-            var formatField = SpawnForm<FormEntryDropdown, object>("File Format", () => Prefs.OutputType, x => {
-                    
-                    Prefs.OutputType = (int)x;
-                    
-                    UpdateEncoderOptions(videoEncoderField, _VideoEncoding);
-                    
-                    UpdateEncoderOptions(audioEncoderField, _AudioEncoding);
-                    
-                }
-            );
-
-            // Add format options
-            foreach (var (format, displayName) in _formatDisplayNames.Select((kvp, i) => (i, kvp.Value)))
-            {
-                formatField.ValidValues.Add(format, displayName);
-            }
-
-            // Create video encoder field
-            videoEncoderField = SpawnForm<FormEntryDropdown, object>("Video Encoding", () => Prefs.VideoEncoder, v => {
-                    Prefs.VideoEncoder = (int)v;
-                    UpdateEncoderOptions(audioEncoderField, _AudioEncoding);
-                }
-            );
-            UpdateEncoderOptions(videoEncoderField, _VideoEncoding);
-
-            
-            // Create audio encoder field
-            audioEncoderField = SpawnForm<FormEntryDropdown, object>("Audio Encoding", 
-                () => Prefs.AudioEncoder, 
-                a => Prefs.AudioEncoder = (int)a
-            );
-            UpdateEncoderOptions(audioEncoderField, _AudioEncoding);
             
 
             SpawnForm<FormEntryHeader>("Time");
@@ -514,6 +494,38 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
                 timeField.FieldX.text = (-5).ToString();    
                 timeField.FieldY.text = (Behaviors.Chartmaker.Chartmaker.main.CurrentSong.Clip.length + 5).ToString();    
             });
+
+
+
+
+            SpawnForm<FormEntryHeader>("Format");
+            // Create format field
+            var formatField = SpawnForm<FormEntryDropdown, object>("File Format", () => Prefs.OutputType, x => {
+                    Prefs.OutputType = (int)x;
+                    UpdateEncoderOptions(videoEncoderField, _VideoEncoders);
+                    UpdateEncoderOptions(audioEncoderField, _AudioEncoders);
+                }
+            );
+            // Add format options
+            foreach (var (format, displayName) in _formatDisplayNames.Select((kvp, i) => (i, kvp.Value)))
+            {
+                formatField.ValidValues.Add(format, displayName);
+            }
+            // Create video encoder field
+            videoEncoderField = SpawnForm<FormEntryDropdown, object>("Video Encoding", () => Prefs.VideoEncoder, v => {
+                    Prefs.VideoEncoder = (int)v;
+                    UpdateEncoderOptions(audioEncoderField, _AudioEncoders);
+                }
+            );
+            UpdateEncoderOptions(videoEncoderField, _VideoEncoders);
+            // Create audio encoder field
+            audioEncoderField = SpawnForm<FormEntryDropdown, object>("Audio Encoding", 
+                () => Prefs.AudioEncoder, 
+                a => Prefs.AudioEncoder = (int)a
+            );
+            UpdateEncoderOptions(audioEncoderField, _AudioEncoders);
+
+
 
             SpawnForm<FormEntryHeader>("Quality");
             var resField = SpawnForm<FormEntryVector2, Vector2>("Resolution (px)", () => Prefs.Resolution, x => {
@@ -566,7 +578,6 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
                     => new (name, () => setRes(res), _checked: Prefs.Resolution.y == res);
 
                 ContextMenuHolder.main.OpenRoot(new ContextMenuList(
-                    getItem(   "240p",            240),
                     getItem(   "480p (SD)",       480),
                     getItem(   "720p (HD)",       720),
                     getItem(   "1080p (FHD)",    1080),
@@ -590,8 +601,6 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
                     => new (name, () => setFPS(fps), _checked: Prefs.FrameRate == fps);
 
                 ContextMenuHolder.main.OpenRoot(new ContextMenuList(
-                    getItem(  "16fps",                     16),
-                    getItem(  "20fps",                     20),
                     getItem(  "24fps (Film)",              24),
                     getItem(  "25fps (PAL)",               25),
                     getItem(  "29.97fps (NTSC)",       29.97f),
@@ -599,14 +608,7 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
                     getItem(  "48fps (Film HD)",           48),
                     getItem(  "50fps (PAL HD)",            50),
                     getItem(  "59.94fps (NTSC HD)",    59.94f),
-                    getItem(  "60fps (Standard HD)",       60),
-                    getItem(  "72fps",                     72),
-                    getItem(  "100fps",                   100),
-                    getItem(  "120fps",                   120),
-                    getItem(  "144fps",                   144),
-                    getItem(  "240fps",                   240),
-                    getItem(  "288fps",                   288),
-                    getItem(  "300fps",                   300)
+                    getItem(  "60fps (Standard HD)",       60)
                 ), (RectTransform)fpsPresets.Button.transform);
             });
             SpawnForm<FormEntrySpace>();
@@ -725,47 +727,47 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
         private Queue<float> _RecentFrameTimes;
         public async Task RenderRoutine()
         {
+            IsAnimating = true;
+
             // FFmpeg process setup
-            Process ffmpegProcess = null;
             Stream ffmpegInputStream = null;
             Task ffmpegTask = null;
 
             Texture2D tex = null;
             RenderTexture rtex = null;
+            
+            var chartmaker = Behaviors.Chartmaker.Chartmaker.main;
+            var loaderPanel = chartmaker.LoaderPanel;
+
+            bool cancelFlag = false;
+
             try
             {
-
-
                 InitializeETATracking();
-            
-                IsAnimating = true;
-            
-            
-                var chartmaker = Behaviors.Chartmaker.Chartmaker.main;
-                var loaderPanel = chartmaker.LoaderPanel;
-            
+
                 chartmaker.Loader.SetActive(true);
                 loaderPanel.ActionLabel.text = "Rendering...";
                 loaderPanel.ProgressBar.value = 0;
                 loaderPanel.ProgressLabel.text = "Initializing...";
-            
-                await Task.Delay(100);
+                loaderPanel.SetCancelButton(() => cancelFlag = true);
+
+                await Task.Delay(300);
 
                 // Pre-calculate constants
                 var resolution = Prefs.Resolution;
                 var frameRate = Prefs.FrameRate;
                 var timeRange = TimeRange;
-            
+
                 float delta = 1f / frameRate;
                 int totalFrames = Mathf.CeilToInt((timeRange.y - timeRange.x) * frameRate);
                 float camHeight = Mathf.Min(1f, 7f / 4f * resolution.x / resolution.y) * 0.9f;
                 float fov = Mathf.Atan2(Mathf.Tan(30f * Mathf.Deg2Rad), camHeight) * 2f * Mathf.Rad2Deg;
-            
-                Vector2 crfRange = GetCRFRange((MediaFormats)Prefs.VideoEncoder);
+
+                Vector2 crfRange = GetCRFRange(_VideoEncoders[Prefs.VideoEncoder].Tag);
                 int crf = Mathf.RoundToInt(Mathf.LerpUnclamped(crfRange.x, crfRange.y, Prefs.VideoQuality));
-            
-                string videoFormatArg = _VideoEncoding[Prefs.VideoEncoder].FfmpegArg;
-                string audioFormatArg = _AudioEncoding[Prefs.AudioEncoder].FfmpegArg;
+
+                string videoFormatArg = _VideoEncoders[Prefs.VideoEncoder].FfmpegArg;
+                string audioFormatArg = _AudioEncoders[Prefs.AudioEncoder].FfmpegArg;
                 string extensionArg = ((MediaFormats)Prefs.OutputType).ToString();
 
                 // Setup camera and render texture
@@ -782,29 +784,29 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
                 }
                 catch (Exception e)
                 {
-                    throw new Exception("Failed to create render texture: " + e.Message);;
+                    throw new Exception("Failed to create render texture: " + e.Message);
                 }
 
                 // Use RGB24 format for direct byte access - no alpha channel needed
                 tex = new Texture2D(resolution.x, resolution.y, TextureFormat.RGB24, false);
-                Rect rectConfig = new Rect(0, 0, resolution.x, resolution.y);
+                Rect rectConfig = new(0, 0, resolution.x, resolution.y);
 
                 // Setup output path
                 string folder = Helper.GetRenderFolder();
                 Directory.CreateDirectory(folder);
-                string outputPath = Path.Combine(folder, 
-                    (string.IsNullOrWhiteSpace(OutputPath) ? DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString() : OutputPath) 
+                string outputPath = Path.Combine(folder,
+                    (string.IsNullOrWhiteSpace(OutputPath) ? DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString() : OutputPath)
                     + "." + extensionArg);
 
                 // Cache commonly used objects
                 var songSource = chartmaker.SongSource;
                 var informationBar = InformationBar.main;
                 var playerView = PlayerView.main;
-            
+
                 // Setup FFmpeg arguments for streaming input
                 string qualityOptions = Prefs.AdaptiveBitrate ? $"-crf {crf}" : $"-b:v {Prefs.VideoBitRate}k";
                 string audioPath = Path.Combine(Path.GetDirectoryName(chartmaker.CurrentSongPath), chartmaker.CurrentSong.ClipPath);
-            
+
                 string ffmpegArgs = $"-f rawvideo -pix_fmt rgb24 -s {resolution.x}x{resolution.y} -r {frameRate} -i pipe:0 " +
                                     $"-ss {timeRange.x} -t {timeRange.y - timeRange.x} -i \"{audioPath}\" " +
                                     $"-vcodec {videoFormatArg} -acodec {audioFormatArg} " +
@@ -822,9 +824,9 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
                     CreateNoWindow = true
                 };
 
-                ffmpegProcess = new Process { StartInfo = startInfo };
-                ffmpegProcess.Start();
-                ffmpegInputStream = ffmpegProcess.StandardInput.BaseStream;
+                FFmpegProcess = new Process { StartInfo = startInfo };
+                FFmpegProcess.Start();
+                ffmpegInputStream = FFmpegProcess.StandardInput.BaseStream;
 
                 // Start async task to read FFmpeg output (for debugging/logging)
                 ffmpegTask = Task.Run(() =>
@@ -832,7 +834,7 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
                     try
                     {
                         string line;
-                        while ((line = ffmpegProcess.StandardError.ReadLine()) != null)
+                        while ((line = FFmpegProcess.StandardError.ReadLine()) != null)
                         {
                             UnityEngine.Debug.Log($"FFmpeg: {line}");
                         }
@@ -845,37 +847,38 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
 
                 float time = timeRange.x;
                 int frameIndex = 0;
+                int frameYieldIndex = 0;
 
                 loaderPanel.ProgressLabel.text = $"Streaming frames... (0/{totalFrames})";
 
                 ConcurrentQueue<byte[]> frameQueue = new();
                 bool rendering = true;
-                
+
                 // Piping thread
-                var pipingThread = new Thread(() => 
+                var pipingThread = new Thread(() =>
                 {
-                    while (rendering || !frameQueue.IsEmpty) 
+                    while (rendering || !frameQueue.IsEmpty)
                     {
-                        if (frameQueue.TryDequeue(out var frame)) 
+                        if (frameQueue.TryDequeue(out var frame))
                         {
                             ffmpegInputStream.Write(frame, 0, frame.Length);
                             ffmpegInputStream.Flush();
-                            
-                        } 
-                        else 
+
+                        }
+                        else
                             Thread.Sleep(1);
                     }
-                    if (rendering && frameQueue.IsEmpty) 
+                    if (rendering && frameQueue.IsEmpty)
                     {
                         UnityEngine.Debug.Log("Waiting for new frame.");
                     }
-                    
+
                     if (!rendering)
                         ffmpegInputStream.Close();
                 });
-                
+
                 pipingThread.Start();
-                
+
                 // Pre-allocate buffer for raw frame data
                 int frameSize = (resolution.x * resolution.y) * 3; // RGB24 = 3 bytes per pixel
                 byte[] frameBuffer = new byte[frameSize];
@@ -888,7 +891,7 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
                     informationBar.Update();
                     playerView.UpdateObjects();
                     time += delta;
-                    
+
                     // Render frame
                     RenderTexture.active = rtex;
                     _Camera.Render();
@@ -898,53 +901,60 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
 
                     // Get raw RGB data directly
                     byte[] rawData = tex.GetRawTextureData();
-            
+
                     // Unity's texture data might need to be flipped vertically for FFmpeg
                     int stride = resolution.x * 3; // 3 bytes per pixel for RGB24
-    
+
                     for (int y = 0; y < resolution.y; y++)
                     {
                         int srcOffset = (resolution.y - 1 - y) * stride;
                         int dstOffset = y * stride;
                         Array.Copy(rawData, srcOffset, frameBuffer, dstOffset, stride);
                     }
-                    
+
                     // Queue frame for FFmpeg
                     frameQueue.Enqueue((byte[])frameBuffer.Clone());
-                    
+
                     frameIndex++;
-                    UpdateETAProgress(frameIndex, totalFrames);;
+                    frameYieldIndex++;
+                    UpdateETAProgress(frameIndex, totalFrames);
 
                     // Update progress less frequently (by average fps) for performance
-                    float averageFrameTime = _RecentFrameTimes.Count > 0 
+                    float averageFrameTime = _RecentFrameTimes.Count > 0
                         ? _RecentFrameTimes.Sum() / _RecentFrameTimes.Count : 0.033f; // fallback to ~30fps
-                    float averageFPS = averageFrameTime > 0 
+                    float averageFPS = averageFrameTime > 0
                         ? 1f / averageFrameTime : 30f;
-                    int yieldInterval = Mathf.Clamp(Mathf.RoundToInt(averageFPS), 10, 120);
+                    int yieldInterval = Mathf.Clamp(Mathf.RoundToInt(averageFPS) / 2, 10, 120);
 
-                    if (frameIndex % yieldInterval == 0 || frameIndex == totalFrames)
+                    if (frameYieldIndex > yieldInterval || frameIndex == totalFrames)
                     {
-                        loaderPanel.ProgressLabel.text = $"Streaming frames... ({frameIndex}/{totalFrames}) {_EtaString}";
+                        frameYieldIndex = yieldInterval;
+                        loaderPanel.ProgressLabel.text = $"Streaming frames... ({frameIndex}/{totalFrames})\n{_EtaString}";
                         loaderPanel.ProgressBar.value = (float)frameIndex / totalFrames;
                         await Task.Yield();
+                    }
+
+                    if (cancelFlag)
+                    {
+                        throw new TaskCanceledException("Cancelled");
                     }
                 }
 
                 // Close the input stream to signal end of video data
                 rendering = false;
                 pipingThread.Join();
-                
+
                 loaderPanel.ProgressLabel.text = "Finalizing video...";
-            
+
                 // Wait for FFmpeg to finish processing
-                if (ffmpegProcess != null && !ffmpegProcess.HasExited)
+                if (FFmpegProcess != null && !FFmpegProcess.HasExited)
                 {
                     // Wait for FFmpeg to complete, but with timeout
-                    bool finished = ffmpegProcess.WaitForExit(30000); // 30 second timeout
+                    bool finished = FFmpegProcess.WaitForExit(30000); // 30 second timeout
                     if (!finished)
                     {
                         UnityEngine.Debug.LogWarning("FFmpeg process timed out, forcing termination");
-                        ffmpegProcess.Kill();
+                        KillFFmpegProcess();
                     }
                 }
 
@@ -961,52 +971,58 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
                     }
                 }
                 QualitySettings.antiAliasing = originalAntiAliasing;
-            
+
+                Close();
+                chartmaker.Notify("Render completed!");
+
+                if (Prefs.OpenOnComplete && !string.IsNullOrEmpty(outputPath))
                 {
-                    // Cleanup
-                    try
-                    {
-                        ffmpegProcess?.Kill();
-                        ffmpegProcess?.Dispose();
-                    
-                    }
-                    catch (Exception e)
-                    {
-                        UnityEngine.Debug.LogWarning($"Cleanup error: {e.Message}");
-                    }
-
-                    _Camera.targetTexture = null;
-                    RenderTexture.active = null;
-                
-                    if (rtex != null)
-                    {
-                        rtex.Release();
-                        Destroy(rtex);
-                    }
-                    if (tex != null)
-                    {
-                        Destroy(tex);
-                    }
-
-                    Close();
-                    chartmaker.Loader.SetActive(false);
-                
-                    if (Prefs.OpenOnComplete && !string.IsNullOrEmpty(outputPath)) 
-                    {
-                        Application.OpenURL("file://" + outputPath);
-                    }
-                
-                    IsAnimating = false;
-                    chartmaker.Notify("Render completed!");
+                    Application.OpenURL("file://" + outputPath);
                 }
+            }
+            catch (TaskCanceledException)
+            {
+                transform.Translate(2 * Screen.height * Vector2.up);
             }
             catch (Exception e)
             {
-                ThrowRenderModal(e, ffmpegProcess, rtex, tex);
+                UnityEngine.Debug.LogException(e);
+
+                // Prevent the error modal from writing into the scene when rendering 
+                // is interrupted via exiting play mode on unity editor
+                #if UNITY_EDITOR
+                if (!Application.isPlaying) return;
+                #endif
+                
+                ThrowRenderModal(e, rtex, tex);
             }
+            finally
+            {
+                KillFFmpegProcess();
+
+                loaderPanel.SetNoCancelButton();
+                chartmaker.Loader.SetActive(false);
+
+                _Camera.targetTexture = null;
+                RenderTexture.active = null;
+
+                if (rtex != null)
+                {
+                    rtex.Release();
+                    Destroy(rtex);
+                }
+                if (tex != null)
+                {
+                    Destroy(tex);
+                }
+
+                chartmaker.Loader.SetActive(false);
+            }
+
+            IsAnimating = false;
         }
 
-        private void ThrowRenderModal(Exception e, Process ffmpegProcess, RenderTexture rtex, Texture tex)
+        private void ThrowRenderModal(Exception e, RenderTexture rtex, Texture tex)
         {
             DialogModal errorModal = ModalHolder.main.Spawn<DialogModal>();
 
@@ -1021,16 +1037,7 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
                         errorModal.BodyLabel.text += "\nCleaning up.";
                         try
                         {
-                            if (ffmpegProcess == null)
-                            {
-                            }
-                            else
-                            {
-                                ffmpegProcess.Kill();
-                                ffmpegProcess.Dispose();
-                                ffmpegProcess.StandardInput.BaseStream?.Close();
-                            }
-
+                            KillFFmpegProcess();
                         }
                         // ReSharper disable once InconsistentNaming
                         catch (Exception in_e)
@@ -1097,8 +1104,11 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
                     }     
                 })
             );
+            process.WaitForExit();
 
             output.ExitCode = process.ExitCode;
+
+            process.Dispose();
         
             return output;
         }
@@ -1183,7 +1193,7 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
             string etaText = FormatTimeSpan(estimatedTimeRemaining);
             string elapsedText = FormatTimeSpan(elapsedSeconds);
             
-            return $"\nETA: {etaText} | Elapsed: {elapsedText} | {currentFPS:F1} fps";
+            return $"ETA: {etaText} | Elapsed: {elapsedText} | {currentFPS:F1} fps";
         }
 
         // Helper method to format time spans nicely
