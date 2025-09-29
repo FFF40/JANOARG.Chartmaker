@@ -742,6 +742,7 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
 
             bool cancelFlag = false;
 
+
             try
             {
                 InitializeETATracking();
@@ -794,9 +795,9 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
 
                 // Setup output path
                 string folder = Helper.GetRenderFolder();
-                
+
                 Directory.CreateDirectory(folder);
-                
+
                 string outputPath = Path.Combine(
                     folder,
                     (string.IsNullOrWhiteSpace(OutputPath) ? DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString() : OutputPath) + "." + extensionArg);
@@ -815,7 +816,7 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
                                     $"-vcodec {videoFormatArg} -acodec {audioFormatArg} " +
                                     $"{qualityOptions} -b:a {Prefs.AudioBitRate}k " +
                                     $"-y \"{outputPath}\"";
-                
+
                 UnityEngine.Debug.Log("FFmpeg args: " + ffmpegArgs);
 
                 // Start FFmpeg process
@@ -852,6 +853,7 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
 
                 float time = timeRange.x;
                 int frameIndex = 0;
+                int framePipedIndex = 0;
                 int frameYieldIndex = 0;
 
                 loaderPanel.ProgressLabel.text = $"Streaming frames... (0/{totalFrames})";
@@ -859,9 +861,13 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
                 ConcurrentQueue<byte[]> frameQueue = new();
                 bool rendering = true;
                 bool brokenPipe = false;
-                Exception Pipe_e = null;
-                const int framebufferLimit = 2000000000; // 2GB Limit
-                
+                Exception pipeError = null;
+                long framebufferLimit = 2_000_000_000;
+                if (SystemInfo.systemMemorySize > 0) framebufferLimit = Math.Min(
+                    framebufferLimit,
+                    SystemInfo.systemMemorySize * 1_048_576L // 20% of system's memory
+                );
+
                 var pipingThread = new Thread(() =>
                 {
                     while (rendering || !frameQueue.IsEmpty)
@@ -872,10 +878,11 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
                             {
                                 ffmpegInputStream.Write(frame, 0, frame.Length);
                                 ffmpegInputStream.Flush();
+                                framePipedIndex++;
                             }
                             catch (Exception e)
                             {
-                                Pipe_e = e;
+                                pipeError = e;
                                 brokenPipe = true;
                                 rendering = false;
                             }
@@ -896,31 +903,32 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
                 pipingThread.Start();
 
                 // Pre-allocate buffer for raw frame data
-                int frameSize = (resolution.x * resolution.y) * 3; // RGB24 = 3 bytes per pixel
+                int frameSize = resolution.x * resolution.y * 3; // RGB24 = 3 bytes per pixel
                 byte[] frameBuffer = new byte[frameSize];
                 int frameBufferSize = frameBuffer.Length;
-                
+
                 // Pre-calculate thresholds
-                int maxFrameCount = framebufferLimit / frameBufferSize;
-                int resumeFrameCount = maxFrameCount / 4; // 25% threshold
+                int maxFrameCount = (int)(framebufferLimit / frameBufferSize);
+                int resumeFrameCount = maxFrameCount * 3 / 4;
 
                 // Main rendering loop
                 while (time < timeRange.y && frameIndex < totalFrames)
                 {
                     if (frameQueue.Count >= maxFrameCount)
                     {
-                        // Wait until queue drops to 25% of limit
                         while (frameQueue.Count >= resumeFrameCount)
                         {
                             await Task.Yield();
-        
-                            int overdueFrames = frameQueue.Count - resumeFrameCount;
-        
-                            loaderPanel.ProgressLabel.text = $"Streaming frames... ({frameIndex}/{totalFrames})\nWaiting for FFMpeg...{overdueFrames} overdue frames pending\n{_EtaString}";
-                            UpdateETAProgress(frameIndex, totalFrames);
+
+                            UpdateETAProgress(framePipedIndex, totalFrames);
+
+                            loaderPanel.ActionLabel.text = $"Rendering... ({framePipedIndex} / {totalFrames})";
+                            loaderPanel.ProgressLabel.text = _EtaString;
+                            loaderPanel.ProgressBar.value = (float)framePipedIndex / totalFrames;
                         }
                         continue;
                     }
+
                     // Update scene
                     songSource.time = Mathf.Clamp(time, 0f, songSource.clip.length);
                     informationBar.Update();
@@ -958,33 +966,37 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
 
                     frameIndex++;
                     frameYieldIndex++;
-                    UpdateETAProgress(frameIndex, totalFrames);
 
                     // Update progress less frequently (by average fps) for performance
                     float averageFrameTime = _RecentFrameTimes.Count > 0
                         ? _RecentFrameTimes.Sum() / _RecentFrameTimes.Count : 0.033f; // fallback to ~30fps
                     float averageFPS = averageFrameTime > 0
                         ? 1f / averageFrameTime : 30f;
-                    int yieldInterval = Mathf.Clamp(Mathf.RoundToInt(averageFPS) / 2, 10, 120);
+                    int yieldInterval = Mathf.Clamp(Mathf.RoundToInt(averageFPS) / 5, 10, 120);
 
                     if (frameYieldIndex > yieldInterval || frameIndex == totalFrames)
                     {
-                        frameYieldIndex = yieldInterval;
-                        loaderPanel.ProgressLabel.text = $"Streaming frames... ({frameIndex}/{totalFrames})\n{_EtaString}";
-                        loaderPanel.ProgressBar.value = (float)frameIndex / totalFrames;
+                        frameYieldIndex = 0;
+
+                        UpdateETAProgress(framePipedIndex, totalFrames);
+
+                        loaderPanel.ActionLabel.text = $"Rendering... ({framePipedIndex} / {totalFrames})";
+                        loaderPanel.ProgressLabel.text = _EtaString;
+                        loaderPanel.ProgressBar.value = (float)framePipedIndex / totalFrames;
+
                         await Task.Yield();
                     }
-
+                    
                     if (brokenPipe)
                     {
-                        Exception e = new TaskCanceledException($"Broken pipe to FFmpeg - it may have crashed: \n{Pipe_e.Message} \n\nTry using another configuration?");
+                        Exception e = new TaskCanceledException($"Broken pipe to FFmpeg - it may have crashed: \n{pipeError.Message} \n\nTry using another configuration?");
                         ThrowRenderModal(e, rtex, tex);
                         throw e;
                     }
 
                     if (cancelFlag)
                     {
-                        rendering = false;  
+                        rendering = false;
                         throw new TaskCanceledException("Cancelled");
                     }
                 }
@@ -1039,10 +1051,10 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
 
                 // Prevent the error modal from interfering with the scene when rendering 
                 // is interrupted via exiting play mode on unity editor
-                #if UNITY_EDITOR
+#if UNITY_EDITOR
                 if (!Application.isPlaying) return;
-                #endif
-                
+#endif
+
                 transform.Translate(2 * Screen.height * Vector2.up);
                 ThrowRenderModal(e, rtex, tex);
             }
@@ -1149,9 +1161,9 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
         
         // ETA Stuff
         private System.Diagnostics.Stopwatch renderStopwatch;
+        private int lastEtaFrame;
         private float lastEtaUpdateTime;
         private const int ETA_SAMPLE_SIZE = 30; // Number of frames to average for ETA calculation
-        private const float ETA_UPDATE_INTERVAL = 1f; // Update ETA every second
 
         // Initialize ETA tracking (add this at the start of RenderRoutine)
         private void InitializeETATracking()
@@ -1159,18 +1171,26 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
             renderStopwatch = System.Diagnostics.Stopwatch.StartNew();
             _RecentFrameTimes = new Queue<float>(ETA_SAMPLE_SIZE);
             lastEtaUpdateTime = 0f;
+            lastEtaFrame = 0;
         }
         
         private void UpdateETAProgress(int currentFrame, int totalFrames)
         {
             float currentTime = (float)renderStopwatch.Elapsed.TotalSeconds;
+
+            if (currentFrame == lastEtaFrame)
+            {
+                return;
+            }
             
             // Track frame time for moving average
             if (_RecentFrameTimes.Count > 0)
             {
                 float frameTime = currentTime - lastEtaUpdateTime;
-                _RecentFrameTimes.Enqueue(frameTime);
-                
+                int frameCount = currentFrame - lastEtaFrame;
+                float msPerFrame = frameTime / frameCount;
+                _RecentFrameTimes.Enqueue(msPerFrame);
+
                 if (_RecentFrameTimes.Count > ETA_SAMPLE_SIZE)
                 {
                     _RecentFrameTimes.Dequeue();
@@ -1181,14 +1201,11 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
                 // First frame, add a reasonable initial estimate
                 _RecentFrameTimes.Enqueue(0.1f);
             }
-            
+
             lastEtaUpdateTime = currentTime;
+            lastEtaFrame = currentFrame;
             
-            // Calculate ETA every second or every 10 frames (whichever comes first)
-            if (currentFrame % 10 == 0 || (currentTime - lastEtaUpdateTime) >= ETA_UPDATE_INTERVAL)
-            { 
-                _EtaString = ETAString(currentFrame, totalFrames, currentTime);
-            }
+            _EtaString = ETAString(currentFrame, totalFrames, currentTime);
         }
 
         // Format progress text with ETA information
@@ -1199,43 +1216,44 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
             if (currentFrame < 5 || _RecentFrameTimes.Count == 0)
             {
                 // Not enough data for accurate ETA, show basic progress
-                return string.Empty;
+                return $"{currentFrame} / {totalFrames} | --- fps | --- remaining ";
             }
             
-            // Calculate average frame time from recent samples
-            float averageFrameTime = _RecentFrameTimes.Sum() / _RecentFrameTimes.Count;
+            float averageFrameTime = _RecentFrameTimes.Average();
             
-            // Calculate ETA based on remaining frames
             int remainingFrames = totalFrames - currentFrame;
             float estimatedTimeRemaining = remainingFrames * averageFrameTime;
             
-            // Calculate current fps
             float currentFPS = _RecentFrameTimes.Count > 0 ? 1f / averageFrameTime : 0f;
             
-            string etaText = FormatTimeSpan(estimatedTimeRemaining);
-            string elapsedText = FormatTimeSpan(elapsedSeconds);
+            string etaText = FormatTimeSpanETA(estimatedTimeRemaining);
             
-            return $"ETA: {etaText} | Elapsed: {elapsedText} | {currentFPS:F1} fps";
+            return $"{currentFPS:F1} fps | About {etaText} remaining";
         }
 
         // Helper method to format time spans nicely
-        private string FormatTimeSpan(float seconds)
+        private string FormatTimeSpanETA(float seconds)
         {
-            if (seconds < 0) return "calculating...";
+            if (seconds < 0) return "---";
+            if (seconds > long.MaxValue) return "---";
             
             TimeSpan timeSpan = TimeSpan.FromSeconds(seconds);
             
             if (timeSpan.TotalHours >= 1)
             {
-                return $"{(int)timeSpan.TotalHours}h {timeSpan.Minutes}m {timeSpan.Seconds}s";
+                return $"{(int)timeSpan.TotalHours} hour{(timeSpan.TotalHours >= 2 ? "s" : "")}";
             }
-            else if (timeSpan.TotalMinutes >= 1)
+            else if (timeSpan.TotalSeconds >= 57.5)
             {
-                return $"{timeSpan.Minutes}m {timeSpan.Seconds}s";
+                return $"{(int)Math.Max(timeSpan.TotalMinutes, 1)} minute{(timeSpan.TotalMinutes >= 2 ? "s" : "")}";
+            }
+            else if (timeSpan.TotalSeconds >= 2.5)
+            {
+                return $"{(int)Math.Round(timeSpan.TotalSeconds / 5) * 5} seconds";
             }
             else
             {
-                return $"{timeSpan.Seconds}s";
+                return $"moments";
             }
         }
         
