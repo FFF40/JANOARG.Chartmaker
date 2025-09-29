@@ -1,3 +1,4 @@
+using JANOARG.Chartmaker.Utils.Math;
 using TMPro;
 
 namespace JANOARG.Chartmaker.UI.Form.FormTypes
@@ -17,8 +18,10 @@ namespace JANOARG.Chartmaker.UI.Form.FormTypes
     
         public void SetValue(string value)
         {
-            if (float.TryParse(value, out float v))
-                SetValue(v);
+            if (ExpressionUtils.TryEvaluate(value, out float result))
+            {
+                SetValue(result);
+            }
         }
     }
 }

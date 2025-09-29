@@ -1,6 +1,7 @@
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
+using JANOARG.Chartmaker.Utils.Math;
 
 namespace JANOARG.Chartmaker.UI.Form.FormTypes
 {

@@ -1,3 +1,4 @@
+using JANOARG.Chartmaker.Utils.Math;
 using TMPro;
 using UnityEngine.UI;
 
@@ -17,22 +18,22 @@ namespace JANOARG.Chartmaker.UI.Form.FormTypes
         public void RangeSet()
         {
             SetValue(Range.value);
-            Field.text = CurrentValue.ToString();
+            Field.SetTextWithoutNotify(CurrentValue.ToString());
         }
 
         public void FieldSet()
         {
-            if (!float.TryParse(Field.text, out float value)) 
+            if (!ExpressionUtils.TryEvaluate(Field.text, out float value)) 
                 return;
 
-            Range.value = value;
+            Range.SetValueWithoutNotify(value);
             SetValue(Range.value);
         }
 
         public void Reset()
         {
-            Range.value = CurrentValue;
-            Field.text = CurrentValue.ToString();
+            Range.SetValueWithoutNotify(CurrentValue);
+            Field.SetTextWithoutNotify(CurrentValue.ToString());
         }
     }
 }

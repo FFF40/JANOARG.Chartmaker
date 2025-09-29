@@ -506,8 +506,8 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                                             MakeOffsetEntry(() => step.Offset, x => Chartmaker.main.SetItem(step, "Offset", x));
 
                                             SpawnForm<FormEntryHeader>("Transform");
-                                            SpawnForm<FormEntryVector2, Vector2>("Start Pos", () => step.StartPointPosition, x => Chartmaker.main.SetItem(step, "StartPos", x));
-                                            SpawnForm<FormEntryVector2, Vector2>("End Pos", () => step.EndPointPosition, x => Chartmaker.main.SetItem(step, "EndPos", x));
+                                            SpawnForm<FormEntryVector2, Vector2>("Start Pos", () => step.StartPointPosition, x => Chartmaker.main.SetItem(step, "StartPointPosition", x));
+                                            SpawnForm<FormEntryVector2, Vector2>("End Pos", () => step.EndPointPosition, x => Chartmaker.main.SetItem(step, "EndPointPosition", x));
                                 
                                             var easeHeader = SpawnForm<FormEntryLabel>("Easings");
                                     

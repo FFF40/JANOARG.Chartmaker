@@ -11,6 +11,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
+using JANOARG.Chartmaker.Utils.Math;
 
 namespace JANOARG.Chartmaker.UI.Pickers.EasingPicker
 {
@@ -385,10 +386,10 @@ namespace JANOARG.Chartmaker.UI.Pickers.EasingPicker
             CubicBezierEaseDirective cubicBezierEase = (CubicBezierEaseDirective)CurrentEasing;
             Vector2 point1 = cubicBezierEase.Point1, point2 = cubicBezierEase.Point2;
        
-            if (float.TryParse(P1XField.text, out float point1X) && float.TryParse(P1YField.text, out float point1Y)) 
+            if (ExpressionUtils.TryEvaluate(P1XField.text, out float point1X) && ExpressionUtils.TryEvaluate(P1YField.text, out float point1Y)) 
                 point1.Set(Mathf.Clamp01(point1X), point1Y);
       
-            if (float.TryParse(P2XField.text, out float point2X) && float.TryParse(P2YField.text, out float point2Y)) 
+            if (ExpressionUtils.TryEvaluate(P2XField.text, out float point2X) && ExpressionUtils.TryEvaluate(P2YField.text, out float point2Y)) 
                 point2.Set(Mathf.Clamp01(point2X), point2Y);
        
             CurrentEasing = new CubicBezierEaseDirective(point1, point2);

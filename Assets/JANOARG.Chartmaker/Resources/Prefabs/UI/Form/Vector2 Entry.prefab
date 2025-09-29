@@ -49,6 +49,18 @@ PrefabInstance:
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 1305842171, guid: b43d745778418c749b43b79b3b3f3406, type: 3}
+      propertyPath: m_ContentType
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1305842171, guid: b43d745778418c749b43b79b3b3f3406, type: 3}
+      propertyPath: m_KeyboardType
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1305842171, guid: b43d745778418c749b43b79b3b3f3406, type: 3}
+      propertyPath: m_CharacterValidation
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1305842171, guid: b43d745778418c749b43b79b3b3f3406, type: 3}
       propertyPath: m_OnEndEdit.m_PersistentCalls.m_Calls.Array.size
       value: 1
       objectReference: {fileID: 0}
@@ -142,6 +154,18 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 1605498427, guid: b43d745778418c749b43b79b3b3f3406, type: 3}
       propertyPath: m_AnchoredPosition.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1605498429, guid: b43d745778418c749b43b79b3b3f3406, type: 3}
+      propertyPath: m_ContentType
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1605498429, guid: b43d745778418c749b43b79b3b3f3406, type: 3}
+      propertyPath: m_KeyboardType
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1605498429, guid: b43d745778418c749b43b79b3b3f3406, type: 3}
+      propertyPath: m_CharacterValidation
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 1605498429, guid: b43d745778418c749b43b79b3b3f3406, type: 3}

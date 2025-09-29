@@ -150,15 +150,15 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5980990895164369477, guid: e80178b1921fb334c8ade4073a6bf4df, type: 3}
       propertyPath: m_ContentType
-      value: 2
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 5980990895164369477, guid: e80178b1921fb334c8ade4073a6bf4df, type: 3}
       propertyPath: m_KeyboardType
-      value: 4
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 5980990895164369477, guid: e80178b1921fb334c8ade4073a6bf4df, type: 3}
       propertyPath: m_CharacterValidation
-      value: 2
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 5980990895164369477, guid: e80178b1921fb334c8ade4073a6bf4df, type: 3}
       propertyPath: m_OnEndEdit.m_PersistentCalls.m_Calls.Array.data[0].m_Target

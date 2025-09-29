@@ -1,5 +1,6 @@
 using TMPro;
 using UnityEngine;
+using JANOARG.Chartmaker.Utils.Math;
 
 namespace JANOARG.Chartmaker.UI.Form.FormTypes
 {
@@ -24,10 +25,10 @@ namespace JANOARG.Chartmaker.UI.Form.FormTypes
     
         public void SetValue(int index, string value)
         {
-            if (!float.TryParse(value, out float v)) 
+            if (!ExpressionUtils.TryEvaluate(value, out float result))
                 return;
 
-            CurrentValue[index] = v;
+            CurrentValue[index] = result;
             SetValue(CurrentValue);
         }
         public void SetX(string value) => SetValue(0, value);

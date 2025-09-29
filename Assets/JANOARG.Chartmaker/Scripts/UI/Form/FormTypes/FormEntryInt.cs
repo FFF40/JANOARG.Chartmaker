@@ -1,3 +1,5 @@
+
+using JANOARG.Chartmaker.Utils.Math;
 using TMPro;
 
 namespace JANOARG.Chartmaker.UI.Form.FormTypes
@@ -14,11 +16,13 @@ namespace JANOARG.Chartmaker.UI.Form.FormTypes
 
         public void Reset() 
             => Field.SetTextWithoutNotify(CurrentValue.ToString());
-    
+
         public void SetValue(string value)
         {
-            if (int.TryParse(value, out int v)) 
-                SetValue(v);
+            if (ExpressionUtils.TryEvaluate(value, out int result))
+            {
+                SetValue(result);
+            }
         }
     }
 }
