@@ -6,6 +6,8 @@ using JANOARG.Chartmaker.Data.Chartmaker.Actions;
 using JANOARG.Chartmaker.UI;
 using JANOARG.Chartmaker.UI.ContextMenu;
 using JANOARG.Chartmaker.UI.Cursor;
+using JANOARG.Chartmaker.UI.Modal;
+using JANOARG.Chartmaker.UI.Modal.ModalTypes;
 using JANOARG.Chartmaker.UI.NativeUI;
 using JANOARG.Shared.Data.ChartInfo;
 using JANOARG.Chartmaker.Utils;
@@ -372,8 +374,13 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
         {
             static string KeyOf(string id) => KeyboardHandler.main.Keybindings[id].Keybind.ToString();
 
+            UnityEngine.Debug.Log("Right Click Select " + item.Target + " " + holder.Target);;;
+            
+            ContextMenuListSublist addHierarchyList = new ContextMenuListSublist("New", GetItems(item.Target));
+            
             InspectorPanel.main.SetObject(item.Target);
             ContextMenuHolder.main.OpenRoot(new ContextMenuList(
+                addHierarchyList,
                 new ContextMenuListAction("Cut", Chartmaker.main.Cut, KeyOf("ED:Cut"), 
                     icon: "Cut", _enabled: Chartmaker.main.CanCopy()),
                 new ContextMenuListAction("Copy", Chartmaker.main.Copy, KeyOf("ED:Copy"), 
@@ -389,6 +396,135 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                 new ContextMenuListAction("Expand Recursively", () => {ExpandRecursively(item); UpdateHolders(); },
                     _enabled: item.Children.Count > 0)
             ), (RectTransform)holder.transform, ContextMenuDirection.Cursor);
+
+            ContextMenuListItem[] GetItems(object itemType)
+            {
+                Chart chart = Chartmaker.main.CurrentChart;
+                PlayableSong song = Chartmaker.main.CurrentSong;
+                switch (itemType)
+                {
+                    case LaneStyle:
+                    case HitStyle:
+                    case Palette:
+                        return new ContextMenuListItem[]
+                        {
+                            new ContextMenuListAction("Lane Style", () =>
+                            {
+                                LaneStyle target;
+
+                                if (chart.Palette.LaneStyles.Count > 0)
+                                    target = chart.Palette.LaneStyles[0];
+                                else
+                                    target = new LaneStyle()
+                                    {
+                                        LaneColor = song.InterfaceColor * new Color(1, 1, 1, .35f),
+                                        JudgeColor = song.InterfaceColor,
+                                    };
+
+                                target = InspectorPanel.main.CurrentObject switch
+                                {
+                                    LaneStyle laneStyle => laneStyle,
+                                    _ => target
+                                };
+
+                                Chartmaker.main.AddItem(target.DeepClone());
+                            }),
+                            
+                            new ContextMenuListAction("Hit Style", () =>
+                            {
+                                HitStyle target;
+
+                                if (chart.Palette.HitStyles.Count > 0)
+                                    target = chart.Palette.HitStyles[0];
+                                else
+                                    target = new HitStyle()
+                                    {
+                                        NormalColor = song.InterfaceColor,
+                                        CatchColor = Color.Lerp(song.InterfaceColor, song.BackgroundColor, .35f),
+                                        HoldTailColor = song.InterfaceColor * new Color(1, 1, 1, .35f),
+                                    };
+
+                                target = InspectorPanel.main.CurrentObject switch
+                                {
+                                    HitStyle hitStyle => hitStyle,
+                                    _ => target
+                                };
+
+                                Chartmaker.main.AddItem(target.DeepClone());
+                            }),
+                        };
+                    
+                    case PlayableSong:
+                    case Cover:
+                        return new ContextMenuListItem[]
+                        {
+                            new ContextMenuListAction("Cover Layer", () => ModalHolder.main.Spawn<NewCoverLayerModal>()),
+                        };
+                    
+                    case HierarchyItemType.World:
+                    case Lane:
+                    case LaneGroup:
+                        return new ContextMenuListItem[]
+                        {
+                            new ContextMenuListAction("Lane", () =>
+                            {
+                                string group = InspectorPanel.main.CurrentObject switch
+                                {
+                                    Lane laneCurrentObject => laneCurrentObject.Group,
+                                    LaneGroup laneGroupCurrentObject => laneGroupCurrentObject.Group,
+                                    _ => ""
+                                };
+
+                                Lane lane = new Lane
+                                {
+                                    Position = new(0, -4, 0),
+                                    Group = group,
+                                };
+
+                                lane.LaneSteps.Add(new LaneStep
+                                {
+                                    StartPointPosition = new(-8, 0),
+                                    EndPointPosition = new(8, 0),
+                                    Offset = (BeatPosition)InformationBar.main.beat
+                                });
+
+                                lane.LaneSteps.Add(new LaneStep
+                                {
+                                    StartPointPosition = new(-8, 0),
+                                    EndPointPosition = new(8, 0),
+                                    Offset = (BeatPosition)(InformationBar.main.beat + 1),
+                                });
+
+                                Chartmaker.main.AddItem(lane);
+                            }),
+                            new ContextMenuListAction("Lane Group", () =>
+                            {
+                                string parent = InspectorPanel.main.CurrentObject switch
+                                {
+                                    Lane laneCurrentObject => laneCurrentObject.Group,
+                                    LaneGroup laneGroupCurrentObject => laneGroupCurrentObject.Group,
+                                    _ => ""
+                                };
+
+                                LaneGroup group = new LaneGroup {
+                                    Group = parent,
+                                    Name = InspectorPanel.main.GetNewGroupName("Group 1"),
+                                };
+                                Chartmaker.main.AddItem(group);
+                            }),
+                        };
+                    
+                    case HierarchyItemType.Chart:
+                    case HierarchyItemType.Camera:
+                    default:
+                        return new ContextMenuListItem[]
+                        {
+                            new ContextMenuListAction("None...", () => { }, _enabled:false)
+                        };
+                }
+
+                return null;
+            }
         }
 
         public void RenameCurrent() 
