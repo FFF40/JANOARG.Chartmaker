@@ -32,7 +32,6 @@ RectTransform:
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 1966310934}
-  m_RootOrder: -1
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 1}
@@ -123,7 +122,6 @@ RectTransform:
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 1966310934}
-  m_RootOrder: -1
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 180}
   m_AnchorMin: {x: 1, y: 0.5}
   m_AnchorMax: {x: 1, y: 0.5}
@@ -215,7 +213,6 @@ RectTransform:
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 1966310934}
-  m_RootOrder: -1
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 1}
@@ -390,7 +387,6 @@ RectTransform:
   - {fileID: 1398660333}
   - {fileID: 1353241705}
   m_Father: {fileID: 6300442380277335714}
-  m_RootOrder: -1
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 0, y: 0}
@@ -702,7 +698,7 @@ MonoBehaviour:
   Title: 
   TitleLabel: {fileID: 6300442381211443070}
   ValueLabel: {fileID: 1398660335}
-  DrowpdownButton: {fileID: 1966310938}
+  DropdownButton: {fileID: 1966310938}
 --- !u!114 &6300442381211443070 stripped
 MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 2280818152069346852, guid: dee69d5ed7562b04ebea71d2381a0385, type: 3}

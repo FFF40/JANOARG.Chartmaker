@@ -34,6 +34,11 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
         [Space]
         public RectTransform FormHolder;
         public VerticalLayoutGroup FormHolderLayout;
+        public RectTransform FormCompoundField;
+        [Space]
+        public RectTransform VisualizerHolder;
+        public RectTransform VisualizerScreenArea;
+        public RectTransform VisualizerSafeArea;
 
         [Space]
         public RectTransform FFmpegFieldHolder;
@@ -53,7 +58,7 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
         Process FFmpegProcess;
 
         // I'm not gonna make 3 different enums for this
-        enum MediaFormats
+        enum MediaFormat
         {
             // File Formats
             mp4,
@@ -81,296 +86,314 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
 
         struct RenderFormatItem
         {
-            public MediaFormats Tag;
+            public MediaFormat Format;
             public string FfmpegArg;
             public string Description;
-            public MediaFormats[] Compatibility;
+            public MediaFormat[] Compatibility;
         }
         
-        private readonly Dictionary<string, string> _formatDisplayNames = new Dictionary<string, string>
+        private readonly Dictionary<MediaFormat, string> _formatDisplayNames = new()
         {
-            { "mp4",  "MP4 Video"             },
-            { "webm", "WebM Video"            },
-            { "mkv",  "Matroska Video (mkv)"  },
-            { "mov",  "QuickTime Movie (mov)" },
-            { "flv",  "Flash Video (flv)"     }
+            { MediaFormat.mp4,    "MP4 (.mp4)" },
+            { MediaFormat.webm,   "WebM (.webm)" },
+            { MediaFormat.mkv,    "Matroska (.mkv)" },
+            { MediaFormat.mov,    "QuickTime (.mov)" },
+            // { MediaFormat.flv,    "Flash (.flv)" },
+        };
+        private readonly Dictionary<MediaFormat, string> _encodingDisplayNames = new()
+        {
+            { MediaFormat.h264,   "H.264/AVC" },
+            { MediaFormat.h265,   "H.265/HEVC" },
+            { MediaFormat.vp8,    "VP8" },
+            { MediaFormat.vp9,    "VP9" },
+            { MediaFormat.av1,    "AV1" },
+
+            { MediaFormat.aac,    "AAC" },
+            { MediaFormat.mp3,    "MP3" },
+            { MediaFormat.vorbis, "Vorbis" },
+            { MediaFormat.opus,   "Opus" },
+            { MediaFormat.alac,   "Apple Lossless" },
+            { MediaFormat.pcm,    "PCM" },
         };
 
-        private readonly RenderFormatItem[] _VideoEncoders = 
+        private readonly RenderFormatItem[] _VideoEncoders =
         {
             // H.264
-            new() { 
-                Tag = MediaFormats.h264,
-                FfmpegArg = "h264_amf",
-                Description = "H.264/AVC (AMD)",
-                Compatibility = new[] { MediaFormats.mp4, MediaFormats.mkv, MediaFormats.mov, MediaFormats.flv }
-            },
-            new() { 
-                Tag = MediaFormats.h264,
-                FfmpegArg = "h264_nvenc",
-                Description = "H.264/AVC (NVIDIA)",
-                Compatibility = new[] { MediaFormats.mp4, MediaFormats.mkv, MediaFormats.mov, MediaFormats.flv }
-            },
-            new() { 
-                Tag = MediaFormats.h264,
-                FfmpegArg = "h264_qsv",
-                Description = "H.264/AVC (Intel QSV)",
-                Compatibility = new[] { MediaFormats.mp4, MediaFormats.mkv, MediaFormats.mov, MediaFormats.flv }
-            },
-            new() { 
-                Tag = MediaFormats.h264,
-                FfmpegArg = "h264_vulkan",
-                Description = "H.264/AVC (Vulkan)",
-                Compatibility = new[] { MediaFormats.mp4, MediaFormats.mkv, MediaFormats.mov }
-            },
-            new() { 
-                Tag = MediaFormats.h264,
-                FfmpegArg = "h264_vaapi",
-                Description = "H.264/AVC (VA-API)",
-                Compatibility = new[] { MediaFormats.mp4, MediaFormats.mkv, MediaFormats.mov }
-            },
-            new() { 
-                Tag = MediaFormats.h264,
+            new() {
+                Format = MediaFormat.h264,
                 FfmpegArg = "libx264",
-                Description = "H.264/AVC (Software)",
-                Compatibility = new[] { MediaFormats.mp4, MediaFormats.mkv, MediaFormats.mov, MediaFormats.flv }
+                Description = "Software",
+                Compatibility = new[] { MediaFormat.mp4, MediaFormat.mkv, MediaFormat.mov, MediaFormat.flv }
             },
-            new() { 
-                Tag = MediaFormats.h264,
+            new() {
+                Format = MediaFormat.h264,
+                FfmpegArg = "h264_amf",
+                Description = "AMD",
+                Compatibility = new[] { MediaFormat.mp4, MediaFormat.mkv, MediaFormat.mov, MediaFormat.flv }
+            },
+            new() {
+                Format = MediaFormat.h264,
+                FfmpegArg = "h264_nvenc",
+                Description = "NVIDIA",
+                Compatibility = new[] { MediaFormat.mp4, MediaFormat.mkv, MediaFormat.mov, MediaFormat.flv }
+            },
+            new() {
+                Format = MediaFormat.h264,
+                FfmpegArg = "h264_qsv",
+                Description = "Intel QSV",
+                Compatibility = new[] { MediaFormat.mp4, MediaFormat.mkv, MediaFormat.mov, MediaFormat.flv }
+            },
+            new() {
+                Format = MediaFormat.h264,
+                FfmpegArg = "h264_vulkan",
+                Description = "Vulkan",
+                Compatibility = new[] { MediaFormat.mp4, MediaFormat.mkv, MediaFormat.mov }
+            },
+            new() {
+                Format = MediaFormat.h264,
+                FfmpegArg = "h264_vaapi",
+                Description = "VA-API",
+                Compatibility = new[] { MediaFormat.mp4, MediaFormat.mkv, MediaFormat.mov }
+            },
+            new() {
+                Format = MediaFormat.h264,
                 FfmpegArg = "h264",
-                Description = "H.264/AVC (Legacy)",
-                Compatibility = new[] { MediaFormats.mp4, MediaFormats.mkv, MediaFormats.mov, MediaFormats.flv }
+                Description = "Legacy",
+                Compatibility = new[] { MediaFormat.mp4, MediaFormat.mkv, MediaFormat.mov, MediaFormat.flv }
             },
 
             // H.265
-            new() { 
-                Tag = MediaFormats.h265,
-                FfmpegArg = "hevc_amf",
-                Description = "H.265/HEVC (AMD)",
-                Compatibility = new[] { MediaFormats.mp4, MediaFormats.mkv, MediaFormats.mov }
-            },
-            new() { 
-                Tag = MediaFormats.h265,
-                FfmpegArg = "hevc_nvenc",
-                Description = "H.265/HEVC (NVIDIA)",
-                Compatibility = new[] { MediaFormats.mp4, MediaFormats.mkv, MediaFormats.mov }
-            },
-            new() { 
-                Tag = MediaFormats.h265,
-                FfmpegArg = "hevc_qsv",
-                Description = "H.265/HEVC (Intel QSV)",
-                Compatibility = new[] { MediaFormats.mp4, MediaFormats.mkv, MediaFormats.mov }
-            },
-            new() { 
-                Tag = MediaFormats.h265,
+            new() {
+                Format = MediaFormat.h265,
                 FfmpegArg = "libx265",
-                Description = "H.265/HEVC (Software)",
-                Compatibility = new[] { MediaFormats.mp4, MediaFormats.mkv, MediaFormats.mov }
+                Description = "Software",
+                Compatibility = new[] { MediaFormat.mp4, MediaFormat.mkv, MediaFormat.mov }
+            },
+            new() {
+                Format = MediaFormat.h265,
+                FfmpegArg = "hevc_amf",
+                Description = "AMD",
+                Compatibility = new[] { MediaFormat.mp4, MediaFormat.mkv, MediaFormat.mov }
+            },
+            new() {
+                Format = MediaFormat.h265,
+                FfmpegArg = "hevc_nvenc",
+                Description = "NVIDIA",
+                Compatibility = new[] { MediaFormat.mp4, MediaFormat.mkv, MediaFormat.mov }
+            },
+            new() {
+                Format = MediaFormat.h265,
+                FfmpegArg = "hevc_qsv",
+                Description = "Intel QSV",
+                Compatibility = new[] { MediaFormat.mp4, MediaFormat.mkv, MediaFormat.mov }
             },
 
             // VPX
-            new() { 
-                Tag = MediaFormats.vp8,
-                FfmpegArg = "vp8_vaapi",
-                Description = "VP8 (VA-API)",
-                Compatibility = new[] { MediaFormats.webm, MediaFormats.mkv }
-            },
-            new() { 
-                Tag = MediaFormats.vp8,
+            new() {
+                Format = MediaFormat.vp8,
                 FfmpegArg = "libvpx",
-                Description = "VP8 (Software)",
-                Compatibility = new[] { MediaFormats.webm, MediaFormats.mkv }
+                Description = "Software",
+                Compatibility = new[] { MediaFormat.webm, MediaFormat.mkv }
             },
-            new() { 
-                Tag = MediaFormats.vp8,
+            new() {
+                Format = MediaFormat.vp8,
+                FfmpegArg = "vp8_vaapi",
+                Description = "VA-API",
+                Compatibility = new[] { MediaFormat.webm, MediaFormat.mkv }
+            },
+            new() {
+                Format = MediaFormat.vp8,
                 FfmpegArg = "vp8",
-                Description = "VP8 (Legacy)",
-                Compatibility = new[] { MediaFormats.webm, MediaFormats.mkv }
+                Description = "Legacy",
+                Compatibility = new[] { MediaFormat.webm, MediaFormat.mkv }
             },
 
-            new() { 
-                Tag = MediaFormats.vp9,
-                FfmpegArg = "vp9_vaapi",
-                Description = "VP9 (VA-API)",
-                Compatibility = new[] { MediaFormats.webm, MediaFormats.mkv }
-            },
-            new() { 
-                Tag = MediaFormats.vp9,
-                FfmpegArg = "vp9_qsv",
-                Description = "VP9 (Intel QSV)",
-                Compatibility = new[] { MediaFormats.webm, MediaFormats.mkv }
-            },
-            new() { 
-                Tag = MediaFormats.vp9,
+            new() {
+                Format = MediaFormat.vp9,
                 FfmpegArg = "libvpx-vp9",
-                Description = "VP9 (Software)",
-                Compatibility = new[] { MediaFormats.webm, MediaFormats.mkv }
+                Description = "Software",
+                Compatibility = new[] { MediaFormat.webm, MediaFormat.mkv }
             },
-            new() { 
-                Tag = MediaFormats.vp9,
+            new() {
+                Format = MediaFormat.vp9,
+                FfmpegArg = "vp9_vaapi",
+                Description = "VA-API",
+                Compatibility = new[] { MediaFormat.webm, MediaFormat.mkv }
+            },
+            new() {
+                Format = MediaFormat.vp9,
+                FfmpegArg = "vp9_qsv",
+                Description = "Intel QSV",
+                Compatibility = new[] { MediaFormat.webm, MediaFormat.mkv }
+            },
+            new() {
+                Format = MediaFormat.vp9,
                 FfmpegArg = "vp9",
-                Description = "VP9 (Legacy)",
-                Compatibility = new[] { MediaFormats.webm, MediaFormats.mkv }
+                Description = "Legacy",
+                Compatibility = new[] { MediaFormat.webm, MediaFormat.mkv }
             },
 
             // AV1
-            new() { 
-                Tag = MediaFormats.av1,
+            new() {
+                Format = MediaFormat.av1,
                 FfmpegArg = "libaom-av1",
-                Description = "AV1 (AOMedia)",
-                Compatibility = new[] { MediaFormats.webm, MediaFormats.mkv }
+                Description = "AOMedia",
+                Compatibility = new[] { MediaFormat.webm, MediaFormat.mkv }
             },
-            new() { 
-                Tag = MediaFormats.av1,
+            new() {
+                Format = MediaFormat.av1,
                 FfmpegArg = "librav1e",
-                Description = "AV1 (rav1e)",
-                Compatibility = new[] { MediaFormats.webm, MediaFormats.mkv }
+                Description = "rav1e",
+                Compatibility = new[] { MediaFormat.webm, MediaFormat.mkv }
             },
-            new() { 
-                Tag = MediaFormats.av1,
+            new() {
+                Format = MediaFormat.av1,
                 FfmpegArg = "libsvtav1",
-                Description = "AV1 (SVT)",
-                Compatibility = new[] { MediaFormats.webm, MediaFormats.mkv }
+                Description = "SVT",
+                Compatibility = new[] { MediaFormat.webm, MediaFormat.mkv }
             },
-            new() { 
-                Tag = MediaFormats.av1,
+            new() {
+                Format = MediaFormat.av1,
                 FfmpegArg = "av1_nvenc",
-                Description = "AV1 (NVIDIA)",
-                Compatibility = new[] { MediaFormats.webm, MediaFormats.mkv }
+                Description = "NVIDIA",
+                Compatibility = new[] { MediaFormat.webm, MediaFormat.mkv }
             },
-            new() { 
-                Tag = MediaFormats.av1,
+            new() {
+                Format = MediaFormat.av1,
                 FfmpegArg = "av1_qsv",
-                Description = "AV1 (Intel QSV)",
-                Compatibility = new[] { MediaFormats.webm, MediaFormats.mkv }
+                Description = "Intel QSV",
+                Compatibility = new[] { MediaFormat.webm, MediaFormat.mkv }
             },
-            new() { 
-                Tag = MediaFormats.av1,
+            new() {
+                Format = MediaFormat.av1,
                 FfmpegArg = "av1_amf",
-                Description = "AV1 (AMD)",
-                Compatibility = new[] { MediaFormats.webm, MediaFormats.mkv }
+                Description = "AMD",
+                Compatibility = new[] { MediaFormat.webm, MediaFormat.mkv }
             },
-            new() { 
-                Tag = MediaFormats.av1,
+            new() {
+                Format = MediaFormat.av1,
                 FfmpegArg = "av1_vaapi",
-                Description = "AV1 (VA-API)",
-                Compatibility = new[] { MediaFormats.webm, MediaFormats.mkv }
+                Description = "VA-API",
+                Compatibility = new[] { MediaFormat.webm, MediaFormat.mkv }
             }
         };
 
         
         private readonly RenderFormatItem[] _AudioEncoders = 
         {
+            // AAC
             new() {
-                Tag = MediaFormats.aac,
+                Format = MediaFormat.aac,
                 FfmpegArg = "aac",
-                Description = "AAC",
-                Compatibility = new[] { MediaFormats.mp4, MediaFormats.mov, MediaFormats.mkv }
+                Description = "Software",
+                Compatibility = new[] { MediaFormat.mp4, MediaFormat.mov, MediaFormat.mkv }
             },
+
+            // MPEG
             new() {
-                Tag = MediaFormats.mp3,
+                Format = MediaFormat.mp3,
                 FfmpegArg = "mp3",
-                Description = "MP3",
-                Compatibility = new[] { MediaFormats.mp4, MediaFormats.mkv }
+                Description = "Software",
+                Compatibility = new[] { MediaFormat.mp4, MediaFormat.mkv }
             },
             
             // Opus
             new() {
-                Tag = MediaFormats.opus,
+                Format = MediaFormat.opus,
                 FfmpegArg = "libopus",
-                Description = "Opus Audio",
-                Compatibility = new[] { MediaFormats.webm, MediaFormats.mkv }
+                Description = "Software",
+                Compatibility = new[] { MediaFormat.webm, MediaFormat.mkv }
             },
             new() {
-                Tag = MediaFormats.opus,
+                Format = MediaFormat.opus,
                 FfmpegArg = "opus",
-                Description = "Opus Audio (Legacy)",
-                Compatibility = new[] { MediaFormats.webm, MediaFormats.mkv }
+                Description = "Legacy",
+                Compatibility = new[] { MediaFormat.webm, MediaFormat.mkv }
             },
             
             // Vorbis
             new() {
-                Tag = MediaFormats.vorbis,
+                Format = MediaFormat.vorbis,
                 FfmpegArg = "libvorbis",
-                Description = "Vorbis Audio",
-                Compatibility = new[] { MediaFormats.webm, MediaFormats.mkv }
+                Description = "Software",
+                Compatibility = new[] { MediaFormat.webm, MediaFormat.mkv }
             },
             new() {
-                Tag = MediaFormats.vorbis,
+                Format = MediaFormat.vorbis,
                 FfmpegArg = "vorbis",
-                Description = "Vorbis Audio (Legacy)",
-                Compatibility = new[] { MediaFormats.webm, MediaFormats.mkv }
+                Description = "Legacy",
+                Compatibility = new[] { MediaFormat.webm, MediaFormat.mkv }
             },
             
             // Apple
             new() {
-                Tag = MediaFormats.alac,
+                Format = MediaFormat.alac,
                 FfmpegArg = "alac",
-                Description = "Apple Lossless Audio",
-                Compatibility = new[] { MediaFormats.mov, MediaFormats.mp4 }
+                Description = "Software",
+                Compatibility = new[] { MediaFormat.mov, MediaFormat.mp4 }
             },
             
             // PCM variants
             new() {
-                Tag = MediaFormats.pcm,
-                FfmpegArg = "pcm_s16le",
-                Description = "PCM 16-bit Signed Little Endian",
-                Compatibility = new[] { MediaFormats.mkv, MediaFormats.mov }
-            },
-            new() {
-                Tag = MediaFormats.pcm,
-                FfmpegArg = "pcm_s24le",
-                Description = "PCM 24-bit Signed Little Endian",
-                Compatibility = new[] { MediaFormats.mkv, MediaFormats.mov }
-            },
-            new() {
-                Tag = MediaFormats.pcm,
-                FfmpegArg = "pcm_s32le",
-                Description = "PCM 32-bit Signed Little Endian",
-                Compatibility = new[] { MediaFormats.mkv, MediaFormats.mov }
-            },
-            new() {
-                Tag = MediaFormats.pcm,
-                FfmpegArg = "pcm_s64le",
-                Description = "PCM 64-bit Signed Little Endian",
-                Compatibility = new[] { MediaFormats.mkv }
-            },
-            new() {
-                Tag = MediaFormats.pcm,
+                Format = MediaFormat.pcm,
                 FfmpegArg = "pcm_s8",
-                Description = "PCM 8-bit Signed",
-                Compatibility = new[] { MediaFormats.mkv, MediaFormats.mov }
+                Description = "8-bit Signed",
+                Compatibility = new[] { MediaFormat.mkv, MediaFormat.mov }
             },
             new() {
-                Tag = MediaFormats.pcm,
+                Format = MediaFormat.pcm,
+                FfmpegArg = "pcm_s16le",
+                Description = "16-bit Signed Little Endian",
+                Compatibility = new[] { MediaFormat.mkv, MediaFormat.mov }
+            },
+            new() {
+                Format = MediaFormat.pcm,
+                FfmpegArg = "pcm_s24le",
+                Description = "24-bit Signed Little Endian",
+                Compatibility = new[] { MediaFormat.mkv, MediaFormat.mov }
+            },
+            new() {
+                Format = MediaFormat.pcm,
+                FfmpegArg = "pcm_s32le",
+                Description = "32-bit Signed Little Endian",
+                Compatibility = new[] { MediaFormat.mkv, MediaFormat.mov }
+            },
+            new() {
+                Format = MediaFormat.pcm,
+                FfmpegArg = "pcm_s64le",
+                Description = "64-bit Signed Little Endian",
+                Compatibility = new[] { MediaFormat.mkv }
+            },
+            new() {
+                Format = MediaFormat.pcm,
                 FfmpegArg = "pcm_vidc",
-                Description = "PCM Archimedes VIDC",
-                Compatibility = new[] { MediaFormats.mkv }
+                Description = "Archimedes VIDC",
+                Compatibility = new[] { MediaFormat.mkv }
             },
             new() {
-                Tag = MediaFormats.pcm,
+                Format = MediaFormat.pcm,
                 FfmpegArg = "pcm_alaw",
-                Description = "PCM A-law",
-                Compatibility = new[] { MediaFormats.mkv }
+                Description = "A-law",
+                Compatibility = new[] { MediaFormat.mkv }
             },
             new() {
-                Tag = MediaFormats.pcm,
+                Format = MediaFormat.pcm,
                 FfmpegArg = "pcm_mulaw",
-                Description = "PCM Mu-law",
-                Compatibility = new[] { MediaFormats.mkv }
+                Description = "Mu-law",
+                Compatibility = new[] { MediaFormat.mkv }
             }
         };
 
         private Camera _Camera;
 
 
-        Vector2 GetCRFRange(MediaFormats format) => format switch
+        Vector2 GetCRFRange(MediaFormat format) => format switch
         {
             // x/h.264 typical range
-            MediaFormats.h264  => new Vector2(51, 18), 
-            MediaFormats.h265  => new Vector2(51, 18), 
-            MediaFormats.vp8   => new Vector2(63, 4), 
-            MediaFormats.vp9   => new Vector2(63, 4), 
+            MediaFormat.h264  => new Vector2(51, 18), 
+            MediaFormat.h265  => new Vector2(51, 18), 
+            MediaFormat.vp8   => new Vector2(63, 4), 
+            MediaFormat.vp9   => new Vector2(63, 4), 
             _ => new Vector2(63, 0), 
         };
         
@@ -412,8 +435,8 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
 
             CustomiseFFmpegDisclaimer();
 
-            TimeRange = new (-5, Behaviors.Chartmaker.Chartmaker.main.CurrentSong.Clip.length + 5);
-            if (!String.IsNullOrWhiteSpace(Prefs.FFmpegPath)) 
+            TimeRange = new(-5, Behaviors.Chartmaker.Chartmaker.main.CurrentSong.Clip.length + 5);
+            if (!String.IsNullOrWhiteSpace(Prefs.FFmpegPath))
                 CheckFFmpeg();
 
             InitForm();
@@ -445,14 +468,33 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
             }
         }
 
+        public void UpdateResolutionVisualizer()
+        {
+            Vector2 size = VisualizerHolder.rect.size;
+            size -= Vector2.one * 20;
+            float ratio = size.x / size.y;
+
+            float screenRatio = Prefs.Resolution.x / (float)Prefs.Resolution.y;
+            if (ratio > screenRatio) size.x = size.y * screenRatio; // x > y
+            else size.y = size.x / screenRatio; // y > x
+            VisualizerScreenArea.sizeDelta = size;
+
+            float safeRatio = 7 / 4f;
+            ratio = size.x / size.y;
+            if (ratio > safeRatio) size.x = size.y * safeRatio; // x > y
+            else size.y = size.x / safeRatio; // y > x
+            VisualizerSafeArea.sizeDelta = size;
+        }
+
         public void InitForm()
         {
             var ffmpeg = Formmaker.main.Spawn<FormEntryFile, string>(
                 FFmpegFieldHolder,
-                "FFmpeg Path", () => Prefs.FFmpegPath, x => {
+                "FFmpeg Path", () => Prefs.FFmpegPath, x =>
+                {
                     Prefs.FFmpegPath = x;
                     PrefsDirty = true;
-                
+
                     CheckFFmpeg();
                 }
             );
@@ -460,40 +502,100 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
                 new("FFmpeg executable", "exe"),
                 new("All files"),
             };
-            SpawnForm<FormEntryString, string>("Output", () => OutputPath, x => {
-                OutputPath = x; 
+            SpawnForm<FormEntryString, string>("Output", () => OutputPath, x =>
+            {
+                OutputPath = x;
             });
-            
+
             // Pre declaration for allowing dropdown item updates
-            FormEntryDropdown videoEncoderField = null; 
-            FormEntryDropdown audioEncoderField = null; 
+            FormEntryDropdown videoFormatField = null, videoEncoderField = null; 
+            FormEntryDropdown audioFormatField = null, audioEncoderField = null; 
 
             // Helper method to update encoder options
-            void UpdateEncoderOptions(FormEntryDropdown field, RenderFormatItem[] encoders)
+            void UpdateEncoderOptions(FormEntryDropdown formatField, FormEntryDropdown encoderField, RenderFormatItem[] encoders)
             {
-                if (field == null) 
-                    return;
-    
-                field.ValidValues.Clear();
-                for (int i = 0; i < encoders.Length; i++)
+                if (!formatField || !encoderField) return;
+
+                formatField.ValidValues.Clear();
+                encoderField.ValidValues.Clear();
+
+                List<RenderFormatItem> validEncoders = new();
+
+                foreach (var encoder in encoders)
                 {
-                    var encoder = encoders[i];
-                    if (encoder.Compatibility.Contains((MediaFormats)Prefs.OutputType))
-                        field.ValidValues.Add(i, encoder.Description);
+                    if (encoder.Compatibility.Contains((MediaFormat)Prefs.OutputType))
+                    {
+                        validEncoders.Add(encoder);
+                        if (!formatField.ValidValues.ContainsKey(encoder.Format))
+                        {
+                            formatField.ValidValues.Add(encoder.Format, _encodingDisplayNames[encoder.Format]);
+                        }
+                    }
                 }
+
+                if (
+                    formatField.CurrentValue == null
+                    || !formatField.ValidValues.ContainsKey(formatField.CurrentValue)
+                )
+                {
+                    int validIndex = validEncoders.FindIndex(x => x.FfmpegArg == (string)encoderField.CurrentValue);
+                    UnityEngine.Debug.Log(validIndex);
+                    if (validIndex >= 0)
+                    {
+                        formatField.CurrentValue = validEncoders[validIndex].Format;
+                    }
+                    else
+                    {
+                        formatField.CurrentValue = validEncoders[0].Format;
+                    }
+                    UnityEngine.Debug.Log(formatField.CurrentValue);
+                }
+
+                foreach (var encoder in validEncoders)
+                {
+                    if (encoder.Format == (MediaFormat)formatField.CurrentValue)
+                    {
+                        encoderField.ValidValues.Add(encoder.FfmpegArg, encoder.Description);
+                    }
+                }
+
+                if (
+                    encoderField.CurrentValue == null
+                    || !encoderField.ValidValues.ContainsKey(encoderField.CurrentValue)
+                ) {
+                    encoderField.CurrentValue = Array
+                        .Find(encoders, x => x.Format == (MediaFormat)formatField.CurrentValue)
+                        .FfmpegArg;
+                }
+
+                formatField.Reset();
+                encoderField.SetValue(encoderField.CurrentValue);
+                encoderField.Reset();
             }
 
-            
+            void MakeCompoundField(FormEntryDropdown formatField, FormEntryDropdown encoderField)
+            {
+                var holder = Instantiate(FormCompoundField, formatField.DropdownButton.transform.parent);
+                holder.gameObject.SetActive(true);
+                formatField.DropdownButton.transform.SetParent(holder);
+                encoderField.DropdownButton.transform.SetParent(holder);
+                encoderField.gameObject.SetActive(false);
+                
+            }
+
+
 
             SpawnForm<FormEntryHeader>("Time");
-            var timeField = SpawnForm<FormEntryTimeRange, Vector2>("Range (sec)", () => TimeRange, x => {
-                TimeRange = new(x.x, Mathf.Max(x.x, x.y)); 
+            var timeField = SpawnForm<FormEntryTimeRange, Vector2>("Range (sec)", () => TimeRange, x =>
+            {
+                TimeRange = new(x.x, Mathf.Max(x.x, x.y));
             });
-        
+
             var timeActions = SpawnForm<FormEntryButton>("Set Full Song");
-            timeActions.Button.onClick.AddListener(() => {
-                timeField.FieldX.text = (-5).ToString();    
-                timeField.FieldY.text = (Behaviors.Chartmaker.Chartmaker.main.CurrentSong.Clip.length + 5).ToString();    
+            timeActions.Button.onClick.AddListener(() =>
+            {
+                timeField.FieldX.text = (-5).ToString();
+                timeField.FieldY.text = (Behaviors.Chartmaker.Chartmaker.main.CurrentSong.Clip.length + 5).ToString();
             });
 
 
@@ -501,115 +603,135 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
 
             SpawnForm<FormEntryHeader>("Format");
             // Create format field
-            var formatField = SpawnForm<FormEntryDropdown, object>("File Format", () => Prefs.OutputType, x => {
-                    Prefs.OutputType = (int)x;
-                    UpdateEncoderOptions(videoEncoderField, _VideoEncoders);
-                    UpdateEncoderOptions(audioEncoderField, _AudioEncoders);
-                }
+            var formatField = SpawnForm<FormEntryDropdown, object>("File Format", () => Prefs.OutputType, x =>
+            {
+                Prefs.OutputType = (int)x;
+                UpdateEncoderOptions(videoFormatField, videoEncoderField, _VideoEncoders);
+                UpdateEncoderOptions(audioFormatField, audioEncoderField, _AudioEncoders);
+            }
             );
             // Add format options
             foreach (var (format, displayName) in _formatDisplayNames.Select((kvp, i) => (i, kvp.Value)))
             {
                 formatField.ValidValues.Add(format, displayName);
             }
-            // Create video encoder field
-            videoEncoderField = SpawnForm<FormEntryDropdown, object>("Video Encoding", () => Prefs.VideoEncoder, v => {
-                    Prefs.VideoEncoder = (int)v;
-                    UpdateEncoderOptions(audioEncoderField, _AudioEncoders);
-                }
-            );
-            UpdateEncoderOptions(videoEncoderField, _VideoEncoders);
+            
+            // Create video encoder fields
+            videoFormatField = SpawnForm<FormEntryDropdown, object>("Video Encoding", () => videoFormatField.CurrentValue, v => {
+                UpdateEncoderOptions(videoFormatField, videoEncoderField, _VideoEncoders);
+            });
+            videoEncoderField = SpawnForm<FormEntryDropdown, object>("", () => Prefs.VideoEncoder, v => {
+                if (Prefs.VideoEncoder == (string)v) return;
+                PrefsDirty = true;
+                Prefs.VideoEncoder = (string)v;
+            });
+            videoEncoderField.CurrentValue = Prefs.VideoEncoder; // Initialize valud for encoder update method;
+            MakeCompoundField(videoFormatField, videoEncoderField);
+            UpdateEncoderOptions(videoFormatField, videoEncoderField, _VideoEncoders);
+
             // Create audio encoder field
-            audioEncoderField = SpawnForm<FormEntryDropdown, object>("Audio Encoding", 
-                () => Prefs.AudioEncoder, 
-                a => Prefs.AudioEncoder = (int)a
-            );
-            UpdateEncoderOptions(audioEncoderField, _AudioEncoders);
+            audioFormatField = SpawnForm<FormEntryDropdown, object>("Audio Encoding", () => audioFormatField.CurrentValue, v => {
+                UpdateEncoderOptions(audioFormatField, audioEncoderField, _AudioEncoders);
+            });
+            audioEncoderField = SpawnForm<FormEntryDropdown, object>("", () => Prefs.AudioEncoder, v => {
+                if (Prefs.AudioEncoder == (string)v) return;
+                PrefsDirty = true;
+                Prefs.AudioEncoder = (string)v;
+            });
+            audioEncoderField.CurrentValue = Prefs.AudioEncoder; // Initialize valud for encoder update method;
+            MakeCompoundField(audioFormatField, audioEncoderField);
+            UpdateEncoderOptions(audioFormatField, audioEncoderField, _AudioEncoders);
 
 
 
             SpawnForm<FormEntryHeader>("Quality");
-            var resField = SpawnForm<FormEntryVector2, Vector2>("Resolution (px)", () => Prefs.Resolution, x => {
+            var resField = SpawnForm<FormEntryVector2, Vector2>("Resolution (px)", () => Prefs.Resolution, x =>
+            {
                 Prefs.Resolution = new((int)x.x, (int)x.y); PrefsDirty = true;
+                UpdateResolutionVisualizer();
             });
             var resActions = SpawnForm<FormEntryButton>("Resolution Presets");
             // --
             resActions.TitleLabel.text = "Asp. Ratio Presets";
             var ratioBtn = Instantiate(resActions.Button, resActions.transform);
-            ratioBtn.onClick.AddListener(() => {
-                void setRatio(float ratio) 
+            ratioBtn.onClick.AddListener(() =>
+            {
+                void setRatio(float ratio)
                 {
                     resField.FieldX.text = (Prefs.Resolution.y * ratio).ToString("0");
                 }
-            
-                ContextMenuListAction getItem(string name, float ratio) 
-                    => new (name + " (" + ratio.ToString("0.####") + ")", () => setRatio(ratio), _checked: Math.Abs(ratio - Prefs.Resolution.x / (float)Prefs.Resolution.y) < 0.001f);
+
+                ContextMenuListAction getItem(string name, float ratio)
+                    => new(name + " (" + ratio.ToString("0.####") + ")", () => setRatio(ratio), _checked: Math.Abs(ratio - Prefs.Resolution.x / (float)Prefs.Resolution.y) < 0.001f);
 
                 ContextMenuHolder.main.OpenRoot(new ContextMenuList(
-                    new ContextMenuListAction("Standard", () => {}, _enabled: false),
-                    getItem(   "5:4",       5 / 4f),
-                    getItem(   "4:3",       4 / 3f),
-                
+                    new ContextMenuListAction("Standard", () => { }, _enabled: false),
+                    getItem("5:4", 5 / 4f),
+                    getItem("4:3", 4 / 3f),
+
                     new ContextMenuListSeparator(),
-                
-                    new ContextMenuListAction("Wide", () => {}, _enabled: false),
-                    getItem(   "16:10",    16 / 10f),
-                    getItem(   "16:9",      16 / 9f),
-                
+
+                    new ContextMenuListAction("Wide", () => { }, _enabled: false),
+                    getItem("16:10", 16 / 10f),
+                    getItem("16:9", 16 / 9f),
+
                     new ContextMenuListSeparator(),
-                
-                    new ContextMenuListAction("Ultra-wide", () => {}, _enabled: false),
-                    getItem(   "256:135", 256 / 135f),
-                    getItem(   "21:9",       21 / 9f),
-                    getItem(   "64:27",     64 / 27f),
-                    getItem(   "12:5",       12 / 5f),
-                    getItem(   "32:9",       32 / 9f)
-                ), (RectTransform)ratioBtn.transform); 
+
+                    new ContextMenuListAction("Ultra-wide", () => { }, _enabled: false),
+                    getItem("256:135", 256 / 135f),
+                    getItem("21:9", 21 / 9f),
+                    getItem("64:27", 64 / 27f),
+                    getItem("12:5", 12 / 5f),
+                    getItem("32:9", 32 / 9f)
+                ), (RectTransform)ratioBtn.transform);
             });
             // --
             resActions.TitleLabel.text = "Resolution Presets";
-            resActions.Button.onClick.AddListener(() => {
-                void setRes(float res) 
+            resActions.Button.onClick.AddListener(() =>
+            {
+                void setRes(float res)
                 {
                     float ratio = Prefs.Resolution.x / (float)Prefs.Resolution.y;
                     resField.FieldX.text = (res * ratio).ToString("0");
                     resField.FieldY.text = (res).ToString("0");
                 }
-                ContextMenuListAction getItem(string name, float res) 
-                    => new (name, () => setRes(res), _checked: Prefs.Resolution.y == res);
+                ContextMenuListAction getItem(string name, float res)
+                    => new(name, () => setRes(res), _checked: Prefs.Resolution.y == res);
 
                 ContextMenuHolder.main.OpenRoot(new ContextMenuList(
-                    getItem(   "480p (SD)",       480),
-                    getItem(   "720p (HD)",       720),
-                    getItem(   "1080p (FHD)",    1080),
-                    getItem(   "1440p (QHD)",    1440),
-                    getItem(   "2160p (4K UHD)", 2160),
-                    getItem(   "2880p (5K)",     2880),
-                    getItem(   "4320p (8K UHD)", 4320)
-                ), (RectTransform)resActions.Button.transform);     
+                    getItem("480p (SD)", 480),
+                    getItem("720p (HD)", 720),
+                    getItem("1080p (FHD)", 1080),
+                    getItem("1440p (QHD)", 1440),
+                    getItem("2160p (4K UHD)", 2160),
+                    getItem("2880p (5K)", 2880),
+                    getItem("4320p (8K UHD)", 4320)
+                ), (RectTransform)resActions.Button.transform);
             });
 
-            var fpsField = SpawnForm<FormEntryFloat, float>("Frame Rate (fps)", () => Prefs.FrameRate, x => {
+            var fpsField = SpawnForm<FormEntryFloat, float>("Frame Rate (fps)", () => Prefs.FrameRate, x =>
+            {
                 Prefs.FrameRate = x; PrefsDirty = true;
             });
             var fpsPresets = SpawnForm<FormEntryButton>("Frame Rate Presets");
-            fpsPresets.Button.onClick.AddListener(() => {
-                void setFPS(float fps) 
+            fpsPresets.Button.onClick.AddListener(() =>
+            {
+                void setFPS(float fps)
                 {
                     fpsField.Field.text = fps.ToString();
                 }
-                ContextMenuListAction getItem(string name, float fps) 
-                    => new (name, () => setFPS(fps), _checked: Prefs.FrameRate == fps);
+                ContextMenuListAction getItem(string name, float fps)
+                    => new(name, () => setFPS(fps), _checked: Prefs.FrameRate == fps);
 
                 ContextMenuHolder.main.OpenRoot(new ContextMenuList(
-                    getItem(  "24fps (Film)",              24),
-                    getItem(  "25fps (PAL)",               25),
-                    getItem(  "29.97fps (NTSC)",       29.97f),
-                    getItem(  "30fps (Standard SD)",       30),
-                    getItem(  "48fps (Film HD)",           48),
-                    getItem(  "50fps (PAL HD)",            50),
-                    getItem(  "59.94fps (NTSC HD)",    59.94f),
-                    getItem(  "60fps (Standard HD)",       60)
+                    getItem("24fps (Film)", 24),
+                    getItem("25fps (PAL)", 25),
+                    getItem("29.97fps (NTSC)", 29.97f),
+                    getItem("30fps (Standard SD)", 30),
+                    getItem("48fps (Film HD)", 48),
+                    getItem("50fps (PAL HD)", 50),
+                    getItem("59.94fps (NTSC HD)", 59.94f),
+                    getItem("60fps (Standard HD)", 60)
                 ), (RectTransform)fpsPresets.Button.transform);
             });
             SpawnForm<FormEntrySpace>();
@@ -618,17 +740,17 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
             {
                 Prefs.AntiAliasing = (int)a;
             });
-            antiAliasingField.ValidValues.Add(0,      "None");
-            antiAliasingField.ValidValues.Add(2,   "2x MSAA");
-            antiAliasingField.ValidValues.Add(4,   "4x MSAA");
-            antiAliasingField.ValidValues.Add(8,   "8x MSAA");
+            antiAliasingField.ValidValues.Add(0, "None");
+            antiAliasingField.ValidValues.Add(2, "2x MSAA");
+            antiAliasingField.ValidValues.Add(4, "4x MSAA");
+            antiAliasingField.ValidValues.Add(8, "8x MSAA");
             antiAliasingField.ValidValues.Add(16, "16x MSAA");
 
             SpawnForm<FormEntrySpace>();
 
             FormEntryRange vqualField = null;
             FormEntryFloat vbitrateField = null;
-            
+
             var vOptions = SpawnForm<FormEntryBool, bool>("Adaptive Bitrate", () => Prefs.AdaptiveBitrate, o =>
             {
                 Prefs.AdaptiveBitrate = o;
@@ -646,8 +768,9 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
                         break;
                 }
             });
-            
-            vqualField = SpawnForm<FormEntryRange, float>("Video Quality", () => Prefs.VideoQuality * 100, x => {
+
+            vqualField = SpawnForm<FormEntryRange, float>("Video Quality", () => Prefs.VideoQuality * 100, x =>
+            {
                 Prefs.VideoQuality = x / 100; PrefsDirty = true;
             });
             vqualField.Range.maxValue = 100; vqualField.Range.wholeNumbers = true;
@@ -668,17 +791,20 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
                     vbitrateField.gameObject.SetActive(true);
                     break;
             }
-            
-            SpawnForm<FormEntryInt, int>("Audio Bitrate (kbps)", () => Prefs.AudioBitRate, x => {
+
+            SpawnForm<FormEntryInt, int>("Audio Bitrate (kbps)", () => Prefs.AudioBitRate, x =>
+            {
                 Prefs.AudioBitRate = x; PrefsDirty = true;
             });
 
             SpawnForm<FormEntryHeader>("Other");
-            SpawnForm<FormEntryBool, bool>("Open File on Complete", () => Prefs.OpenOnComplete, x => {
+            SpawnForm<FormEntryBool, bool>("Open File on Complete", () => Prefs.OpenOnComplete, x =>
+            {
                 Prefs.OpenOnComplete = x; PrefsDirty = true;
             });
-        
-            LayoutRebuilder.ForceRebuildLayoutImmediate(FormHolder);
+
+            LayoutRebuilder.ForceRebuildLayoutImmediate((RectTransform)transform);
+            UpdateResolutionVisualizer();
         }
 
         public void DownloadFFmpeg() 
@@ -765,12 +891,12 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
                 float camHeight = Mathf.Min(1f, 7f / 4f * resolution.x / resolution.y) * 0.9f;
                 float fov = Mathf.Atan2(Mathf.Tan(30f * Mathf.Deg2Rad), camHeight) * 2f * Mathf.Rad2Deg;
 
-                Vector2 crfRange = GetCRFRange(_VideoEncoders[Prefs.VideoEncoder].Tag);
+                Vector2 crfRange = GetCRFRange(Array.Find(_VideoEncoders, x => x.FfmpegArg == Prefs.VideoEncoder).Format);
                 int crf = Mathf.RoundToInt(Mathf.LerpUnclamped(crfRange.x, crfRange.y, Prefs.VideoQuality));
 
-                string videoFormatArg = _VideoEncoders[Prefs.VideoEncoder].FfmpegArg;
-                string audioFormatArg = _AudioEncoders[Prefs.AudioEncoder].FfmpegArg;
-                string extensionArg = ((MediaFormats)Prefs.OutputType).ToString();
+                string videoFormatArg = Prefs.VideoEncoder;
+                string audioFormatArg = Prefs.AudioEncoder;
+                string extensionArg = ((MediaFormat)Prefs.OutputType).ToString();
 
                 // Setup camera and render texture
                 int originalAntiAliasing;
@@ -1271,8 +1397,8 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
         public int        AudioBitRate = 128;
         public float      VideoBitRate = 3200;
      
-        public int VideoEncoder;
-        public int AudioEncoder;
+        public string VideoEncoder;
+        public string AudioEncoder;
         
         public bool OpenOnComplete = true;
 

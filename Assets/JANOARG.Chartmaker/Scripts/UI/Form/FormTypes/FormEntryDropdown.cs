@@ -10,7 +10,7 @@ namespace JANOARG.Chartmaker.UI.Form.FormTypes
     public class FormEntryDropdown<T> : FormEntry<T>
     {
         public TMP_Text              ValueLabel;
-        public Button                DrowpdownButton;
+        public Button                DropdownButton;
         public Dictionary<T, string> ValidValues = new ();
 
         public new void Start() 
@@ -35,7 +35,7 @@ namespace JANOARG.Chartmaker.UI.Form.FormTypes
                     _checked: item.Key.Equals(CurrentValue))
                 );
         
-            ContextMenuHolder.main.OpenRoot(list, (RectTransform)DrowpdownButton.transform);
+            ContextMenuHolder.main.OpenRoot(list, (RectTransform)DropdownButton.transform);
         }
     }
 
