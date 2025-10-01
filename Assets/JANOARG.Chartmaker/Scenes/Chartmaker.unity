@@ -53096,6 +53096,7 @@ GameObject:
   - component: {fileID: 1289606262}
   - component: {fileID: 1289606265}
   - component: {fileID: 1289606266}
+  - component: {fileID: 1289606267}
   m_Layer: 5
   m_Name: Chart Selector
   m_TagString: Untagged
@@ -53250,6 +53251,21 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_ShowMaskGraphic: 1
+--- !u!114 &1289606267
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1289606260}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8c3575a8e2f3f824ba92bd05325e044a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  Text: Change Chart...
+  Delay: 1
+  PositionMode: 0
 --- !u!1 &1290831600
 GameObject:
   m_ObjectHideFlags: 0
