@@ -346,13 +346,128 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             }
         }
 
+        private float         lastClickTime        = 0f;
+        private float         doubleClickThreshold = 0.3f; // 300ms threshold
+        private HierarchyItem lastClickedItem      = null;
+
         public void Select(HierarchyItem item) 
         {
             if (isDragging) return;
+
+            float timeSinceLastClick = Time.unscaledTime - lastClickTime;
+    
+            // Check if it's a double-click on the same item
+            if (timeSinceLastClick <= doubleClickThreshold && lastClickedItem == item)
+            {
+                OnDoubleClick(item);
+                lastClickTime = 0f; // Reset to prevent triple-click registering as another double-click
+                lastClickedItem = null;
+            }
+            else
+            {
+                // Single click
+                if (item.Target != null) InspectorPanel.main.SetObject(item.Target);
         
-            if (item.Target != null) InspectorPanel.main.SetObject(item.Target);
+                lastClickTime = Time.unscaledTime;
+                lastClickedItem = item;
+            }
         }
 
+        private void OnDoubleClick(HierarchyItem item)
+        {
+            UnityEngine.Debug.Log("Double Click " + item.Target);
+
+            float? targetTime = null;
+            object targetObject = null;
+
+            switch (item.Target)
+            {
+                case Lane lane when lane.LaneSteps == null || lane.LaneSteps.Count == 0:
+                    UnityEngine.Debug.LogWarning($"Lane {lane.Name} has no steps to seek to");
+                    return;
+                
+                case Lane lane:
+                    targetTime = Chartmaker.main.CurrentSong.Timing.ToSeconds(lane.LaneSteps[0].Offset);
+                    targetObject = item.Target;
+
+                    break;
+                
+                case LaneGroup group:
+                {
+                    Lane[] lanes = Chartmaker.main.CurrentChart.Lanes.FindAll(qLane => qLane.Group == group.Name).ToArray();
+                    float lowestSec = float.MaxValue;
+                    Lane candidateLane = null;
+                
+                    foreach (Lane childLane in lanes)
+                    {
+                        if (childLane.LaneSteps == null || childLane.LaneSteps.Count == 0)
+                            continue;
+                        float head = Chartmaker.main.CurrentSong.Timing.ToSeconds(childLane.LaneSteps[0].Offset);
+
+                        if (!(head < lowestSec)) 
+                            continue;
+
+                        lowestSec = head;
+                        candidateLane = childLane;
+                    }
+                
+                    if (candidateLane == null)
+                    {
+                        UnityEngine.Debug.LogWarning($"LaneGroup {group.Name} has no valid lanes to seek to");
+                        return;
+                    }
+                
+                    targetTime = lowestSec;
+                    targetObject = candidateLane;
+
+                    break;
+                }
+            }
+
+            // Common seeking logic
+            if (targetTime.HasValue)
+            {
+                SeekToTime(targetTime.Value, targetObject);
+            }
+        }
+
+        private void SeekToTime(float time, object inspectorTarget)
+        {
+            Chartmaker.main.SongSource.time = Mathf.Clamp(time, 0, Chartmaker.main.SongSource.clip.length);
+    
+            if (Chartmaker.main.SongSource.time == 0 && !Chartmaker.main.SongSource.isPlaying)
+            {
+                Chartmaker.main.SongSource.Play();
+                Chartmaker.main.SongSource.Pause();
+            }
+
+            InspectorPanel.main.SetObject(inspectorTarget);
+    
+            float viewWidth = TimelinePanel.main.PeekRange.y - TimelinePanel.main.PeekRange.x;
+            float newStart = time - (viewWidth / 2f);
+            float offset = newStart - TimelinePanel.main.PeekRange.x;
+            offset = Mathf.Clamp(
+                offset,
+                TimelinePanel.main.PeekLimit.x - TimelinePanel.main.PeekRange.x,
+                TimelinePanel.main.PeekLimit.y - TimelinePanel.main.PeekRange.y
+            );
+
+            TimelinePanel.main.PeekRange.x += offset;
+            TimelinePanel.main.PeekRange.y += offset;
+            TimelinePanel.main.UpdateTimeline(true);
+    
+            // Force update on next frame
+            StartCoroutine(UpdatePlayerViewNextFrame());
+    
+            UnityEngine.Debug.Log($"Seeked to {time:F2}s");
+        }
+
+        private IEnumerator UpdatePlayerViewNextFrame()
+        {
+            yield return null; // Wait one frame
+            PlayerView.main.Update();
+        }
+        
         public void SelectAdjacent(int direction)
         {
             if (isDragging) return;

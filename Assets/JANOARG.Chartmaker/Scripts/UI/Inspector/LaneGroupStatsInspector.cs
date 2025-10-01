@@ -130,35 +130,35 @@ namespace JANOARG.Chartmaker.UI.Inspector
             // Count direct child lanes
             foreach (var lane in chart.Lanes)
             {
-                if (lane.Group == groupName)
+                if (lane.Group != groupName) 
+                    continue;
+
+                totalLanes++;
+                totalHitObjects += lane.Objects.Count;
+                foreach (var obj in lane.Objects)
                 {
-                    totalLanes++;
-                    totalHitObjects += lane.Objects.Count;
-                    foreach (var obj in lane.Objects)
+                    switch (obj.Type)
                     {
-                        switch (obj.Type)
-                        {
-                            case HitObject.HitType.Normal:
-                                taps++;
+                        case HitObject.HitType.Normal:
+                            taps++;
 
-                                break;
-                            case HitObject.HitType.Catch:
-                                catches++;
+                            break;
+                        case HitObject.HitType.Catch:
+                            catches++;
 
-                                break;
-                        }
-    
-                        if (obj.Flickable)
-                        {
-                            if (float.IsFinite(obj.FlickDirection))
-                                directionalFlickables++;
-                            else
-                                omniFlickables++;
-                        }
-    
-                        if (obj.Length > 0)
-                            holds++;
+                            break;
                     }
+    
+                    if (obj.Flickable)
+                    {
+                        if (float.IsFinite(obj.FlickDirection))
+                            directionalFlickables++;
+                        else
+                            omniFlickables++;
+                    }
+    
+                    if (obj.Length > 0)
+                        holds++;
                 }
             }
     

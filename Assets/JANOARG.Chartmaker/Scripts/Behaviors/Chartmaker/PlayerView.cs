@@ -170,7 +170,7 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                         pos:   InformationBar.main.beat
                     );
                 else 
-                    Manager.Update(InformationBar.main.sec, InformationBar.main.beat);
+                    Manager!.Update(InformationBar.main.sec, InformationBar.main.beat);
             
                 MainCamera.transform.position = Manager.Camera.CameraPivot;
                 MainCamera.transform.eulerAngles = Manager.Camera.CameraRotation; 
