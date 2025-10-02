@@ -28,7 +28,8 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
         public HierarchyMode CurrentMode;
         public RectTransform PanelHolder;
         [Space]
-        public GameObject HierarchyTab;
+        public Button HierarchyTabButton;
+        public Button CollapserButton;
         [Space]
         public Sprite[] Icons;
         [Space]
@@ -692,10 +693,10 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
     
         public void ResizeHierarchy(float width, bool snap = true)
         {
-            if (snap) width = width < 142 ? 42 : 242;
-            else width = Mathf.Clamp(Mathf.Floor(width), 42, 242);
+            if (snap) width = width < 168 ? 68 : 268;
+            else width = Mathf.Clamp(Mathf.Floor(width), 68, 268);
 
-            PanelHolder.anchoredPosition = new(width - 200, PanelHolder.anchoredPosition.y);
+            PanelHolder.anchoredPosition = new(width - 226, PanelHolder.anchoredPosition.y);
             Chartmaker.main.PlayerViewHolder.anchoredPosition = new(
                 width, 
                 Chartmaker.main.PlayerViewHolder.anchoredPosition.y
@@ -708,23 +709,22 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             PlayerView.main.Update();
             PlayerView.main.UpdateObjects();
 
-            if (snap) 
+            if (snap)
             {
-                IsCollapsed = width < 141;
+                IsCollapsed = width < 168;
+                HierarchyTabButton.interactable = IsCollapsed;
+                CollapserButton.gameObject.SetActive(!IsCollapsed);
             }
         }
     
         public void Collapse()
         {
             ResizeHierarchy(0, true);
-            HierarchyTab.SetActive(true);
         }
     
         public void Restore()
         {
             ResizeHierarchy(240, true);
-            HierarchyTab.SetActive(false);
-            PlayerView.main.IsMaximised = false;
         }
 
         // -------------------------------------------------- Dragging

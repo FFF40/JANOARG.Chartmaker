@@ -132,7 +132,7 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
         public ContextMenuList GetViewMenu()
         {
             return new ContextMenuList(
-                new ContextMenuListAction("Maximise Player View", () =>
+                new ContextMenuListAction("Maximize Player View", () =>
                 {
                     if (PlayerView.main.IsMaximised)
                     {
