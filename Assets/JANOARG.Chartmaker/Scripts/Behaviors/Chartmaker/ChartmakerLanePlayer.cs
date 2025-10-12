@@ -31,19 +31,22 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             Renderer.enabled = index >= 0 && index < styles.Count;
         
             Renderer.sharedMaterial = Renderer.enabled ? styles[index].LaneMaterial : null;
-        
-            Filter.sharedMesh = Renderer.enabled ? lane.CurrentMesh : null;
+
+            if (PlayerView.main.MainCamera.activeTexture || !Collider.enabled)
+                Collider.sharedMesh = null;
+            
+            Filter.sharedMesh = Renderer.enabled 
+                ? lane.CurrentMesh : null;
 
             if (InformationBar.main.sec >= lane.Steps[0].Offset && InformationBar.main.sec < lane.Steps[^1].Offset)
             {
-                JudgeLine.gameObject.SetActive(Renderer.enabled);
+                   JudgeLine.gameObject.SetActive(Renderer.enabled);
                 JudgeEnds[0].gameObject.SetActive(Renderer.enabled);
                 JudgeEnds[1].gameObject.SetActive(Renderer.enabled);
             
-                JudgeLine.sharedMaterial = 
-                    JudgeEnds[0].sharedMaterial = 
-                        JudgeEnds[1].sharedMaterial = Renderer.enabled 
-                            ? styles[index].JudgeMaterial : null;
+                JudgeLine.sharedMaterial = JudgeEnds[0].sharedMaterial = 
+                    JudgeEnds[1].sharedMaterial = Renderer.enabled 
+                        ? styles[index].JudgeMaterial : null;
             
                 JudgeEnds[0].transform.localPosition = lane.StartPosLocal;
                 JudgeEnds[1].transform.localPosition = lane.EndPosLocal;
@@ -54,7 +57,7 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             }
             else 
             {
-                JudgeLine.gameObject.SetActive(false);
+                   JudgeLine.gameObject.SetActive(false);
                 JudgeEnds[0].gameObject.SetActive(false);
                 JudgeEnds[1].gameObject.SetActive(false);
             }
