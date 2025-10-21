@@ -11,6 +11,7 @@ using JANOARG.Chartmaker.UI.Timeline;
 using JANOARG.Chartmaker.Utils;
 using JANOARG.Shared.Data.ChartInfo;
 using JANOARG.Chartmaker.Utils;
+using JANOARG.Shared.Utils;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -98,6 +99,10 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
         public GameObject HitObjectOptionsHolder;
         [Space]
         public TimelineOptionsPanel Options;
+
+        [Space]
+        public TimelineItem Previewer;
+        public TimelineItem PreviewerTail;
 
         [Header("Samples")]
         public TimelineTick TickSample;
@@ -220,7 +225,7 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                 CurrentTimeConnector.anchorMin = new(Mathf.Min(timePos, timeCPos), 0);
                 CurrentTimeConnector.anchorMax = new(Mathf.Max(timePos, timeCPos), 0);
             }
-        
+            
             UpdateTimeline();
         }
 
@@ -392,6 +397,10 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
         {
             Image item;
         
+            // Special case for previewer 
+            if (index == -3280)
+                return Instantiate(ItemTailSample, TailsHolder);
+            
             if (ItemTails.Count <= index) 
                 ItemTails.Add(item = Instantiate(ItemTailSample, TailsHolder));
             else 
@@ -673,23 +682,31 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                         int zPosition = AddTime(time, 24) - ScrollOffset;
                         times[zPosition + ScrollOffset] = Mathf.Max(time, timeEndPoint - 7 * density);
 
-                        if (zPosition < -1 || zPosition >= TimelineHeight + 1) continue;
-                        if (timeEndPoint < PeekRange.x - dOffset || time > PeekRange.y + dOffset) continue;
+                        if (zPosition < -1 || zPosition >= TimelineHeight + 1) 
+                            continue;
+                        if (timeEndPoint < PeekRange.x - dOffset || time > PeekRange.y + dOffset) 
+                            continue;
 
                         for (int a = 1; a < lane.LaneSteps.Count; a++)
                         {
                             LaneStep step = lane.LaneSteps[a];
                             float stepTime = metronome.ToSeconds(step.Offset);
+                           
                             if (stepTime < PeekRange.x - dOffset || stepTime > PeekRange.y + dOffset)
                                 continue;
 
                             float spritePositionX = InverseLerpUnclamped(PeekRange.x, PeekRange.y, stepTime);
+                          
                             var spriteItem = GetTimelineItem(count);
+                            
                             spriteItem.Icon.sprite = LineIcon;
+                            
                             RectTransform spriteRectTransform = (RectTransform)spriteItem.transform;
+                            
                             spriteRectTransform.anchorMin = spriteRectTransform.anchorMax = new (spritePositionX, 1);
                             spriteRectTransform.anchoredPosition = new(0, -24 * zPosition - 6);
                             spriteRectTransform.sizeDelta = new(6, 20);
+                            
                             spriteItem.SetItem(step, lane);
                         
                             count++;
@@ -1325,16 +1342,19 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
         float            timeStart, timeEnd, beatStart, beatEnd;
         public bool isDragged { get; private set; }
 
-        PointerEventData lastDrag;
-
+        PointerEventData      lastDrag;
+        private Vector2       initialPreviewersPosition;
+        private RectTransform hitobjectRect;
+        
         public void OnPointerDown(PointerEventData eventData)
         {
             bool contains(RectTransform rt)                  => RectTransformUtility.RectangleContainsScreenPoint(rt, eventData.pressPosition, eventData.pressEventCamera);
             bool localPos(RectTransform rt, out Vector2 pos) => RectTransformUtility.ScreenPointToLocalPointInRectangle(rt, eventData.pressPosition, eventData.pressEventCamera, out pos);
+         
             isDragged = false;
             lastDrag = eventData;
             DraggingItem = null;
-
+            
             if (contains(ItemsHolder))
             {
                 if (eventData.button == PointerEventData.InputButton.Middle)
@@ -1352,8 +1372,57 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                 Metronome metronome = Chartmaker.main.CurrentSong.Timing;
                 beatStart = RoundBeat(timeStart);
 
-                if (eventData.button != PointerEventData.InputButton.Left) return;
+                if (eventData.button != PointerEventData.InputButton.Left) 
+                    return;
 
+                if (eventData.button != PointerEventData.InputButton.Left)
+                    return;
+
+                TimelinePickerMode mode = PickerPanel.main.CurrentTimelinePickerMode;
+
+                if (mode is TimelinePickerMode.Lane or TimelinePickerMode.LaneStep or TimelinePickerMode.BPMStop)
+                {
+                    Previewer.gameObject.SetActive(true);
+                    Previewer.gameObject.transform.position = eventData.pressPosition;
+                    initialPreviewersPosition = Previewer.gameObject.transform.position;
+                }
+                else if (mode is TimelinePickerMode.CatchHit or TimelinePickerMode.NormalHit or TimelinePickerMode.Timestamp)
+                {
+                    PreviewerTail.gameObject.SetActive(true);
+    
+                    if (mode is TimelinePickerMode.CatchHit or TimelinePickerMode.NormalHit)
+                    {
+                        hitobjectRect = PreviewerTail.GetComponent<RectTransform>();
+        
+                        float vpStart = .5f - VerticalScale * .5f + VerticalOffset;
+                        float vpEnd = .5f + VerticalScale * .5f + VerticalOffset;
+                        float height = ItemsHolder.rect.height - 8;
+        
+                        float start = InverseLerpUnclamped(vpStart, vpEnd, eventData.position.y);
+                        float end = InverseLerpUnclamped(vpStart, vpEnd, eventData.position.y + Options.NewHitObjectLength);
+                        float length = Mathf.Floor((end - start) * height) + 2;
+        
+                        hitobjectRect.sizeDelta = new Vector2(6, length);
+                    }
+                    else if (InspectorPanel.main.CurrentObject is Storyboardable thing)
+                    {
+                        TimestampType[] types = thing.timestampTypes;
+                        int index = Math.Clamp(
+                            Mathf.FloorToInt((ItemsHolder.rect.height - eventData.pressPosition.y - 3) / 24) + ScrollOffset, 
+                            0, 
+                            types.Length - 1
+                        );
+
+                        // Snap PreviewerTail to the center of the selected row
+                        float yPosition = ItemsHolder.rect.height - (index - ScrollOffset) * 24 - 3 - 12; // -12 to center in 24px row
+    
+                        PreviewerTail.gameObject.transform.position *= new Vector2Frag(y: yPosition);
+                    }
+
+                    PreviewerTail.gameObject.transform.position = eventData.pressPosition;
+                    initialPreviewersPosition = PreviewerTail.gameObject.transform.position;
+                }
+                
                 AudioSource source = Chartmaker.main.SongSource;
                 float time = Mathf.Clamp(metronome.ToSeconds(beatStart), 0, Chartmaker.main.SongSource.clip.length);
 
@@ -1412,6 +1481,7 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                 DraggingItemOffset = 0;
         }
 
+        private Image pseudoTail = null;
         public void OnDrag(PointerEventData eventData)
         {
             isDragged = true;
@@ -1551,6 +1621,98 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                     case TimelineDragMode.Timeline:
                         Chartmaker.main.SongSource.time = Mathf.Clamp(metronome.ToSeconds(beatEnd), 0, Chartmaker.main.SongSource.clip.length);
 
+                        if (PickerPanel.main.CurrentTimelinePickerMode is TimelinePickerMode.Cursor or TimelinePickerMode.Select or TimelinePickerMode.Delete)
+                            break;
+                        
+                        switch (CurrentMode)
+                        {
+                            case TimelineMode.LaneSteps:
+                            case TimelineMode.Timing:
+                                if (isDragged)
+                                    Previewer.gameObject.SetActive(false);
+
+                                break;
+                            case TimelineMode.Lanes:
+                                // Only get a new tail if we don't have one
+                                if (pseudoTail == null)
+                                    pseudoTail = GetItemTail(-3280);
+                                
+                                PreviewerTail.gameObject.SetActive(true);
+
+                                RectTransform tailRectTransform = pseudoTail.rectTransform;
+
+                                // Convert world positions to local positions in ItemsHolder for normalization
+                                Vector2 previewerLocalPos = ItemsHolder.InverseTransformPoint(initialPreviewersPosition);
+                                Vector2 pointerLocalPos;
+
+                                RectTransformUtility.ScreenPointToLocalPointInRectangle(
+                                    ItemsHolder,
+                                    eventData.position,
+                                    eventData.pressEventCamera,
+                                    out pointerLocalPos
+                                );
+
+                                // Get normalized positions
+                                float previewerNormalizedX = Mathf.InverseLerp(0, ItemsHolder.rect.width, previewerLocalPos.x);
+                                float pointerNormalizedX = Mathf.InverseLerp(0, ItemsHolder.rect.width, pointerLocalPos.x);
+
+                                // Set anchors to stretch between the two points
+                                float minX = Mathf.Min(previewerNormalizedX, pointerNormalizedX);
+                                float maxX = Mathf.Max(previewerNormalizedX, pointerNormalizedX);
+
+                                tailRectTransform.anchorMin = new Vector2(minX, 1);
+                                tailRectTransform.anchorMax = new Vector2(maxX, 1);
+                                tailRectTransform.sizeDelta = new Vector2(0, 20);
+                                tailRectTransform.position  = new Vector3(tailRectTransform.position.x, Previewer.gameObject.transform.position.y, tailRectTransform.position.z);
+
+                                if (eventData.position.x < initialPreviewersPosition.x)
+                                {
+                                    Previewer.gameObject.transform.position = new Vector3(eventData.position.x, Previewer.gameObject.transform.position.y, Previewer.gameObject.transform.position.z);
+                                    PreviewerTail.gameObject.transform.position = initialPreviewersPosition;
+                                }
+                                else
+                                {
+                                    Previewer.gameObject.transform.position = initialPreviewersPosition;
+                                    PreviewerTail.gameObject.transform.position = new Vector3(eventData.position.x, Previewer.gameObject.transform.position.y, Previewer.gameObject.transform.position.z); // Make sure it's aligned with Previewer
+                                }
+                                break;
+                            
+                            case TimelineMode.HitObjects:
+                            case TimelineMode.Storyboard:
+                                // Only get a new tail if we don't have one
+                                if (pseudoTail == null)
+                                    pseudoTail = GetItemTail(-3280);
+                                
+                                RectTransform hitTailRectTransform = pseudoTail.rectTransform;
+
+                                // Convert world positions to local positions in ItemsHolder for normalization
+                                Vector2 hitPreviewerLocalPos = ItemsHolder.InverseTransformPoint(initialPreviewersPosition);
+
+                                RectTransformUtility.ScreenPointToLocalPointInRectangle(
+                                    ItemsHolder,
+                                    eventData.position,
+                                    eventData.pressEventCamera,
+                                    out pointerLocalPos
+                                );
+
+                                // Get normalized positions
+                                float hitPreviewerNormalizedX = Mathf.InverseLerp(0, ItemsHolder.rect.width, hitPreviewerLocalPos.x);
+                                float hitPointerNormalizedX = Mathf.InverseLerp(0, ItemsHolder.rect.width, pointerLocalPos.x);
+
+                                // Set anchors to stretch between the two points
+                                float hitMinX = Mathf.Min(hitPreviewerNormalizedX, hitPointerNormalizedX);
+                                float hitMaxX = Mathf.Max(hitPreviewerNormalizedX, hitPointerNormalizedX);
+
+                                hitTailRectTransform.anchorMin = new Vector2(hitMinX, 1);
+                                hitTailRectTransform.anchorMax = new Vector2(hitMaxX, 1);
+                                hitTailRectTransform.sizeDelta = new Vector2(0, PreviewerTail.GetComponent<RectTransform>().rect.height);;
+                                hitTailRectTransform.position  *= new Vector3Frag(y: PreviewerTail.gameObject.transform.position.y);
+                                
+                                if (eventData.position.x < initialPreviewersPosition.x)
+                                    PreviewerTail.gameObject.transform.position *= new Vector3Frag(x: eventData.position.x);
+                                break;
+                        }
+                        
                         break;
                 }
                 return;
@@ -1595,7 +1757,8 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
 
         public void OnPointerUp(PointerEventData eventData)
         {
-            if (isDragged) return;
+            if (isDragged)
+                return;
 
             Metronome metronome = Chartmaker.main.CurrentSong.Timing;
             if (eventData.button == PointerEventData.InputButton.Right)
@@ -1610,200 +1773,215 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             {
                 DraggingItem = null;
             }
-            else switch (dragMode)
+            else
             {
-                case TimelineDragMode.Select:
+                Previewer.gameObject.SetActive(false);
+                PreviewerTail.gameObject.SetActive(false);
+
+                if (pseudoTail != null)
                 {
-                    Metronome metronome = Chartmaker.main.CurrentSong.Timing;
-                    float beatStart = metronome.ToBeat(Mathf.Min(timeStart, timeEnd));
-                    float beatEnd = metronome.ToBeat(Mathf.Max(timeEnd, timeStart));
-
-                    IList list = null;
-
-                    switch (CurrentMode)
-                    {
-                        case TimelineMode.Storyboard:
-                        {
-                            if (InspectorPanel.main.CurrentObject is not Storyboardable thing)
-                                break;
-
-                            TimestampType[] types = thing.timestampTypes;
-                            Storyboard storyboard = thing.Storyboard;
-
-                            int yStart = Mathf.FloorToInt(Mathf.Clamp((ItemsHolder.rect.height - Mathf.Max(dragStart.y, dragEnd.y) - 3) / 24, 0, TimelineHeight - 1)) + ScrollOffset;
-                            int yEnd = Mathf.FloorToInt(Mathf.Clamp((ItemsHolder.rect.height - Mathf.Min(dragStart.y, dragEnd.y) - 3) / 24, 0, TimelineHeight - 1)) + ScrollOffset;
-
-                            list = storyboard.Timestamps.FindAll(x =>
-                            {
-                                int index = Array.FindIndex(types, y => x.ID == y.ID);
-                                return x.Offset >= beatStart && x.Offset <= beatEnd && index >= yStart && index <= yEnd;
-                            });
-                        }
-                            break;
-
-                        case TimelineMode.Timing:
-                            list = Chartmaker.main.CurrentSong.Timing.Stops.FindAll(x => x.Offset >= timeStart && x.Offset <= timeEnd); break;
-                        case TimelineMode.Lanes:
-                        {
-                            if (Chartmaker.main.CurrentChart == null)
-                                break;
-
-                            list = GetLanesInTimeline().FindAll(x => x.LaneSteps[0].Offset >= beatStart && x.LaneSteps[0].Offset <= beatEnd);
-
-                            break;
-                        }
-
-                        case TimelineMode.LaneSteps:
-                        {
-                            if (InspectorPanel.main.CurrentHierarchyObject is not Lane lane) break;
-
-                            list = lane.LaneSteps.FindAll(x => x.Offset >= beatStart && x.Offset <= beatEnd);
-                            break;
-                        }
-
-                        case TimelineMode.HitObjects:
-                        {
-                            if (InspectorPanel.main.CurrentHierarchyObject is not Lane lane)
-                                break;
-
-                            float vpStart = .5f - VerticalScale * .5f + VerticalOffset;
-                            float vpEnd = .5f + VerticalScale * .5f + VerticalOffset;
-
-                            float yStart = Mathf.Lerp(vpStart, vpEnd, Mathf.Clamp01(1 - (Mathf.Max(dragStart.y, dragEnd.y) - 4) / (ItemsHolder.rect.height - 8)));
-                            float yEnd = Mathf.Lerp(vpStart, vpEnd, Mathf.Clamp01(1 - (Mathf.Min(dragStart.y, dragEnd.y) - 4) / (ItemsHolder.rect.height - 8)));
-
-                            list = lane.Objects.FindAll(x => x.Offset >= beatStart && x.Offset <= beatEnd && x.Position <= yEnd && x.Position + x.Length >= yStart);
-
-                            break;
-                        }
-                    }
-
-                    if (list?.Count >= 2)
-                        InspectorPanel.main.SetObject(list);
-                    else if (list?.Count == 1)
-                        InspectorPanel.main.SetObject(list[0]);
-                    break;
+                    Destroy(pseudoTail.gameObject);
+                    pseudoTail = null;
                 }
-                case TimelineDragMode.Timeline:
-                {
-                    if (!Chartmaker.main.SongSource.isPlaying)
-                    {
-                        TimelinePickerMode pickMode = PickerPanel.main.CurrentTimelinePickerMode;
                 
+                switch (dragMode)
+                {
+                    case TimelineDragMode.Select:
+                    {
                         Metronome metronome = Chartmaker.main.CurrentSong.Timing;
+                        float beatStart = metronome.ToBeat(Mathf.Min(timeStart, timeEnd));
+                        float beatEnd = metronome.ToBeat(Mathf.Max(timeEnd, timeStart));
 
-                        float density = (PeekRange.y - PeekRange.x) * metronome.GetStop(timeEnd, out _).BPM / TicksHolder.rect.width / 8;
-                        float factor = Mathf.Floor(Mathf.Log(density, SeparationFactor));
-                        float step = Mathf.Pow(SeparationFactor, factor + 1);
-                        float beat = Mathf.Round(metronome.ToBeat(timeEnd) / step) * step;
+                        IList list = null;
 
-                        switch (PickerPanel.main.CurrentTimelinePickerMode) 
+                        switch (CurrentMode)
                         {
-                            case TimelinePickerMode.Timestamp:
+                            case TimelineMode.Storyboard:
                             {
-                                if (InspectorPanel.main.CurrentObject is not Storyboardable thing) break;
+                                if (InspectorPanel.main.CurrentObject is not Storyboardable thing)
+                                    break;
 
                                 TimestampType[] types = thing.timestampTypes;
                                 Storyboard storyboard = thing.Storyboard;
-                                TimestampType type = types[Math.Clamp(Mathf.FloorToInt((ItemsHolder.rect.height - dragEnd.y - 3) / 24) + ScrollOffset, 0, types.Length - 1)];
-                        
-                                Timestamp ts = new Timestamp {
-                                    ID = type.ID,
-                                    Offset = (BeatPosition)(isDragged ? Mathf.Min(beatStart, beatEnd) : beatStart),
-                                    Duration = isDragged ? Mathf.Abs(beatStart - beatEnd) : 0,
-                                    Target = type.StoryboardGetter(thing.GetStoryboardableObject(isDragged ? Mathf.Min(beatStart, beatEnd) : beatStart)),
-                                };
-                                if (storyboard.Timestamps.FindIndex(
-                                        x => x.ID == ts.ID && (
-                                            (x.Offset < ts.Offset + ts.Duration && ts.Offset < x.Offset + x.Duration)
-                                            || (x.Duration == 0 && ts.Duration == 0 && Mathf.Approximately(x.Offset, ts.Offset))
-                                        )
-                                    ) < 0) Chartmaker.main.AddItem(ts);
-                            }
-                                break;
-                            case TimelinePickerMode.BPMStop:
-                            {
-                                if (isDragged) break;
 
-                                BPMStop baseStop = Chartmaker.main.CurrentSong.Timing.GetStop(timeStart, out _);
+                                int yStart = Mathf.FloorToInt(Mathf.Clamp((ItemsHolder.rect.height - Mathf.Max(dragStart.y, dragEnd.y) - 3) / 24, 0, TimelineHeight - 1)) + ScrollOffset;
+                                int yEnd = Mathf.FloorToInt(Mathf.Clamp((ItemsHolder.rect.height - Mathf.Min(dragStart.y, dragEnd.y) - 3) / 24, 0, TimelineHeight - 1)) + ScrollOffset;
 
-                                Chartmaker.main.AddItem(new BPMStop(baseStop.BPM, timeStart) { Signature = baseStop.Signature });
-
-                                break;
-                            }
-                            case TimelinePickerMode.Lane:
-                            {
-                                Lane lane = new Lane
+                                list = storyboard.Timestamps.FindAll(x =>
                                 {
-                                    Position = new(0, -4, 0)
-                                };
-
-                                lane.LaneSteps.Add(new LaneStep
-                                {
-                                    StartPointPosition = new(-8, 0),
-                                    EndPointPosition = new(8, 0),
-                                    Offset = (BeatPosition)(isDragged ? Math.Min(beatStart, beatEnd) : beatStart)
+                                    int index = Array.FindIndex(types, y => x.ID == y.ID);
+                                    return x.Offset >= beatStart && x.Offset <= beatEnd && index >= yStart && index <= yEnd;
                                 });
+                            }
+                                break;
 
-                                lane.LaneSteps.Add(new LaneStep
-                                {
-                                    StartPointPosition = new(-8, 0),
-                                    EndPointPosition = new(8, 0),
-                                    Offset = (BeatPosition)(isDragged ? Math.Max(beatStart, beatEnd) : beatStart + 1),
-                                });
+                            case TimelineMode.Timing:
+                                list = Chartmaker.main.CurrentSong.Timing.Stops.FindAll(x => x.Offset >= timeStart && x.Offset <= timeEnd); break;
+                            case TimelineMode.Lanes:
+                            {
+                                if (Chartmaker.main.CurrentChart == null)
+                                    break;
 
-                                Chartmaker.main.AddItem(lane);
+                                list = GetLanesInTimeline().FindAll(x => x.LaneSteps[0].Offset >= beatStart && x.LaneSteps[0].Offset <= beatEnd);
+
                                 break;
                             }
-                            case TimelinePickerMode.LaneStep:
-                            {
-                                if (isDragged) break;
 
+                            case TimelineMode.LaneSteps:
+                            {
                                 if (InspectorPanel.main.CurrentHierarchyObject is not Lane lane) break;
 
-                                LanePosition basePos = ((Lane)lane.GetStoryboardableObject(timeEnd)).GetLanePosition(timeStart, timeStart, metronome);
-
-                                LaneStep baseStep = new()
-                                {
-                                    StartPointPosition = basePos.StartPosition,
-                                    EndPointPosition = basePos.EndPosition,
-                                    Offset = (BeatPosition)(isDragged ? beatEnd : beatStart),
-                                };
-
-                                Chartmaker.main.AddItem(baseStep);
+                                list = lane.LaneSteps.FindAll(x => x.Offset >= beatStart && x.Offset <= beatEnd);
                                 break;
                             }
-                            case TimelinePickerMode.NormalHit or TimelinePickerMode.CatchHit:
-                            {
-                                HitObject hit = new();
 
-                                if (!isDragged)
-                                {
-                                    dragEnd = dragStart;
-                                    beatEnd = beatStart;
-                                }
+                            case TimelineMode.HitObjects:
+                            {
+                                if (InspectorPanel.main.CurrentHierarchyObject is not Lane lane)
+                                    break;
 
                                 float vpStart = .5f - VerticalScale * .5f + VerticalOffset;
                                 float vpEnd = .5f + VerticalScale * .5f + VerticalOffset;
-                                float yStart = Mathf.Lerp(vpStart, vpEnd, Mathf.Round(Mathf.Clamp01(1 - (Mathf.Max(dragStart.y, dragEnd.y) - 4) / (ItemsHolder.rect.height - 8)) / .05f) * .05f);
-                                float yEnd = Mathf.Lerp(vpStart, vpEnd, Mathf.Round(Mathf.Clamp01(1 - (Mathf.Min(dragStart.y, dragEnd.y) - 4) / (ItemsHolder.rect.height - 8)) / .05f) * .05f);
 
-                                hit.Offset = (BeatPosition)Math.Min(beatStart, beatEnd);
-                                hit.HoldLength = Math.Abs(beatStart - beatEnd);
-                                hit.Length = Options.NewHitObjectLength;
-                                hit.Position = yEnd - hit.Length / 2;
+                                float yStart = Mathf.Lerp(vpStart, vpEnd, Mathf.Clamp01(1 - (Mathf.Max(dragStart.y, dragEnd.y) - 4) / (ItemsHolder.rect.height - 8)));
+                                float yEnd = Mathf.Lerp(vpStart, vpEnd, Mathf.Clamp01(1 - (Mathf.Min(dragStart.y, dragEnd.y) - 4) / (ItemsHolder.rect.height - 8)));
 
-                                hit.Type = PickerPanel.main.CurrentTimelinePickerMode == TimelinePickerMode.CatchHit ? HitObject.HitType.Catch : HitObject.HitType.Normal;
-
-                                Chartmaker.main.AddItem(hit);
+                                list = lane.Objects.FindAll(x => x.Offset >= beatStart && x.Offset <= beatEnd && x.Position <= yEnd && x.Position + x.Length >= yStart);
 
                                 break;
                             }
                         }
-                    }
 
-                    break;
+                        if (list?.Count >= 2)
+                            InspectorPanel.main.SetObject(list);
+                        else if (list?.Count == 1)
+                            InspectorPanel.main.SetObject(list[0]);
+                        break;
+                    }
+                    case TimelineDragMode.Timeline:
+                    {
+                        if (!Chartmaker.main.SongSource.isPlaying)
+                        {
+                            TimelinePickerMode pickMode = PickerPanel.main.CurrentTimelinePickerMode;
+                    
+                            Metronome metronome = Chartmaker.main.CurrentSong.Timing;
+
+                            float density = (PeekRange.y - PeekRange.x) * metronome.GetStop(timeEnd, out _).BPM / TicksHolder.rect.width / 8;
+                            float factor = Mathf.Floor(Mathf.Log(density, SeparationFactor));
+                            float step = Mathf.Pow(SeparationFactor, factor + 1);
+                            float beat = Mathf.Round(metronome.ToBeat(timeEnd) / step) * step;
+
+                            switch (pickMode) 
+                            {
+                                case TimelinePickerMode.Timestamp:
+                                {
+                                    if (InspectorPanel.main.CurrentObject is not Storyboardable thing) 
+                                        break;
+
+                                    TimestampType[] types = thing.timestampTypes;
+                                    Storyboard storyboard = thing.Storyboard;
+                                    TimestampType type = types[Math.Clamp(Mathf.FloorToInt((ItemsHolder.rect.height - dragEnd.y - 3) / 24) + ScrollOffset, 0, types.Length - 1)];
+                            
+                                    Timestamp ts = new Timestamp {
+                                        ID = type.ID,
+                                        Offset = (BeatPosition)(isDragged ? Mathf.Min(beatStart, beatEnd) : beatStart),
+                                        Duration = isDragged ? Mathf.Abs(beatStart - beatEnd) : 0,
+                                        Target = type.StoryboardGetter(thing.GetStoryboardableObject(isDragged ? Mathf.Min(beatStart, beatEnd) : beatStart)),
+                                    };
+                                    if (storyboard.Timestamps.FindIndex(
+                                            x => x.ID == ts.ID && (
+                                                (x.Offset < ts.Offset + ts.Duration && ts.Offset < x.Offset + x.Duration)
+                                                || (x.Duration == 0 && ts.Duration == 0 && Mathf.Approximately(x.Offset, ts.Offset))
+                                            )
+                                        ) < 0) Chartmaker.main.AddItem(ts);
+                                }
+                                    break;
+                                case TimelinePickerMode.BPMStop:
+                                {
+                                    if (isDragged) break;
+
+                                    BPMStop baseStop = Chartmaker.main.CurrentSong.Timing.GetStop(timeStart, out _);
+
+                                    Chartmaker.main.AddItem(new BPMStop(baseStop.BPM, timeStart) { Signature = baseStop.Signature });
+
+                                    break;
+                                }
+                                case TimelinePickerMode.Lane:
+                                {
+                                    Lane lane = new Lane
+                                    {
+                                        Position = new(0, -4, 0)
+                                    };
+
+                                    lane.LaneSteps.Add(new LaneStep
+                                    {
+                                        StartPointPosition = new(-8, 0),
+                                        EndPointPosition = new(8, 0),
+                                        Offset = (BeatPosition)(isDragged ? Math.Min(beatStart, beatEnd) : beatStart)
+                                    });
+
+                                    lane.LaneSteps.Add(new LaneStep
+                                    {
+                                        StartPointPosition = new(-8, 0),
+                                        EndPointPosition = new(8, 0),
+                                        Offset = (BeatPosition)(isDragged ? Math.Max(beatStart, beatEnd) : beatStart + 1),
+                                    });
+
+                                    Chartmaker.main.AddItem(lane);
+                                    break;
+                                }
+                                case TimelinePickerMode.LaneStep:
+                                {
+                                    if (isDragged) break;
+
+                                    if (InspectorPanel.main.CurrentHierarchyObject is not Lane lane) break;
+
+                                    LanePosition basePos = ((Lane)lane.GetStoryboardableObject(timeEnd)).GetLanePosition(timeStart, timeStart, metronome);
+
+                                    LaneStep baseStep = new()
+                                    {
+                                        StartPointPosition = basePos.StartPosition,
+                                        EndPointPosition = basePos.EndPosition,
+                                        Offset = (BeatPosition)(isDragged ? beatEnd : beatStart),
+                                    };
+
+                                    Chartmaker.main.AddItem(baseStep);
+                                    break;
+                                }
+                                case TimelinePickerMode.NormalHit or TimelinePickerMode.CatchHit:
+                                {
+                                    HitObject hit = new();
+
+                                    if (!isDragged)
+                                    {
+                                        dragEnd = dragStart;
+                                        beatEnd = beatStart;
+                                    }
+
+                                    float vpStart = .5f - VerticalScale * .5f + VerticalOffset;
+                                    float vpEnd = .5f + VerticalScale * .5f + VerticalOffset;
+                                    float yStart = Mathf.Lerp(vpStart, vpEnd, Mathf.Round(Mathf.Clamp01(1 - (Mathf.Max(dragStart.y, dragEnd.y) - 4) / (ItemsHolder.rect.height - 8)) / .05f) * .05f);
+                                    float yEnd = Mathf.Lerp(vpStart, vpEnd, Mathf.Round(Mathf.Clamp01(1 - (Mathf.Min(dragStart.y, dragEnd.y) - 4) / (ItemsHolder.rect.height - 8)) / .05f) * .05f);
+
+                                    hit.Offset = (BeatPosition)Math.Min(beatStart, beatEnd);
+                                    hit.HoldLength = Math.Abs(beatStart - beatEnd);
+                                    hit.Length = Options.NewHitObjectLength;
+                                    hit.Position = yEnd - hit.Length / 2;
+
+                                    hit.Type = PickerPanel.main.CurrentTimelinePickerMode == TimelinePickerMode.CatchHit 
+                                        ? HitObject.HitType.Catch : HitObject.HitType.Normal;
+
+                                    Chartmaker.main.AddItem(hit);
+
+                                    break;
+                                }
+                            }
+                        }
+
+                        break;
+                    }
                 }
+                
             }
 
             isDragged = false;

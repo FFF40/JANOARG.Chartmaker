@@ -616,8 +616,10 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                     Array.Sort(raycastHits, (x, y) => x.distance.CompareTo(y.distance));
                     foreach (RaycastHit raycastHit in raycastHits)
                     {
-                        var pickHandler = raycastHit.collider.GetComponent<PlayerViewPickHandler>();
-                        if (pickHandler && pickHandler.Pick()) break;
+                        PlayerViewPickHandler pickHandler = raycastHit.collider.GetComponent<PlayerViewPickHandler>();
+                       
+                        if (pickHandler && pickHandler.Pick()) 
+                            break;
                     }
                 }
 

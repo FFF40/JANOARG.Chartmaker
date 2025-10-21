@@ -160,10 +160,10 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
         
             recursionBuster = true;
 
-            float.TryParse(SpeedField.text, out Speed);
-            int.TryParse(SeparatorField.text, out SeparationFactor);
-            float.TryParse(VerticalScaleField.text, out VerticalScale);
-            float.TryParse(VerticalOffsetField.text, out VerticalOffset);
+            float.TryParse(SpeedField.text,              out Speed);
+              int.TryParse(SeparatorField.text,          out SeparationFactor);
+            float.TryParse(VerticalScaleField.text,      out VerticalScale);
+            float.TryParse(VerticalOffsetField.text,     out VerticalOffset);
             float.TryParse(NewHitObjectLengthField.text, out NewHitObjectLength);
 
             SeparationFactor = Mathf.Max(SeparationFactor, 2);

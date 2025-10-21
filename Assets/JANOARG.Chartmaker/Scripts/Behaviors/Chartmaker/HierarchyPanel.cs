@@ -338,12 +338,11 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
         {
             foreach (var holder in Holders)
             {
-                holder.SelectedBackground.SetActive(
-                    holder.Target.Target != null && (
-                        InspectorPanel.main.CurrentHierarchyObject is IList list && list.Contains(holder.Target.Target)
-                        || holder.Target.Target == InspectorPanel.main.CurrentHierarchyObject
-                    )
-                );
+                bool hasTarget       = holder.Target.Target != null;
+                bool isInList        = InspectorPanel.main.CurrentHierarchyObject is IList list && list.Contains(holder.Target.Target);
+                bool isDirectMatch   = holder.Target.Target == InspectorPanel.main.CurrentHierarchyObject;
+
+                holder.SelectedBackground.SetActive(hasTarget && (isInList || isDirectMatch));;
             }
         }
 

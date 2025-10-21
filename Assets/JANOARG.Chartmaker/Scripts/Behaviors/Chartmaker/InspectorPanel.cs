@@ -107,22 +107,32 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             {
                 try 
                 {
-                    IList listIn = 
-                        obj is List<Timestamp> listTimeStamp 
-                            ? listTimeStamp : obj is IList list 
-                                ? list : obj is Timestamp timestamp 
-                                    ? new List<Timestamp> { timestamp } : new List<object> () { obj };
-                
-                    IList listTarget = 
-                        CurrentTimestamp?.Count > 0 
-                            ? CurrentTimestamp : CurrentObject is IList list2 
-                                ? list2 : new List<object> () { CurrentObject };
-                
-                    if (listIn[0]?.GetType() == listTarget[0]?.GetType()) 
-                        foreach (object item in listTarget) 
-                            if (!listIn.Contains(item)) 
+                    // Convert obj to a list based on its type
+                    IList listIn = obj switch
+                    {
+                        List<Timestamp> listTimeStamp => listTimeStamp,
+                        IList list                    => list,
+                        Timestamp timestamp           => new List<Timestamp> { timestamp },
+                        _                             => new List<object> { obj }
+                    };
+
+                    // Get the target list (prefer CurrentTimestamp if it has items)
+                    IList listTarget = CurrentTimestamp?.Count > 0 
+                        ? CurrentTimestamp 
+                        : CurrentObject as IList ?? new List<object> { CurrentObject };
+
+                    // Merge lists if they contain the same type
+                    if (listIn.Count > 0 && listTarget.Count > 0 && listIn[0]?.GetType() == listTarget[0]?.GetType())
+                    {
+                        foreach (object item in listTarget)
+                        {
+                            if (!listIn.Contains(item))
                                 listIn.Add(item);
-                
+                            else
+                                listIn.Remove(item);
+                        }
+                    }
+
                     obj = listIn;
                 } 
                 catch (NotSupportedException e)
