@@ -106,29 +106,22 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
 
         [Header("Samples")]
         public TimelineTick TickSample;
-        [HideInInspector]
-        public List<TimelineTick> Ticks;
-
+        [HideInInspector] public List<TimelineTick> Ticks;
         public TimelineItem ItemSample;
-        [HideInInspector]
-        public List<TimelineItem> Items;
-
+        [HideInInspector] public List<TimelineItem> Items;
         public Image ItemTailSample;
-        [HideInInspector]
-        public List<Image> ItemTails;
-
+        [HideInInspector] public List<Image> ItemTails;
         public TMP_Text LabelSample;
-        [HideInInspector]
-        public List<TMP_Text> Labels;
-
+        [HideInInspector] public List<TMP_Text> Labels;
         public LineGraph GraphSample;
-        [HideInInspector]
-        public List<LineGraph> Graphs;
+        [HideInInspector] public List<LineGraph> Graphs;
     
         public TMP_Text StoryboardEntrySample;
-        public Material StoryboardEntryMaterial;
-        [HideInInspector]
-        public List<TMP_Text> StoryboardEntries;
+        public Material StoryboardEntryMaterial; 
+        
+        [HideInInspector] public List<TMP_Text> StoryboardEntries;
+
+        [HideInInspector] [SerializeField] private Image StoryboardHinter;
     
         [Header("Icons")]
         public Sprite LineIcon;
@@ -506,11 +499,13 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                 return label;
             }
 
+            StoryboardHinter.gameObject.SetActive(CurrentMode != TimelineMode.Storyboard && InspectorPanel.main.CurrentObject is Storyboardable);
+
+            
             if (Mathf.Approximately(PeekRange.x, PeekRange.y))
             {
                 /* Do nothing */
             }
-        
             else switch (CurrentMode)
             {
                 case TimelineMode.Storyboard when InspectorPanel.main.CurrentObject is Storyboardable thing:
