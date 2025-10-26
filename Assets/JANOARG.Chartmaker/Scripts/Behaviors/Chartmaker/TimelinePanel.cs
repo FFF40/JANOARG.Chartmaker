@@ -816,7 +816,7 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                     break;
             }
 
-            StoryboardText.alpha = InspectorPanel.main.CurrentHierarchyObject is not Storyboardable ? 0.5f : 1f;
+            StoryboardText.alpha = InspectorPanel.main.CurrentObject == null || InspectorPanel.main.CurrentHierarchyObject is not Storyboardable ? 0.5f : 1f;
 
             while (Items.Count > count)
             {
