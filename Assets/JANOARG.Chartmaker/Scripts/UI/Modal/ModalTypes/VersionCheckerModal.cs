@@ -68,10 +68,10 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
 
             VersionText.text = 
                 "Current version number: v" + Application.version +
-                "\nLatest version number:  v" + LatestRelease.name[12..];
+                "\nLatest version number:  v" + LatestRelease.name[1..];
         
             Version.TryParse(Application.version, out Version currentVer);
-            Version.TryParse(LatestRelease.name[12..], out Version remoteVer);
+            Version.TryParse(LatestRelease.name[1..], out Version remoteVer);
 
             if (currentVer == remoteVer) 
             {
