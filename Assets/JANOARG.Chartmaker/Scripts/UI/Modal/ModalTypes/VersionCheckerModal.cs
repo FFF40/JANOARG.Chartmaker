@@ -15,6 +15,7 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
         readonly string FILE_NAME = Application.platform switch {
             RuntimePlatform.WindowsPlayer => "Chartmaker-win-x86_64.zip",
             RuntimePlatform.LinuxPlayer => "Chartmaker-linux-x86_64.tar.gz",
+            RuntimePlatform.Android => "Chartmaker-android-arm64.apk",
             _ => "Chartmaker-win-x86_64.zip",
         };
 
