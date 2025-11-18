@@ -45,8 +45,10 @@ namespace JANOARG.Chartmaker.Editor
             File.AppendAllLines(scriptPath, new string[] {
                 "#!/bin/bash",
                 "cd " + path.Replace(" ", "\\ "),
-                "tar -czvf Chartmaker-linux-x86_64.tar.gz Chartmaker-linux-x86_64/",
-                "zip -r Chartmaker-win-x86_64.zip Chartmaker-win-x86_64/*",
+                "tar -czvf Chartmaker-linux-x86_64.tar.gz Chartmaker-linux-x86_64/"
+                    + " -x \"Chartmaker-linux-x86_64/*_DoNotShip/*\"",
+                "zip -r Chartmaker-win-x86_64.zip Chartmaker-win-x86_64/*"
+                    + " -x \"Chartmaker-linux-x86_64/*_DoNotShip/*\"",
             });
 
             chmod(scriptPath, Convert.ToInt32("755", 8));
