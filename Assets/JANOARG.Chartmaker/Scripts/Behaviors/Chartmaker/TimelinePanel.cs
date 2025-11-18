@@ -106,29 +106,22 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
 
         [Header("Samples")]
         public TimelineTick TickSample;
-        [HideInInspector]
-        public List<TimelineTick> Ticks;
-
+        [HideInInspector] public List<TimelineTick> Ticks;
         public TimelineItem ItemSample;
-        [HideInInspector]
-        public List<TimelineItem> Items;
-
+        [HideInInspector] public List<TimelineItem> Items;
         public Image ItemTailSample;
-        [HideInInspector]
-        public List<Image> ItemTails;
-
+        [HideInInspector] public List<Image> ItemTails;
         public TMP_Text LabelSample;
-        [HideInInspector]
-        public List<TMP_Text> Labels;
-
+        [HideInInspector] public List<TMP_Text> Labels;
         public LineGraph GraphSample;
-        [HideInInspector]
-        public List<LineGraph> Graphs;
+        [HideInInspector] public List<LineGraph> Graphs;
     
         public TMP_Text StoryboardEntrySample;
-        public Material StoryboardEntryMaterial;
-        [HideInInspector]
-        public List<TMP_Text> StoryboardEntries;
+        public Material StoryboardEntryMaterial; 
+        
+        [HideInInspector] public List<TMP_Text> StoryboardEntries;
+
+        [HideInInspector] [SerializeField] private TMP_Text StoryboardText;
     
         [Header("Icons")]
         public Sprite LineIcon;
@@ -506,11 +499,12 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                 return label;
             }
 
+
+            
             if (Mathf.Approximately(PeekRange.x, PeekRange.y))
             {
                 /* Do nothing */
             }
-        
             else switch (CurrentMode)
             {
                 case TimelineMode.Storyboard when InspectorPanel.main.CurrentObject is Storyboardable thing:
@@ -821,6 +815,8 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                     BlockerLabel.text = "No lane selected - Select a lane first to view its Hit Objects.";
                     break;
             }
+
+            StoryboardText.alpha = InspectorPanel.main.CurrentObject == null || InspectorPanel.main.CurrentHierarchyObject is not Storyboardable ? 0.5f : 1f;
 
             while (Items.Count > count)
             {

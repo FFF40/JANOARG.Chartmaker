@@ -70363,6 +70363,7 @@ MonoBehaviour:
   StoryboardEntrySample: {fileID: 2437534105819927903, guid: 1386023ba9ab17e44a4475fb8f64f2ee, type: 3}
   StoryboardEntryMaterial: {fileID: 2100000, guid: 825fa044c7b5c8741a34877f8aff6346, type: 2}
   StoryboardEntries: []
+  StoryboardText: {fileID: 1207301547}
   LineIcon: {fileID: 1766811996, guid: 5440c893023c74e6e993d73088cf14d2, type: 3}
   BehindIcon: {fileID: 1150570930, guid: 5440c893023c74e6e993d73088cf14d2, type: 3}
   NormalHitIcon: {fileID: 1339768039, guid: 5440c893023c74e6e993d73088cf14d2, type: 3}
