@@ -217,6 +217,8 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
                         
                         // Force text field to follow snapped values
                         interfaceScaling.CurrentValue = roundedValue;
+
+                        IsDirty = true;
                     });
                     
                     // Taking osu! lazer's range
