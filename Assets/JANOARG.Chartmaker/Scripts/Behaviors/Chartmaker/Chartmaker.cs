@@ -91,6 +91,12 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             TimelinePanel.main.Options.Init();
             if (Preferences.AutoUpdateCheck) VersionCheckerModal.InitFetch(true);
             SetEditorActive(false);
+            
+            UnityEngine.Debug.Log($"Checking for scaling mismatch: {ChartmakerCanvas.scaleFactor} == {Preferences.InterfaceScaling}");
+            if (!Mathf.Approximately(ChartmakerCanvas.scaleFactor, Preferences.InterfaceScaling))
+            {
+                ChartmakerCanvas.scaleFactor = Preferences.InterfaceScaling;
+            }
         }
 
         public void Update()
