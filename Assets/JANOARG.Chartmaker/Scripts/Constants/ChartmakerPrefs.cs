@@ -41,6 +41,8 @@ namespace JANOARG.Chartmaker.Constants
             CustomCursors = storage.Get("AP:CustomCursors", CustomCursors);
             UseDefaultWindow = storage.Get("LA:UseDefaultWindow", UseDefaultWindow);
             ForceNavigationBar = storage.Get("LA:ForceNavigationBar", true);
+            
+            InterfaceScaling = storage.Get("LA:UIScalingFactor", 1);
         
             QualitySettings.vSyncCount = storage.Get("GS:VSync", 1);
             QualitySettings.antiAliasing = storage.Get("GS:AntiAliasing", 0);
