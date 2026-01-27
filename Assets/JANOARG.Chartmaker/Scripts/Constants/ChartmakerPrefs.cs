@@ -25,8 +25,9 @@ namespace JANOARG.Chartmaker.Constants
         public float          FrequencyMax   = 20000;
         public FrequencyScale FrequencyScale = FrequencyScale.Mel;
     
-        public bool PerfectHitsounds;
-        public bool ForceNavigationBar;
+        public bool  PerfectHitsounds;
+        public bool  ForceNavigationBar;
+        public float InterfaceScaling;
 
         public void Load(Storage storage)
         {
