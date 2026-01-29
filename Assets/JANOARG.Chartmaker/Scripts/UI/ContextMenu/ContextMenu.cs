@@ -1,5 +1,7 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
+using JANOARG.Shared.Utils;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -232,32 +234,25 @@ namespace JANOARG.Chartmaker.UI.ContextMenu
             float titleBarOffset = Behaviors.Chartmaker.Chartmaker.Preferences.UseDefaultWindow ? 0 : 28;
             if (rt.anchorMin.x == 0) // Left-anchored
             {
-                rt.anchoredPosition = new Vector2(
-                    Mathf.Max(rt.anchoredPosition.x, 0),
-                    rt.anchoredPosition.y
-                );
+                UnityEngine.Debug.Log("Left-anchored");
+                rt.anchoredPosition *= new Vector2Frag(x: Mathf.Max(rt.anchoredPosition.x, 0));
             }
             else // Right-anchored (1)
             {
-                rt.anchoredPosition = new Vector2(
-                    Mathf.Min(rt.anchoredPosition.x, 0),
-                    rt.anchoredPosition.y
+                UnityEngine.Debug.Log("Right-anchored");
+                rt.anchoredPosition *= new Vector2Frag(x: Mathf.Min(rt.anchoredPosition.x, 0)
                 );
             }
 
             if (rt.anchorMin.y == 0) // Bottom-anchored
             {
-                rt.anchoredPosition = new Vector2(
-                    rt.anchoredPosition.x,
-                    Mathf.Max(rt.anchoredPosition.y, 0)
-                );
+                UnityEngine.Debug.Log("Bottom-anchored");
+                rt.anchoredPosition *= new Vector2Frag(y: Mathf.Max(rt.anchoredPosition.y, 0));
             }
             else // Top-anchored (1)
             {
-                rt.anchoredPosition = new Vector2(
-                    rt.anchoredPosition.x,
-                    Mathf.Min(rt.anchoredPosition.y, -titleBarOffset)
-                );
+                // TODO: Apply better position scaling compensation (this one noticeably drifts but wouldn't render the program unusable)
+                rt.anchoredPosition *= new Vector2Frag(y: Mathf.Min(rt.anchoredPosition.y - (888 / scale), titleBarOffset));
             }
 
             isOpen = true;
