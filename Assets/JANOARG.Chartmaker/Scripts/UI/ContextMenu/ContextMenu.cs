@@ -131,6 +131,8 @@ namespace JANOARG.Chartmaker.UI.ContextMenu
             rt.sizeDelta = new Vector2(Mathf.Ceil(Layout.preferredWidth), Mathf.Ceil(Layout.preferredHeight));
         
             Rect rect = GetWorldRect(target);
+            rect.position /= scale;
+            rect.size /= scale;
 
             bool oopsItGotClipped = false;
             funny:
@@ -162,8 +164,8 @@ namespace JANOARG.Chartmaker.UI.ContextMenu
                 {
                     rt.anchorMin = rt.anchorMax = new Vector2(0, 1);
                     rt.anchoredPosition = new Vector2(
-                        Mathf.Round(rect.xMin / scale),
-                        Mathf.Round(rect.yMin / scale)
+                        Mathf.Round(rect.xMin),
+                        Mathf.Round(rect.yMin)
                     ) + offset;
                     if (rt.anchoredPosition.x + rt.sizeDelta.x > Screen.width) 
                     {
@@ -183,8 +185,8 @@ namespace JANOARG.Chartmaker.UI.ContextMenu
                 {
                     rt.anchorMin = rt.anchorMax = new Vector2(0, 0);
                     rt.anchoredPosition = new Vector2(
-                        Mathf.Round(rect.xMin / scale),
-                        Mathf.Round((rect.yMax + rt.sizeDelta.y) / scale)
+                        Mathf.Round(rect.xMin),
+                        Mathf.Round(rect.yMax + rt.sizeDelta.y)
                     ) + offset;
                     if (rt.anchoredPosition.x + rt.sizeDelta.x > Screen.width)
                     {
@@ -204,8 +206,8 @@ namespace JANOARG.Chartmaker.UI.ContextMenu
                 {
                     rt.anchorMin = rt.anchorMax = new Vector2(1, 1);
                     rt.anchoredPosition = new Vector2(
-                        Mathf.Round((rect.xMin - rt.rect.width * scale) / scale),
-                        Mathf.Round(rect.yMax / scale)
+                        Mathf.Round(rect.xMin - rt.rect.width * scale),
+                        Mathf.Round(rect.yMax)
                     ) + offset;
                     if (rt.anchoredPosition.y - rt.sizeDelta.y < 0)
                     {
@@ -218,8 +220,8 @@ namespace JANOARG.Chartmaker.UI.ContextMenu
                 {
                     rt.anchorMin = rt.anchorMax = new Vector2(0, 1);
                     rt.anchoredPosition = new Vector2(
-                        Mathf.Round(rect.xMax / scale),
-                        Mathf.Round(rect.yMax / scale)
+                        Mathf.Round(rect.xMax),
+                        Mathf.Round(rect.yMax)
                     ) + offset;
                     if (rt.anchoredPosition.y - rt.sizeDelta.y < 0)
                     {
@@ -230,8 +232,14 @@ namespace JANOARG.Chartmaker.UI.ContextMenu
                 }
             }
 
+            UnityEngine.Debug.Log("Pos before clamp: " + rt.anchoredPosition);
+
             // Clamp to screen bounds based on current anchor
-            float titleBarOffset = Behaviors.Chartmaker.Chartmaker.Preferences.UseDefaultWindow ? 0 : 28;
+            float titleBarOffset = 
+                (
+                    Behaviors.Chartmaker.Chartmaker.Preferences.ForceNavigationBar
+                    || !Behaviors.Chartmaker.Chartmaker.Preferences.UseDefaultWindow
+                ) ? 28 : 0;
             if (rt.anchorMin.x == 0) // Left-anchored
             {
                 UnityEngine.Debug.Log("Left-anchored");
@@ -251,9 +259,11 @@ namespace JANOARG.Chartmaker.UI.ContextMenu
             }
             else // Top-anchored (1)
             {
-                // TODO: Apply better position scaling compensation (this one noticeably drifts but wouldn't render the program unusable)
-                rt.anchoredPosition *= new Vector2Frag(y: Mathf.Min(rt.anchoredPosition.y - (888 / scale), titleBarOffset));
+                UnityEngine.Debug.Log("Top-anchored");
+                rt.anchoredPosition *= new Vector2Frag(y: Mathf.Min(rt.anchoredPosition.y - Screen.height / scale + titleBarOffset, 0));
             }
+
+            UnityEngine.Debug.Log("Pos after clamp: " + rt.anchoredPosition);
 
             isOpen = true;
             StopCoroutine(Intro());
