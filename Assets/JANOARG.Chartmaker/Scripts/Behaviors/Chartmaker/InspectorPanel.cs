@@ -507,137 +507,139 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                                                 }
                                             }
                                             else switch (CurrentObject)
+                                            {
+                                                case LaneGroup group when Chartmaker.main.CurrentChart?.Groups!.Contains(group) != true:
+                                                    SetObject(null);
+                                                    return;
+
+                                                case LaneGroup group:
+                                                    FormTitle.text = "Lane Group";
+
+                                                    SpawnForm<FormEntryHeader>("Transform");
+                                                    SpawnForm<FormEntryVector3, Vector3>("Position", () => group.Position, x => Chartmaker.main.SetItem(group, "Position", x));
+                                                    SpawnForm<FormEntryVector3, Vector3>("Rotation", () => group.Rotation, x => Chartmaker.main.SetItem(group, "Rotation", x));
+                                                    SpawnForm<FormEntryHeader>("Statistics");
+                                                    LaneGroupStatsSample.HightlightedLaneGroup = group;
+                                                    Instantiate(LaneGroupStatsSample, FormHolder);
+                                                    break;
+
+                                                case CameraController camera when camera != Chartmaker.main.CurrentChart?.Camera:
+                                                    SetObject(null);
+                                                    return;
+
+                                                case CameraController camera:
+                                                    FormTitle.text = "Camera Controller";
+
+                                                    SpawnForm<FormEntryHeader>("Pivot");
+                                                    SpawnForm<FormEntryVector3, Vector3>("Position", () => camera.CameraPivot, x => Chartmaker.main.SetItem(camera, "CameraPivot", x));
+                                                    SpawnForm<FormEntryVector3, Vector3>("Rotation", () => camera.CameraRotation, x => Chartmaker.main.SetItem(camera, "CameraRotation", x));
+                                                    SpawnForm<FormEntryFloat, float>("Distance", () => camera.PivotDistance, x => Chartmaker.main.SetItem(camera, "PivotDistance", x));
+                                                    break;
+
+                                                case Lane lane when Chartmaker.main.CurrentChart?.Lanes.Contains(lane) != true:
+                                                    SetObject(null);
+                                                    return;
+
+                                                case Lane lane:
+                                                    FormTitle.text = "Lane";
+
+                                                    SpawnForm<FormEntryHeader>("Transform");
+                                                    SpawnForm<FormEntryVector3, Vector3>("Position", () => lane.Position, x => Chartmaker.main.SetItem(lane, "Position", x));
+                                                    SpawnForm<FormEntryVector3, Vector3>("Rotation", () => lane.Rotation, x => Chartmaker.main.SetItem(lane, "Rotation", x));
+                                                    SpawnForm<FormEntryHeader>("Appearance");
+                                                    MakeLaneStyleEntry(lane);
+
+                                                    break;
+
+                                                case LaneStep step when CurrentHierarchyObject is not Lane l || !l.LaneSteps.Contains(step):
+                                                    SetObject(null);
+                                                    return;
+
+                                                case LaneStep step:
                                                 {
-                                                    case LaneGroup group when Chartmaker.main.CurrentChart?.Groups!.Contains(group) != true:
-                                                        SetObject(null);
-                                                        return;
+                                                    FormTitle.text = "Lane Step";
+                                                    MakeOffsetEntry(() => step.Offset, x => Chartmaker.main.SetItem(step, "Offset", x));
 
-                                                    case LaneGroup group:
-                                                        FormTitle.text = "Lane Group";
+                                                    SpawnForm<FormEntryHeader>("Transform");
+                                                    SpawnForm<FormEntryVector2, Vector2>("Start Pos", () => step.StartPointPosition, x => Chartmaker.main.SetItem(step, "StartPointPosition", x));
+                                                    SpawnForm<FormEntryVector2, Vector2>("End Pos", () => step.EndPointPosition, x => Chartmaker.main.SetItem(step, "EndPointPosition", x));
 
-                                                        SpawnForm<FormEntryHeader>("Transform");
-                                                        SpawnForm<FormEntryVector3, Vector3>("Position", () => group.Position, x => Chartmaker.main.SetItem(group, "Position", x));
-                                                        SpawnForm<FormEntryVector3, Vector3>("Rotation", () => group.Rotation, x => Chartmaker.main.SetItem(group, "Rotation", x));
-                                                        SpawnForm<FormEntryHeader>("Statistics");
-                                                        LaneGroupStatsSample.HightlightedLaneGroup = group;
-                                                        Instantiate(LaneGroupStatsSample, FormHolder);
-                                                        break;
+                                                    var easeHeader = SpawnForm<FormEntryLabel>("Easings");
 
-                                                    case CameraController camera when camera != Chartmaker.main.CurrentChart?.Camera:
-                                                        SetObject(null);
-                                                        return;
+                                                    easeHeader.TitleLabel.margin -= new Vector4(0, 0, 0, 4);
 
-                                                    case CameraController camera:
-                                                        FormTitle.text = "Camera Controller";
+                                                    FormEntryEasing startX, startY, endX, endY;
 
-                                                        SpawnForm<FormEntryHeader>("Pivot");
-                                                        SpawnForm<FormEntryVector3, Vector3>("Position", () => camera.CameraPivot, x => Chartmaker.main.SetItem(camera, "CameraPivot", x));
-                                                        SpawnForm<FormEntryVector3, Vector3>("Rotation", () => camera.CameraRotation, x => Chartmaker.main.SetItem(camera, "CameraRotation", x));
-                                                        SpawnForm<FormEntryFloat, float>("Distance", () => camera.PivotDistance, x => Chartmaker.main.SetItem(camera, "PivotDistance", x));
-                                                        break;
+                                                    SetEase2(
+                                                        startX = SpawnForm<FormEntryEasing, IEaseDirective>("Start Ease", () => step.StartEaseX,
+                                                            x => Chartmaker.main.SetItem(step, "StartEaseX", x)
+                                                        ),
+                                                        startY = SpawnForm<FormEntryEasing, IEaseDirective>("", () => step.StartEaseY,
+                                                            x => Chartmaker.main.SetItem(step, "StartEaseY", x)
+                                                        )
+                                                    );
 
-                                                    case Lane lane when Chartmaker.main.CurrentChart?.Lanes.Contains(lane) != true:
-                                                        SetObject(null);
-                                                        return;
+                                                    EaseCopyToBottomItem copyPasteToBottom = Instantiate(EaseCopyToButtomItemSample, FormHolder);
+                                                    SetEase2(
+                                                        endX = SpawnForm<FormEntryEasing, IEaseDirective>("End Ease", () => step.EndEaseX,
+                                                            x => Chartmaker.main.SetItem(step, "EndEaseX", x)
+                                                        ),
+                                                        endY = SpawnForm<FormEntryEasing, IEaseDirective>("", () => step.EndEaseY,
+                                                            x => Chartmaker.main.SetItem(step, "EndEaseY", x)
+                                                        )
+                                                    );
 
-                                                    case Lane lane:
-                                                        FormTitle.text = "Lane";
-
-                                                        SpawnForm<FormEntryHeader>("Transform");
-                                                        SpawnForm<FormEntryVector3, Vector3>("Position", () => lane.Position, x => Chartmaker.main.SetItem(lane, "Position", x));
-                                                        SpawnForm<FormEntryVector3, Vector3>("Rotation", () => lane.Rotation, x => Chartmaker.main.SetItem(lane, "Rotation", x));
-                                                        SpawnForm<FormEntryHeader>("Appearance");
-                                                        MakeLaneStyleEntry(lane);
-
-                                                        break;
-
-                                                    case LaneStep step when CurrentHierarchyObject is not Lane l || !l.LaneSteps.Contains(step):
-                                                        SetObject(null);
-                                                        return;
-
-                                                    case LaneStep step:
-                                                        {
-                                                            FormTitle.text = "Lane Step";
-                                                            MakeOffsetEntry(() => step.Offset, x => Chartmaker.main.SetItem(step, "Offset", x));
-
-                                                            SpawnForm<FormEntryHeader>("Transform");
-                                                            SpawnForm<FormEntryVector2, Vector2>("Start Pos", () => step.StartPointPosition, x => Chartmaker.main.SetItem(step, "StartPointPosition", x));
-                                                            SpawnForm<FormEntryVector2, Vector2>("End Pos", () => step.EndPointPosition, x => Chartmaker.main.SetItem(step, "EndPointPosition", x));
-
-                                                            var easeHeader = SpawnForm<FormEntryLabel>("Easings");
-
-                                                            easeHeader.TitleLabel.margin -= new Vector4(0, 0, 0, 4);
-
-                                                            FormEntryEasing startX, startY, endX, endY;
-
-                                                            SetEase2(
-                                                                startX = SpawnForm<FormEntryEasing, IEaseDirective>("Start Ease", () => step.StartEaseX,
-                                                                    x => Chartmaker.main.SetItem(step, "StartEaseX", x)
-                                                                ),
-                                                                startY = SpawnForm<FormEntryEasing, IEaseDirective>("", () => step.StartEaseY,
-                                                                    x => Chartmaker.main.SetItem(step, "StartEaseY", x)
-                                                                )
-                                                            );
-
-                                                            EaseCopyToBottomItem copyPasteToBottom = Instantiate(EaseCopyToButtomItemSample, FormHolder);
-                                                            SetEase2(
-                                                                endX = SpawnForm<FormEntryEasing, IEaseDirective>("End Ease", () => step.EndEaseX,
-                                                                    x => Chartmaker.main.SetItem(step, "EndEaseX", x)
-                                                                ),
-                                                                endY = SpawnForm<FormEntryEasing, IEaseDirective>("", () => step.EndEaseY,
-                                                                    x => Chartmaker.main.SetItem(step, "EndEaseY", x)
-                                                                )
-                                                            );
-
-                                                            copyPasteToBottom.SetFormItems(startX, startY, endX, endY);
-                                                            SpawnForm<FormEntrySpace>();
-                                                            SpawnForm<FormEntryFloat, float>("Speed", () => step.Speed, x => Chartmaker.main.SetItem(step, "Speed", x));
-                                                            break;
-                                                        }
-
-                                                    case HitObject hit when CurrentHierarchyObject is not Lane l || !l.Objects.Contains(hit):
-                                                        SetObject(null);
-                                                        return;
-
-                                                    case HitObject hit:
-                                                        {
-                                                            FormTitle.text = "Hit Object";
-                                                            MakeOffsetEntry(() => hit.Offset, x => Chartmaker.main.SetItem(hit, "Offset", x));
-
-                                                            SpawnForm<FormEntryHeader>("Type");
-
-                                                            FormEntryDropdown typeDropdown = SpawnForm<FormEntryDropdown, object>("", () => hit.Type, x => hit.Type = (HitObject.HitType)x);
-                                                            typeDropdown.TargetEnum(typeof(HitObject.HitType));
-                                                            typeDropdown.TitleLabel.gameObject.SetActive(false);
-                                                            typeDropdown.GetComponent<HorizontalLayoutGroup>().padding.left = 10;
-
-                                                            SpawnForm<FormEntryHeader>("Transform");
-                                                            SpawnForm<FormEntryFloat, float>("Position", () => hit.Position, x => Chartmaker.main.SetItem(hit, "Position", x));
-                                                            SpawnForm<FormEntryFloat, float>("Width", () => hit.Length, x => Chartmaker.main.SetItem(hit, "Length", x));
-                                                            SpawnForm<FormEntryFloat, float>("Hold Length", () => hit.HoldLength, x => Chartmaker.main.SetItem(hit, "HoldLength", x));
-
-                                                            SpawnForm<FormEntryHeader>("Appearance");
-                                                            MakeHitStyleEntry(hit);
-
-                                                            FormEntryToggleFloat dirField = null;
-                                                            SpawnForm<FormEntryHeader>("Behavior");
-                                                            SpawnForm<FormEntryBool, bool>("Flickable", () => hit.Flickable, x =>
-                                                            {
-                                                                Chartmaker.main.SetItem(hit, "Flickable", x);
-                                                                dirField?.gameObject.SetActive(x);
-                                                            });
-                                                            dirField = SpawnForm<FormEntryToggleFloat, float>("Direction", () => hit.FlickDirection, x => Chartmaker.main.SetItem(hit, "FlickDirection", x));
-                                                            dirField.gameObject.SetActive(hit.Flickable);
-                                                            break;
-                                                        }
-
-                                                    default:
-                                                        FormTitle.text = Chartmaker.GetItemName(CurrentObject);
-
-                                                        SpawnForm<FormEntryLabel>("Unsupported object " + CurrentObject.GetType());
-
-                                                        break;
+                                                    copyPasteToBottom.SetFormItems(startX, startY, endX, endY);
+                                                    SpawnForm<FormEntrySpace>();
+                                                    SpawnForm<FormEntryFloat, float>("Speed", () => step.Speed, x => Chartmaker.main.SetItem(step, "Speed", x));
+                                                    break;
                                                 }
+
+                                                case HitObject hit when CurrentHierarchyObject is not Lane l || !l.Objects.Contains(hit):
+                                                    SetObject(null);
+                                                    return;
+
+                                                case HitObject hit:
+                                                {
+                                                    FormTitle.text = "Hit Object";
+                                                    MakeOffsetEntry(() => hit.Offset, x => Chartmaker.main.SetItem(hit, "Offset", x));
+
+                                                    SpawnForm<FormEntryHeader>("Type");
+
+                                                    FormEntryDropdown typeDropdown = SpawnForm<FormEntryDropdown, object>("", () => hit.Type, x => hit.Type = (HitObject.HitType)x);
+                                                    typeDropdown.TargetEnum(typeof(HitObject.HitType));
+                                                    typeDropdown.TitleLabel.gameObject.SetActive(false);
+                                                    typeDropdown.GetComponent<HorizontalLayoutGroup>().padding.left = 10;
+
+                                                    SpawnForm<FormEntryHeader>("Transform");
+                                                    SpawnForm<FormEntryFloat, float>("Position", () => hit.Position, x => Chartmaker.main.SetItem(hit, "Position", x));
+                                                    SpawnForm<FormEntryFloat, float>("Width", () => hit.Length, x => Chartmaker.main.SetItem(hit, "Length", x));
+                                                    SpawnForm<FormEntryFloat, float>("Hold Length", () => hit.HoldLength, x => Chartmaker.main.SetItem(hit, "HoldLength", x));
+
+                                                    SpawnForm<FormEntryHeader>("Appearance");
+                                                    MakeHitStyleEntry(hit);
+
+                                                    FormEntryToggleFloat dirField = null;
+                                                    SpawnForm<FormEntryHeader>("Behavior");
+                                                    SpawnForm<FormEntryBool, bool>("Flickable", () => hit.Flickable, x =>
+                                                    {
+                                                        Chartmaker.main.SetItem(hit, "Flickable", x);
+                                                        dirField?.gameObject.SetActive(x);
+                                                    });
+                                                    dirField = SpawnForm<FormEntryToggleFloat, float>("Direction", () => hit.FlickDirection, x => Chartmaker.main.SetItem(hit, "FlickDirection", x));
+                                                    dirField.gameObject.SetActive(hit.Flickable);
+
+                                                    SpawnForm<FormEntryBool, bool>("Fake", () => hit.IsFake, x => Chartmaker.main.SetItem(hit, "IsFake", x));
+                                                    break;
+                                                }
+
+                                                default:
+                                                    FormTitle.text = Chartmaker.GetItemName(CurrentObject);
+
+                                                    SpawnForm<FormEntryLabel>("Unsupported object " + CurrentObject.GetType());
+
+                                                    break;
+                                            }
 
                                             break;
                                         }
