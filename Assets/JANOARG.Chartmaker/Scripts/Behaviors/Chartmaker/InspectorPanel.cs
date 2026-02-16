@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using System.Text.RegularExpressions;
 using JANOARG.Chartmaker.Data.Chartmaker;
@@ -720,6 +721,28 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
 
         private void MakeMultiEditForm(IList thing)
         {
+            Dictionary<string, string> nameOverrides = new() 
+            {
+                ["StartPointPosition"] = "Start Position",
+                ["EndPointPosition"] = "End Position",
+                ["StartEaseX"] = "Start Ease X",
+                ["StartEaseY"] = "Start Ease Y",
+                ["EndEaseX"] = "End Ease X",
+                ["EndEaseY"] = "End Ease Y",
+                
+                // Note
+                ["Length"] = "Note length",
+                ["HoldLength"] = "Note hold length",
+                ["FlickDirection"] = "Flick direction",
+                ["IsFake"] = "Fake",
+                
+                ["StyleIndex"] = "Style Index",
+            };
+
+            string[] variablesToHide = new[]
+            {
+                "IsDirty", "IsSimultaneous"
+            };
             SpawnForm<FormEntrySpace>("");
             SpawnForm<FormEntryLabel>(Chartmaker.GetItemName(thing));
 
@@ -729,8 +752,11 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                 typeof(IEnumerable).IsAssignableFrom(field.FieldType)
                 || typeof(Storyboard) == field.FieldType
                 || field.IsStatic || field.IsLiteral || !field.IsPublic
-            ));
-            if (Array.IndexOf(fields, CurrentMultiField) < 0) SetMultiField(fields[0]);
+            )).ToList();
+            if (fields.IndexOf(CurrentMultiField) < 0) SetMultiField(fields[0]);
+            
+            // Filter internal fields
+            fields.RemoveAll(field => variablesToHide.Contains(field.Name));
 
             var dropdown = SpawnForm<FormEntryDropdown, object>("Target", () => CurrentMultiField, x => {
                 SetMultiField((FieldInfo)x);
@@ -738,7 +764,8 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             });
             foreach (FieldInfo field in fields)
             {
-                dropdown.ValidValues.Add(field, field.Name);
+                string name = nameOverrides.TryGetValue(field.Name, out var @override) ? @override : field.Name;
+                dropdown.ValidValues.Add(field, name);
             }
 
             SpawnForm<FormEntrySpace>("");
