@@ -98,6 +98,37 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             {
                 ChartmakerCanvas.scaleFactor = Preferences.InterfaceScaling;
             }
+            
+            
+            #if UNITY_ANDROID && !UNITY_EDITOR
+            void RequestStoragePermission()
+            {
+                bool HasManageStoragePermission()
+                {
+                    AndroidJavaClass environmentClass = new AndroidJavaClass("android.os.Environment");
+                    return environmentClass.CallStatic<bool>("isExternalStorageManager");
+                }
+                if (!HasManageStoragePermission())
+                {
+                    // MANAGE_EXTERNAL_STORAGE can't be requested via Unity's Permission API
+                    // It must be requested via Android's Settings intent
+                    AndroidJavaClass unityPlayer = new AndroidJavaClass("com.unity3d.player.UnityPlayer");
+                    AndroidJavaObject activity = unityPlayer.GetStatic<AndroidJavaObject>("currentActivity");
+
+                    AndroidJavaObject intent = new AndroidJavaObject("android.content.Intent",
+                        "android.settings.MANAGE_APP_ALL_FILES_ACCESS_PERMISSION");
+
+                    AndroidJavaClass uriClass = new AndroidJavaClass("android.net.Uri");
+                    AndroidJavaObject uri = uriClass.CallStatic<AndroidJavaObject>("parse", 
+                        "package:" + Application.identifier);
+                    intent.Call<AndroidJavaObject>("setData", uri);
+
+                    activity.Call("startActivity", intent);
+                }
+            }
+            
+            RequestStoragePermission();
+            #endif
         }
 
         public void Update()
@@ -150,9 +181,12 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
         public void OpenSongModal() 
         {
             FileModal dialogModal = ModalHolder.main.Spawn<FileModal>();
-            
+
             if (Application.platform != RuntimePlatform.Android && Application.platform != RuntimePlatform.IPhonePlayer)
-                 Permission.RequestUserPermission(Permission.ExternalStorageRead);
+            {
+                Permission.RequestUserPermission(Permission.ExternalStorageRead);
+                Permission.RequestUserPermission(Permission.ExternalStorageWrite);
+            }
             dialogModal.AcceptedTypes = new List<FileModalFileType> {
                 new("JANOARG Playable Song file", "japs"),
                 new("All files"),
