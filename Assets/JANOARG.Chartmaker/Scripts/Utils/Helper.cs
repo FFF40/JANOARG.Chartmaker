@@ -21,7 +21,7 @@ namespace JANOARG.Chartmaker.Utils
                 ;
         }
 
-        public static string GetDataFolder()
+        public static string GetHomeFolder()
         {
             string path;
             
@@ -40,8 +40,6 @@ namespace JANOARG.Chartmaker.Utils
                         path = Application.persistentDataPath;
                     }
                 }
-
-                return path;
             }
             else
             {
@@ -50,15 +48,17 @@ namespace JANOARG.Chartmaker.Utils
 
                 if (string.IsNullOrEmpty(path))
                     path = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-
-                // Double fallback!
-                if (string.IsNullOrEmpty(path))
-                    path = Path.GetDirectoryName(Application.dataPath);
-                else
-                    path = Path.Combine(path, "JANOARG Chartmaker");
-
-                return path;
             }
+
+            return path;
+        }
+        
+        public static string GetDataFolder() 
+        {
+            string path = Path.Combine(GetHomeFolder(), "JANOARG Chartmaker");
+            if (!Directory.Exists(path)) Directory.CreateDirectory(path);
+
+            return path;
         }
 
         public static string GetSongFolder() 
