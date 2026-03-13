@@ -101,6 +101,7 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             
             
             #if UNITY_ANDROID && !UNITY_EDITOR
+            // I hate modern android, wtf is this
             void RequestStoragePermission()
             {
                 bool HasManageStoragePermission()
