@@ -75,14 +75,11 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
 
         public bool IsMaximised
         {
-            get
-            {
-                return
-                    HierarchyPanel.main.IsCollapsed
-                    && InspectorPanel.main.IsCollapsed
-                    && TimelinePanel.main.TimelineHeight <= 0
-                ;
-            }
+            get =>
+                HierarchyPanel.main.IsCollapsed
+                && InspectorPanel.main.IsCollapsed
+                && TimelinePanel.main.TimelineHeight <= 0;
+
             set
             {
                 if (value)
