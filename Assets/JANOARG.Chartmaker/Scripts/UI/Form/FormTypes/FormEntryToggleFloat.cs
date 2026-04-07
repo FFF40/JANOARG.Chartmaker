@@ -34,7 +34,7 @@ namespace JANOARG.Chartmaker.UI.Form.FormTypes
     
         public void SetValue(string value)
         {
-            if (float.TryParse(value, out float v)) 
+            if (ExpressionUtils.TryEvaluate(value, out float v)) 
                 SetValue(v);
         }
     }
