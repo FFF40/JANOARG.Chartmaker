@@ -473,12 +473,6 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                                         SpawnForm<FormEntryHeader>("Hold Tail");
                                         SpawnForm<FormEntryColor, Color>("Color", () => hitStyle.HoldTailColor, x => Chartmaker.main.SetItem(hitStyle, "HoldTailColor", x));
                                         break;
-
-                                    case World world:
-                                        FormTitle.text = "World";
-                                        
-                                        SpawnForm<FormEntryHeader>("This object does not have any properties.");
-                                        break;
                                         
                                     default:
                                         {

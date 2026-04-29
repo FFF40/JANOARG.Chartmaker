@@ -12,13 +12,9 @@ namespace JANOARG.Chartmaker.UI.Inspector
         public TMP_Text LaneStyleCount;
         public TMP_Text HitStyleCount;
 
-        [Header( "LaneGroup Stats" )] // rename to something better
+        [Header( "Overall Lane Stats" )] 
         public TMP_Text LaneCount;
         public TMP_Text LaneGroupCount;
-        public TMP_Text LaneCountRecursive;
-        public TMP_Text MaxNestingCount;
-
-        [Header( "Lane Step" )]
         public TMP_Text LaneStep;
 
         [Header( "Hit Objects" )]
@@ -42,8 +38,6 @@ namespace JANOARG.Chartmaker.UI.Inspector
                 HitStyleCount.text = "-";
                 LaneCount.text = "-";
                 LaneGroupCount.text = "-";
-                LaneCountRecursive.text = "-";
-                MaxNestingCount.text = "-"; 
                 LaneStep.text = "-";
                 TotalHitObjects.text = "-";
                 Taps.text = "-";
@@ -59,8 +53,6 @@ namespace JANOARG.Chartmaker.UI.Inspector
                 HitStyleCount.text = "-";
                 LaneCount.text = "-";
                 LaneGroupCount.text = "-";
-                LaneCountRecursive.text = "-";
-                MaxNestingCount.text = "-"; 
                 LaneStep.text = "-";
                 TotalHitObjects.text = "-";
                 Taps.text = "-";
