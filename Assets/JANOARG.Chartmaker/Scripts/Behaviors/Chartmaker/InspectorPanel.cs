@@ -517,10 +517,7 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
 
                                                         SpawnForm<FormEntryHeader>("Transform");
                                                         SpawnForm<FormEntryVector3, Vector3>("Position", () => group.Position, x => Chartmaker.main.SetItem(group, "Position", x));
-                                                        SpawnForm<FormEntryVector3, Vector3>("Rotation", () => group.Rotation, x => Chartmaker.main.SetItem(group, "Rotation", x));
-                                                        SpawnForm<FormEntryHeader>("Statistics");
-                                                        LaneGroupStatsSample.HightlightedLaneGroup = group;
-                                                        Instantiate(LaneGroupStatsSample, FormHolder);
+                                                        SpawnForm<FormEntryVector3, Vector3>("Rotation", () => group.Rotation, x => Chartmaker.main.SetItem(group, "Rotation", x));                                                      
                                                         break;
 
                                                     case CameraController camera when camera != Chartmaker.main.CurrentChart?.Camera:
@@ -658,6 +655,14 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                             var statsHolder = Instantiate(LaneStatsSample, FormHolder);
                             statsHolder.HightlightedLane = lane;
 
+                            break;
+
+                        case LaneGroup laneGroup:
+                            FormTitle.text = "Statistics of Lane Group";
+
+                            var lstatsHolder = Instantiate(LaneGroupStatsSample, FormHolder);
+                            lstatsHolder.HightlightedLaneGroup = laneGroup;
+                            
                             break;
 
                         default:
