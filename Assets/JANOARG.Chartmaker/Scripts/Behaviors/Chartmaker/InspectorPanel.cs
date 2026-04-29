@@ -657,13 +657,13 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                     switch (CurrentObject)
                     {
                         case Chart chart:
-                            FormTitle.text = "Statistics of World";
+                            FormTitle.text = "Statistics of Chart";
 
                             var wstatsHolder = Instantiate(ChartStatsSample, FormHolder);
-                            wstatsHolder.Chart = chart;
+                            wstatsHolder.HightlightedChart = chart;
                             
                             break;
-                            
+
                         case Lane lane:
                             FormTitle.text = "Statistics of Lane";
 

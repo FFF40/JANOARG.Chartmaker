@@ -6,9 +6,13 @@ namespace JANOARG.Chartmaker.UI.Inspector
 {
     public class ChartStatsInspector : MonoBehaviour
     {
-        public Chart Chart;
+        public Chart HightlightedChart;
 
-        [Header( "LaneGroup Stats" )]
+        [Header("Palette")]
+        public TMP_Text LaneStyleCount;
+        public TMP_Text HitStyleCount;
+
+        [Header( "LaneGroup Stats" )] // rename to something better
         public TMP_Text LaneCount;
         public TMP_Text LaneGroupCount;
         public TMP_Text LaneCountRecursive;
@@ -23,21 +27,66 @@ namespace JANOARG.Chartmaker.UI.Inspector
         public TMP_Text Catches;
         public TMP_Text Flickables;
         public TMP_Text Holds;
-        
-        // Get Max Streak
-        // Get all notes 
-            // Normal
-            // Hold Ticks
-            // Catch
-            // Omnidirectional Flicks
-            // Directional Flicks
-        // EX Score 
-        // Get lane count
-        // Get lane group count
 
+        [Header("Score")]
+        public TMP_Text EXScore;
+        public TMP_Text MaxStreak;
+
+        
         private void Update()
         {
-            
+
+            if (HightlightedChart == null)
+            {
+                LaneStyleCount.text = "-";
+                HitStyleCount.text = "-";
+                LaneCount.text = "-";
+                LaneGroupCount.text = "-";
+                LaneCountRecursive.text = "-";
+                MaxNestingCount.text = "-"; 
+                LaneStep.text = "-";
+                TotalHitObjects.text = "-";
+                Taps.text = "-";
+                Catches.text = "-";
+                Flickables.text = "-";
+                Holds.text = "-";
+                EXScore.text = "-";
+                MaxStreak.text = "-";
+                return;
+            }
+
+            LaneStyleCount.text = "-";
+                HitStyleCount.text = "-";
+                LaneCount.text = "-";
+                LaneGroupCount.text = "-";
+                LaneCountRecursive.text = "-";
+                MaxNestingCount.text = "-"; 
+                LaneStep.text = "-";
+                TotalHitObjects.text = "-";
+                Taps.text = "-";
+                Catches.text = "-";
+                Flickables.text = "-";
+                Holds.text = "-";
+                EXScore.text = "-";
+                MaxStreak.text = "-";
+
+
+            LaneStyleCount.text = HightlightedChart.Palette.LaneStyles.Count.ToString();
+            HitStyleCount.text = HightlightedChart.Palette.HitStyles.Count.ToString();
+
+            LaneCount.text = HightlightedChart.Lanes.Count.ToString();
+            LaneGroupCount.text = HightlightedChart.Groups.Count.ToString();
+
+            // Get Max Streak
+            // Get all notes 
+                // Normal
+                // Hold Ticks
+                // Catch
+                // Omnidirectional Flicks
+                // Directional Flicks
+            // EX Score 
+            // Get all lane count
+            // Get all lane group count
 
         }
     }
