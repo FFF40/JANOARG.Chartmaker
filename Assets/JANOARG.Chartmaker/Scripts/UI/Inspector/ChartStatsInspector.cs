@@ -71,7 +71,6 @@ namespace JANOARG.Chartmaker.UI.Inspector
 
             foreach (var lane in HightlightedChart.Lanes)
             {
-                
                 laneStepCount += lane.LaneSteps.Count; 
                 
                 var objects = lane.Objects;
@@ -100,7 +99,6 @@ namespace JANOARG.Chartmaker.UI.Inspector
                             catchHolds++;
                         holdTicks += (int)Math.Floor(obj.HoldLength / 0.5f);
                 }
-
             }
 
             LaneStep.text = laneStepCount.ToString();
@@ -123,7 +121,6 @@ namespace JANOARG.Chartmaker.UI.Inspector
                 directionalFlickables * 2
             ).ToString();
             MaxStreak.text = (totalHitObjects + holdTicks).ToString();
-
         }
     }
     

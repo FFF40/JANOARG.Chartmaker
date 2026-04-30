@@ -657,7 +657,6 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                             wstatsHolder.HightlightedChart = chart;
                             
                             break;
-
                         case Lane lane:
                             FormTitle.text = "Statistics of Lane";
 
@@ -665,7 +664,6 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                             statsHolder.HightlightedLane = lane;
 
                             break;
-
                         case LaneGroup laneGroup:
                             FormTitle.text = "Statistics of Lane Group";
 
@@ -673,8 +671,6 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                             lstatsHolder.HightlightedLaneGroup = laneGroup;
                             
                             break;
-
-
                         default:
                             FormTitle.text = "Statistics of " + Chartmaker.GetItemName(CurrentObject);
 
