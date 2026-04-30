@@ -30,10 +30,8 @@ namespace JANOARG.Chartmaker.UI.Inspector
         public TMP_Text EXScore;
         public TMP_Text MaxStreak;
 
-        
         private void Update()
         {
-
             if (HightlightedChart == null)
             {
                 LaneStyleCount.text = "-";
@@ -91,7 +89,6 @@ namespace JANOARG.Chartmaker.UI.Inspector
                         else
                             omniFlickables++;
                     }
-        
                     if (obj.HoldLength > 0)
                         if (obj.Type is HitObject.HitType.Normal)
                             tapHolds++;
@@ -114,11 +111,11 @@ namespace JANOARG.Chartmaker.UI.Inspector
             // EX Score 
 
             EXScore.text = (
-                taps * 3 +
+                (taps * 3) +
                 catches +
                 holdTicks +
                 omniFlickables +
-                directionalFlickables * 2
+                (directionalFlickables * 2)
             ).ToString();
             MaxStreak.text = (totalHitObjects + holdTicks).ToString();
         }

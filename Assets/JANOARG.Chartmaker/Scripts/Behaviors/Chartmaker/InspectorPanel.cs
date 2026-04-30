@@ -680,7 +680,6 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                     }
                     break;
             
-
                 case InspectorMode.DebugStats:
                     FormTitle.text = "Debug Stats";
                     Collapser.SetActive(false);
@@ -873,7 +872,6 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             Chartmaker.main.OnHistoryDo();
             Chartmaker.main.OnHistoryUpdate();
         }
-
 
         private void SetMultiField(FieldInfo field)
         {
