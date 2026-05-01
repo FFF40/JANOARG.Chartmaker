@@ -8,6 +8,7 @@ using JANOARG.Chartmaker.UI.Themeable;
 using JANOARG.Chartmaker.UI.Tooltip;
 using JANOARG.Chartmaker.Utils;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 using FFTWindow = JANOARG.Chartmaker.Utils.FFTWindow;
 
@@ -187,6 +188,44 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
                         WindowHandler.main.OnFrameChanged();
                     });
                     forceNavbar.gameObject.SetActive(prefs.UseDefaultWindow || BorderlessWindow.IsFramed);
+
+                    FormEntryRange interfaceScaling = null;
+                    interfaceScaling = SpawnForm<FormEntryRange, float>("UI Scaling", () => prefs.InterfaceScaling, x =>
+                    {
+                        UnityEngine.Debug.Log($"Got UIScalingFactor {prefs.InterfaceScaling}, Getting {interfaceScaling!.CurrentValue}");
+                        
+                        // Prevent race config sets
+                        if (x == interfaceScaling.Range.minValue)
+                            x = prefs.InterfaceScaling;
+                        
+                        // Round to nearest 0.05f increment
+                        float roundedValue = Mathf.Round(x / 0.05f) * 0.05f;
+    
+                        // Only update if the value actually changed after rounding
+                        if (!Mathf.Approximately(prefs.InterfaceScaling, roundedValue))
+                        {
+                            prefs.InterfaceScaling = roundedValue;
+                            storage.Set("LA:UIScalingFactor", roundedValue);
+                            UnityEngine.Debug.Log($"Set UIScalingFactor to {storage.Get("LA:UIScalingFactor" , float.NaN)}");
+                            WindowHandler.main.OnFrameChanged();
+        
+                            interfaceScaling.Range.SetValueWithoutNotify(roundedValue);
+                            interfaceScaling.Field.SetTextWithoutNotify($"{roundedValue:F2}");
+                        }
+                        else // Force visual slider snapping
+                            interfaceScaling.Range.SetValueWithoutNotify(prefs.InterfaceScaling);
+                        
+                        // Force text field to follow snapped values
+                        interfaceScaling.CurrentValue = roundedValue;
+
+                        IsDirty = true;
+                    });
+                    
+                    interfaceScaling.Range.minValue = 0.75f;
+                    interfaceScaling.Range.maxValue = 2.5f;
+                    
+                   interfaceScaling.EndDragTrigger = () => Behaviors.Chartmaker.Chartmaker.main.ChartmakerCanvas.scaleFactor = prefs.InterfaceScaling;
+
 
                     break;
                 }

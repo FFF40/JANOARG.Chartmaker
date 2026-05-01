@@ -16,6 +16,7 @@ using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
+using JANOARG.Shared.Utils;
 
 namespace JANOARG.Chartmaker.Behaviors.Chartmaker
 {
@@ -674,6 +675,10 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             SearchField.text = "";
         }
 
+        // -------------------------------------------------- Resizing
+
+        float HierarchyRestoreWidth = 0;
+
         public void ToggleExpand(HierarchyItem item) 
         {
             item.Expanded = !item.Expanded;
@@ -692,10 +697,20 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
     
         public void ResizeHierarchy(float width, bool snap = true)
         {
-            if (snap) width = width < 168 ? 69 : 268;
-            else width = Mathf.Clamp(Mathf.Floor(width), 69, 268);
+            const float MIN_FEASIBLE_WIDTH = 268;
+            const float COLLAPSED_WIDTH = 69;
+            const float TRANSITION_WIDTH = (MIN_FEASIBLE_WIDTH + COLLAPSED_WIDTH) / 2;
 
-            PanelHolder.anchoredPosition = new(width - 226, PanelHolder.anchoredPosition.y);
+            float maxWidth = Mathf.Max(MIN_FEASIBLE_WIDTH, Screen.width * 0.33f);
+            
+            if (snap) width = 
+                width < TRANSITION_WIDTH ? COLLAPSED_WIDTH : 
+                width < MIN_FEASIBLE_WIDTH ? MIN_FEASIBLE_WIDTH :
+                Mathf.Min(width, maxWidth);
+            else width = Mathf.Clamp(Mathf.Floor(width), COLLAPSED_WIDTH, maxWidth);
+
+            PanelHolder.anchoredPosition *= new Vector2Frag(x: Mathf.Min(MIN_FEASIBLE_WIDTH, width) - 226);
+            PanelHolder.sizeDelta *= new Vector2Frag(x: Mathf.Max(width - 268 + 226, 226));
             Chartmaker.main.PlayerViewHolder.anchoredPosition = new(
                 width, 
                 Chartmaker.main.PlayerViewHolder.anchoredPosition.y
@@ -710,7 +725,8 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
 
             if (snap)
             {
-                IsCollapsed = width < 168;
+                IsCollapsed = width < TRANSITION_WIDTH;
+                if (!IsCollapsed) HierarchyRestoreWidth = width;
                 HierarchyTabButton.interactable = IsCollapsed;
                 CollapserButton.gameObject.SetActive(!IsCollapsed);
             }
@@ -718,12 +734,13 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
     
         public void Collapse()
         {
+            HierarchyRestoreWidth = PanelHolder.sizeDelta.x;
             ResizeHierarchy(0, true);
         }
     
         public void Restore()
         {
-            ResizeHierarchy(240, true);
+            ResizeHierarchy(HierarchyRestoreWidth, true);
         }
 
         // -------------------------------------------------- Dragging

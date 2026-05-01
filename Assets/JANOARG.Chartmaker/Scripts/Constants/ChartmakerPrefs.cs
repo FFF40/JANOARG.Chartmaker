@@ -1,4 +1,5 @@
 using JANOARG.Chartmaker.Behaviors.Chartmaker;
+using JANOARG.Chartmaker.Data;
 using JANOARG.Chartmaker.Utils;
 using JANOARG.Shared.Data.ChartInfo;
 using UnityEngine;
@@ -24,8 +25,9 @@ namespace JANOARG.Chartmaker.Constants
         public float          FrequencyMax   = 20000;
         public FrequencyScale FrequencyScale = FrequencyScale.Mel;
     
-        public bool PerfectHitsounds;
-        public bool ForceNavigationBar;
+        public bool  PerfectHitsounds;
+        public bool  ForceNavigationBar;
+        public float InterfaceScaling;
 
         public void Load(Storage storage)
         {
@@ -39,6 +41,8 @@ namespace JANOARG.Chartmaker.Constants
             CustomCursors = storage.Get("AP:CustomCursors", CustomCursors);
             UseDefaultWindow = storage.Get("LA:UseDefaultWindow", UseDefaultWindow);
             ForceNavigationBar = storage.Get("LA:ForceNavigationBar", true);
+            
+            InterfaceScaling = storage.Get("LA:UIScalingFactor", 1);
         
             QualitySettings.vSyncCount = storage.Get("GS:VSync", 1);
             QualitySettings.antiAliasing = storage.Get("GS:AntiAliasing", 0);

@@ -21,30 +21,60 @@ namespace JANOARG.Chartmaker.Utils
                 ;
         }
 
+        public static string GetHomeFolder()
+        {
+            string path;
+            
+            if (Application.platform == RuntimePlatform.Android)
+            {
+                using (AndroidJavaClass environment = new AndroidJavaClass("android.os.Environment"))
+                using (AndroidJavaObject externalStorage = environment.CallStatic<AndroidJavaObject>("getExternalStorageDirectory"))
+                {
+                    if (externalStorage != null)
+                    {
+                        path = externalStorage.Call<string>("getAbsolutePath");
+                    }
+                    else
+                    {
+                        // Fallback if external storage unavailable
+                        path = Application.persistentDataPath;
+                    }
+                }
+            }
+            else
+            {
+                // Fallback for editor and other platforms
+                path = Environment.GetFolderPath(Environment.SpecialFolder.Personal);
+
+                if (string.IsNullOrEmpty(path))
+                    path = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+            }
+
+            return path;
+        }
+        
         public static string GetDataFolder() 
         {
-            string path = Environment.GetFolderPath(Environment.SpecialFolder.Personal);
-
-            if (string.IsNullOrEmpty(path)) 
-            {
-                path = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-
-                if (string.IsNullOrEmpty(path)) path = Path.GetDirectoryName(Application.dataPath);
-                else path += Path.Combine(path, "JANOARG Chartmaker");
-            }
-            else path = Path.Combine(path, "JANOARG Chartmaker");
+            string path = Path.Combine(GetHomeFolder(), "JANOARG Chartmaker");
+            if (!Directory.Exists(path)) Directory.CreateDirectory(path);
 
             return path;
         }
 
         public static string GetSongFolder() 
         {
-            return Path.Combine(GetDataFolder(), "Songs");
+            string path = Path.Combine(GetDataFolder(), "Songs");
+            if (!Directory.Exists(path)) Directory.CreateDirectory(path);
+
+            return path;
         }
 
         public static string GetRenderFolder() 
         {
-            return Path.Combine(GetDataFolder(), "Renders");
+            string path = Path.Combine(GetDataFolder(), "Renders");
+            if (!Directory.Exists(path)) Directory.CreateDirectory(path);
+
+            return path;
         }
     }
 }

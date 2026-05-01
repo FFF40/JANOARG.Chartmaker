@@ -1,3 +1,4 @@
+using JANOARG.Chartmaker.Data;
 using JANOARG.Shared.Data.ChartInfo;
 using JANOARG.Chartmaker.Utils;
 using TMPro;

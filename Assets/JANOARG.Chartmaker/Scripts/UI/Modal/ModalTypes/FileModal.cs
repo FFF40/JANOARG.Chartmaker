@@ -85,8 +85,8 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
             base.Start();
      
             SetUpBookmarks();
-      
-            CurrentDirectory = Path.GetDirectoryName(Application.dataPath);
+
+            CurrentDirectory = Helper.GetDataFolder();
         
             SetFileType(AcceptedTypes[0]);
         }

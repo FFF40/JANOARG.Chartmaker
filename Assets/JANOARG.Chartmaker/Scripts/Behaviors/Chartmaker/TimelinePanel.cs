@@ -130,7 +130,6 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
         public Sprite CatchHitIcon;
 
         public int TimelineHeight { get; private set; } = 8;
-        int          TimelineExpandHeight  = 8;
         int          TimelineRestoreHeight = 8;
         int          ItemHeight            = 0;
         bool         lastPlayed;
@@ -281,9 +280,9 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
         {
             CurrentMode = mode;
             
-            if (TimelineExpandHeight != TimelineHeight) 
+            if (TimelineRestoreHeight != TimelineHeight) 
             {
-                ResizeTimeline(TimelineExpandHeight * 24 + 80);
+                ResizeTimeline(TimelineRestoreHeight * 24 + 80);
             }
             else 
             {
@@ -2066,7 +2065,7 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
       
             if (snap) 
             {
-                if (TimelineHeight > 0) TimelineExpandHeight = TimelineHeight;
+                if (TimelineHeight > 0) TimelineRestoreHeight = TimelineHeight;
                 UpdateTabs();
             }
       

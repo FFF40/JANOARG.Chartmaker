@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using JANOARG.Chartmaker.Data;
 using JANOARG.Chartmaker.UI;
 using JANOARG.Chartmaker.UI.ContextMenu;
 using JANOARG.Chartmaker.UI.Modal;

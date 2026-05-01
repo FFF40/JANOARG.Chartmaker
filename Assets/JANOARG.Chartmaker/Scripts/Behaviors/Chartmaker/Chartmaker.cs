@@ -5,6 +5,7 @@ using System.IO;
 using System.Reflection;
 using System.Threading.Tasks;
 using JANOARG.Chartmaker.Constants;
+using JANOARG.Chartmaker.Data;
 using JANOARG.Chartmaker.Data.Chartmaker;
 using JANOARG.Chartmaker.Data.Chartmaker.Actions;
 using JANOARG.Chartmaker.UI;
@@ -14,18 +15,20 @@ using JANOARG.Chartmaker.UI.NativeUI;
 using JANOARG.Chartmaker.UI.Themeable;
 using JANOARG.Shared.Data.ChartInfo;
 using JANOARG.Chartmaker.Utils;
+using JANOARG.Shared.Data.Chartmaker;
 using JANOARG.Shared.Data.Files;
 using TMPro;
 using UnityEngine;
+using UnityEngine.Android;
 using UnityEngine.Assertions;
 using UnityEngine.Networking;
-using JANOARG.Shared.Data.Chartmaker;
 
 namespace JANOARG.Chartmaker.Behaviors.Chartmaker
 {
     public class Chartmaker : MonoBehaviour
     {
         public static Chartmaker main;
+        public Canvas ChartmakerCanvas;
 
         public string CurrentSongPath;
         public string CurrentChartPath;
@@ -89,6 +92,44 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             TimelinePanel.main.Options.Init();
             if (Preferences.AutoUpdateCheck) VersionCheckerModal.InitFetch(true);
             SetEditorActive(false);
+            
+            UnityEngine.Debug.Log($"Checking for scaling mismatch: {ChartmakerCanvas.scaleFactor} == {Preferences.InterfaceScaling}");
+            if (!Mathf.Approximately(ChartmakerCanvas.scaleFactor, Preferences.InterfaceScaling))
+            {
+                ChartmakerCanvas.scaleFactor = Preferences.InterfaceScaling;
+            }
+            
+            
+            #if UNITY_ANDROID && !UNITY_EDITOR
+            // I hate modern android, wtf is this
+            void RequestStoragePermission()
+            {
+                bool HasManageStoragePermission()
+                {
+                    AndroidJavaClass environmentClass = new AndroidJavaClass("android.os.Environment");
+                    return environmentClass.CallStatic<bool>("isExternalStorageManager");
+                }
+                if (!HasManageStoragePermission())
+                {
+                    // MANAGE_EXTERNAL_STORAGE can't be requested via Unity's Permission API
+                    // It must be requested via Android's Settings intent
+                    AndroidJavaClass unityPlayer = new AndroidJavaClass("com.unity3d.player.UnityPlayer");
+                    AndroidJavaObject activity = unityPlayer.GetStatic<AndroidJavaObject>("currentActivity");
+
+                    AndroidJavaObject intent = new AndroidJavaObject("android.content.Intent",
+                        "android.settings.MANAGE_APP_ALL_FILES_ACCESS_PERMISSION");
+
+                    AndroidJavaClass uriClass = new AndroidJavaClass("android.net.Uri");
+                    AndroidJavaObject uri = uriClass.CallStatic<AndroidJavaObject>("parse", 
+                        "package:" + Application.identifier);
+                    intent.Call<AndroidJavaObject>("setData", uri);
+
+                    activity.Call("startActivity", intent);
+                }
+            }
+            
+            RequestStoragePermission();
+            #endif
         }
 
         public void Update()
@@ -141,6 +182,12 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
         public void OpenSongModal() 
         {
             FileModal dialogModal = ModalHolder.main.Spawn<FileModal>();
+
+            if (Application.platform != RuntimePlatform.Android && Application.platform != RuntimePlatform.IPhonePlayer)
+            {
+                Permission.RequestUserPermission(Permission.ExternalStorageRead);
+                Permission.RequestUserPermission(Permission.ExternalStorageWrite);
+            }
             dialogModal.AcceptedTypes = new List<FileModalFileType> {
                 new("JANOARG Playable Song file", "japs"),
                 new("All files"),

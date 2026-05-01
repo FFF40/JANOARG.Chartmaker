@@ -10,6 +10,7 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using JANOARG.Chartmaker.Behaviors.Chartmaker;
+using JANOARG.Chartmaker.Data;
 using JANOARG.Chartmaker.UI.ContextMenu;
 using JANOARG.Chartmaker.UI.Form;
 using JANOARG.Chartmaker.UI.Form.FormTypes;

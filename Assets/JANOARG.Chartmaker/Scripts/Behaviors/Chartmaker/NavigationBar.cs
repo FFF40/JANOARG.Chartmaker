@@ -22,30 +22,16 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
 
         string KeyOf(string id) => KeyboardHandler.main.Keybindings[id].Keybind.ToString();
 
-        public void OpenFileMenu()
+        private void OpenMenuHelper(System.Func<ContextMenuList> getMenu, RectTransform button)
         {
-            ContextMenuHolder.main.OpenRoot(GetFileMenu(), FileButton);
+            ContextMenuHolder.main.OpenRoot(getMenu(), button);
         }
 
-        public void OpenEditMenu()
-        {
-            ContextMenuHolder.main.OpenRoot(GetEditMenu(), EditButton);
-        }
-
-        public void OpenViewMenu()
-        {
-            ContextMenuHolder.main.OpenRoot(GetViewMenu(), ViewButton);
-        }
-
-        public void OpenOptionsMenu()
-        {
-            ContextMenuHolder.main.OpenRoot(GetOptionsMenu(), OptionsButton);
-        }
-
-        public void OpenHelpMenu()
-        {
-            ContextMenuHolder.main.OpenRoot(GetHelpMenu(), HelpButton);
-        }
+        public void OpenFileMenu() => OpenMenuHelper(GetFileMenu, FileButton);
+        public void OpenEditMenu() => OpenMenuHelper(GetEditMenu, EditButton);
+        public void OpenViewMenu() => OpenMenuHelper(GetViewMenu, ViewButton);
+        public void OpenOptionsMenu() => OpenMenuHelper(GetOptionsMenu, OptionsButton);
+        public void OpenHelpMenu() => OpenMenuHelper(GetHelpMenu, HelpButton);
 
         public void OpenMenu()
         {

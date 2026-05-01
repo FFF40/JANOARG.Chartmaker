@@ -159,15 +159,13 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
             };
         }
 
-        public string Execute()
+        public string Execute(string path)
         {
             if (string.IsNullOrWhiteSpace(Codename))
                 throw new Exception("Please specify a codename for the Song.");
         
             if (string.IsNullOrWhiteSpace(AudioPath))
                 throw new Exception("Please specify an audio file.");
-
-            string path = Helper.GetSongFolder();
 
             if (!Directory.Exists(path))
                 Directory.CreateDirectory(path);
@@ -192,9 +190,11 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
             return path;
         }
 
-        public Task<string> ExecuteAsync()
+        public async Task<string> ExecuteAsync()
         {
-            return Task.Run(Execute);
+            // Helper calls are NOT thread safe (in android builds)
+            string path = Helper.GetSongFolder();
+            return await Task.Run(() => Execute(path));
         }
     
         public IEnumerator ExecuteRoutine() {

@@ -32172,14 +32172,13 @@ ParticleSystem:
         m_PostInfinity: 2
         m_RotationOrder: 4
     vectorLabel1_3: W
---- !u!4 &666362171
-Transform:
+--- !u!224 &666362171
+RectTransform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 666362168}
-  serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 200}
   m_LocalScale: {x: 1, y: 1, z: 1}
@@ -32190,6 +32189,11 @@ Transform:
   - {fileID: 1303453951}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 0.5, y: 0.5}
+  m_AnchorMax: {x: 0.5, y: 0.5}
+  m_AnchoredPosition: {x: 0, y: 0}
+  m_SizeDelta: {x: 100, y: 100}
+  m_Pivot: {x: 0.5, y: 0.5}
 --- !u!1 &670639350
 GameObject:
   m_ObjectHideFlags: 0
@@ -38359,9 +38363,9 @@ RectTransform:
   - {fileID: 1393174911}
   m_Father: {fileID: 1611070551}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0, y: 0}
-  m_AnchorMax: {x: 0, y: 0}
-  m_AnchoredPosition: {x: 0, y: 0}
+  m_AnchorMin: {x: 0, y: 1}
+  m_AnchorMax: {x: 0, y: 1}
+  m_AnchoredPosition: {x: 14, y: -60}
   m_SizeDelta: {x: 24, y: 120}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!1 &931492227
@@ -38959,6 +38963,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3c803159c7cb9b749bccfa74881facf5, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  ChartmakerCanvas: {fileID: 933877239}
   CurrentSongPath: 
   CurrentChartPath: 
   SongSource: {fileID: 1691296885}
@@ -39264,7 +39269,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: 0, y: -0.000020980835}
+  m_AnchoredPosition: {x: 0, y: 0.000009536743}
   m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0, y: 1}
 --- !u!114 &941380709
@@ -49837,6 +49842,7 @@ MonoBehaviour:
   - {fileID: 34773266778403783, guid: c416037e83bd3fb418c70b845e662ca0, type: 3}
   - {fileID: 792987215404438124, guid: 3a55de772fd2a9240aa0726b86608ed9, type: 3}
   - {fileID: 1989203748, guid: e571e76c8148dcc49af4f7116d212e24, type: 3}
+  - {fileID: -9032959266538717361, guid: 099b4f1b80c02d567bc23a16998da7f4, type: 3}
   - {fileID: 164413347704432702, guid: 9f652b6a52e3f384082ddf97f0ae1742, type: 3}
   - {fileID: 1479100885, guid: b43d745778418c749b43b79b3b3f3406, type: 3}
   - {fileID: 8127883132162967822, guid: 9cd84aa40659704b79c0eeb7f1acd87f, type: 3}
@@ -54275,9 +54281,9 @@ RectTransform:
   - {fileID: 280011824}
   m_Father: {fileID: 1611070551}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0, y: 0}
-  m_AnchorMax: {x: 0, y: 0}
-  m_AnchoredPosition: {x: 0, y: 0}
+  m_AnchorMin: {x: 0, y: 1}
+  m_AnchorMax: {x: 0, y: 1}
+  m_AnchoredPosition: {x: 14, y: -180}
   m_SizeDelta: {x: 24, y: 120}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!1 &1276361228

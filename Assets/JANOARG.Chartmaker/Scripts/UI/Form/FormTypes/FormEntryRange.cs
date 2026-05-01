@@ -1,5 +1,9 @@
+using System;
 using JANOARG.Chartmaker.Utils.Math;
+using JetBrains.Annotations;
 using TMPro;
+using UnityEngine.Events;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 namespace JANOARG.Chartmaker.UI.Form.FormTypes
@@ -8,6 +12,10 @@ namespace JANOARG.Chartmaker.UI.Form.FormTypes
     {
         public Slider         Range;
         public TMP_InputField Field;
+
+        public UnityAction EndDragTrigger;
+        
+        public void InvokeEndDragTrigger() => EndDragTrigger?.Invoke();
 
         public new void Start() 
         {
