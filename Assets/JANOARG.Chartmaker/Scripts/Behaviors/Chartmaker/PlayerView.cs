@@ -618,7 +618,7 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                     {
                         PlayerViewPickHandler pickHandler = raycastHit.collider.GetComponent<PlayerViewPickHandler>();
                        
-                        if (pickHandler && pickHandler.Pick()) 
+                        if (pickHandler && pickHandler.Pick(eventData)) 
                             break;
                     }
                 }
