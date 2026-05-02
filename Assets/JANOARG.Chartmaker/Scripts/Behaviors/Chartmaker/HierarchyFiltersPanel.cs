@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using JANOARG.Chartmaker.UI;
 using UnityEngine;
+using JANOARG.Shared.Utils;
+
 #if UNITY_EDITOR
 using UnityEditor;
 #endif
@@ -36,6 +38,18 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                 item.Reset();
         
             HierarchyPanel.main.UpdateHolders();
+        }
+
+        public void ResetPosition()
+        {
+            RectTransform rt = (RectTransform)transform;
+
+            HierarchyPanel hierarchyPanel = HierarchyPanel.main;
+            RectTransform hierarchyPanelRt = (RectTransform)hierarchyPanel.transform;
+
+            UnityEngine.Debug.Log(hierarchyPanelRt.anchoredPosition.x + " " + hierarchyPanelRt.sizeDelta.x);
+
+            rt.anchoredPosition *= new Vector2Frag(x: hierarchyPanelRt.anchoredPosition.x + hierarchyPanelRt.sizeDelta.x + 2);
         }
 
         public bool GetVisibility(HierarchyItemType type, HierarchyContext context) 
