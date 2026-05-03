@@ -679,11 +679,6 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
 
                             break;
                         }
-
-                            var lstatsHolder = Instantiate(LaneGroupStatsSample, FormHolder);
-                            lstatsHolder.HightlightedLaneGroup = laneGroup;
-                            
-                            break;
                         default:
                             FormTitle.text = "Statistics of " + Chartmaker.GetItemName(CurrentObject);
 
