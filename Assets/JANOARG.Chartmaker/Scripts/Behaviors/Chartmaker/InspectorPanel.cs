@@ -49,6 +49,7 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
         public Dictionary<Type, ChartmakerMultiHandler> MultiHandlers = new ();
         [Space]
         public DebugStatsInspector DebugStatsSample;
+        public ChartStatsInspector ChartStatsSample;
         public LaneStatsInspector  LaneStatsSample;
         public LaneGroupStatsInspector LaneGroupStatsSample;
         [Space]
@@ -473,7 +474,7 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                                         SpawnForm<FormEntryHeader>("Hold Tail");
                                         SpawnForm<FormEntryColor, Color>("Color", () => hitStyle.HoldTailColor, x => Chartmaker.main.SetItem(hitStyle, "HoldTailColor", x));
                                         break;
-
+                                        
                                     default:
                                         {
                                             if (CurrentObject == Chartmaker.main.CurrentChart?.Groups)
@@ -652,6 +653,13 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                 case InspectorMode.Statistics:
                     switch (CurrentObject)
                     {
+                        case Chart chart:
+                            FormTitle.text = "Statistics of Chart";
+
+                            var wstatsHolder = Instantiate(ChartStatsSample, FormHolder);
+                            wstatsHolder.HightlightedChart = chart;
+                            
+                            break;
                         case Lane lane:
                         {
                             FormTitle.text = "Statistics of Lane";
@@ -672,6 +680,10 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                             break;
                         }
 
+                            var lstatsHolder = Instantiate(LaneGroupStatsSample, FormHolder);
+                            lstatsHolder.HightlightedLaneGroup = laneGroup;
+                            
+                            break;
                         default:
                             FormTitle.text = "Statistics of " + Chartmaker.GetItemName(CurrentObject);
 
@@ -681,7 +693,6 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                     }
                     break;
             
-
                 case InspectorMode.DebugStats:
                     FormTitle.text = "Debug Stats";
                     Collapser.SetActive(false);
@@ -927,7 +938,6 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             Chartmaker.main.OnHistoryDo();
             Chartmaker.main.OnHistoryUpdate();
         }
-
 
         private void SetMultiField(FieldInfo field)
         {
