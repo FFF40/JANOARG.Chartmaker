@@ -710,6 +710,10 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                     bpmStopList.Sort((x, y) => x.Offset.CompareTo(y.Offset));
                     break;
             
+                case Storyboard storyboard:
+                    storyboard.Timestamps.Sort((x, y) => x.Offset.CompareTo(y.Offset));
+                    break;
+            
                 case List<Timestamp> timeStampList:
                     timeStampList.Sort((x, y) => x.Offset.CompareTo(y.Offset));
                     break;
@@ -721,6 +725,7 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                 case List<LaneStep> laneStepList:
                     laneStepList.Sort((x, y) => x.Offset.CompareTo(y.Offset));
                     break;
+
                 case List<HitObject> hitObjectList:
                     hitObjectList.Sort((x, y) => x.Offset.CompareTo(y.Offset));
                     break;
