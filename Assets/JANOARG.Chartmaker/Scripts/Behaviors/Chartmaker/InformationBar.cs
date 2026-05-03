@@ -285,11 +285,6 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                     loudness[0] += dataLeft[a] * dataLeft[a];
                     loudness[1] += dataRight[a] * dataRight[a];
                 }
-                
-                for (int a = 0; a < 2; a++) 
-                {
-                    loudness[a] = (10 * Mathf.Log10(loudness[a] / fftCount)) - 0.691f;
-                }
 
                 int segmentCount = 19;
                 float barHeight = (rect.height + 1) / loudness.Length;
@@ -298,26 +293,27 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                 for (int a = 0; a < loudness.Length; a++) 
                 {
                     Image bar = AddBar();
-                
-                    float width = loudness[a] / segmentCount / 3 + 1;
-                
-                    bar.rectTransform.sizeDelta = new Vector2(width * rect.width, barHeight - 1);
+                    float barWidth = bar.rectTransform.sizeDelta.x;
+                    bar.rectTransform.sizeDelta = new Vector2(
+                        Mathf.Lerp(loudness[a] / fftCount, barWidth, Mathf.Pow(0.01f, Time.deltaTime / 0.3f)), 
+                        barHeight - 1
+                    );
                     bar.rectTransform.anchoredPosition = new Vector2(0, a * barHeight);
                     bar.color = Color.clear;
+                    barWidth = bar.rectTransform.sizeDelta.x;
 
-                    Image timer = AddBar();
-                    float timerWidth = timer.rectTransform.anchoredPosition.x;
-                    timer.rectTransform.sizeDelta = new Vector2(0, 0);
-                    timer.rectTransform.anchoredPosition = new Vector2(Mathf.Clamp(width, timerWidth - Time.deltaTime / fallTime, timerWidth + Time.deltaTime / riseTime), 0);
-                    timerWidth = timer.rectTransform.anchoredPosition.x;
+                    float lufs = (10 * Mathf.Log10(barWidth)) - 0.691f;
+                    float width = lufs / segmentCount / 2 + 1;
 
                     for (int b = 0; b < segmentCount; b++) 
                     {
                         Image segment = AddBar();
+                        float barLoudness = (segmentCount - b - 1) * -2;
+                        float maxBrightness = barLoudness > -14 ? 1 : .8f;
                     
                         segment.rectTransform.sizeDelta = new Vector2(segmentWidth - 1, barHeight - 1);
                         segment.rectTransform.anchoredPosition = new Vector2(b * segmentWidth, a * barHeight);
-                        segment.color = color * new Color(1, 1, 1, Mathf.Clamp01((timerWidth * segmentCount - b) * 2) * .8f);
+                        segment.color = color * new Color(1, 1, 1, Mathf.Clamp((width * segmentCount - b) * 2, 0.1f, 1) * maxBrightness);
                     }
                 }
             }
