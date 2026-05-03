@@ -22,14 +22,15 @@ namespace JANOARG.Chartmaker.UI.Form.FormTypes
             Toggle.SetIsOnWithoutNotify(!float.IsNaN(CurrentValue));
             Field.gameObject.SetActive(Toggle.isOn);
             NotField.SetActive(!Toggle.isOn);
-            Field.SetTextWithoutNotify(Toggle.isOn ? CurrentValue.ToString() : "0");
+            Field.SetTextWithoutNotify(Toggle.isOn ? CurrentValue.ToString() : "");
         }
 
         public void SetValue(bool value)
         {
             Field.gameObject.SetActive(value);
             NotField.SetActive(!value);
-            SetValue(value ? Field.text : "NaN");
+            if (value) SetValue(Field.text);
+            else SetValue(float.NaN);
         }
     
         public void SetValue(string value)
