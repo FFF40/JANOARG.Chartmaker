@@ -1,5 +1,6 @@
 using JANOARG.Shared.Data.ChartInfo;
 using JANOARG.Chartmaker.Utils;
+using Unity.Collections;
 using UnityEngine;
 using UnityEngine.Serialization;
 
@@ -17,6 +18,9 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
         
         public Transform HitObjectPosition;
 
+        [SerializeField] [ReadOnly]
+        private ulong Uuid;
+
         public void OnDestroy()
         {
             if (HoldTail)
@@ -25,6 +29,9 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
 
         public void UpdateObjects(HitObjectManager hit) 
         {
+            if (CurrentHit != null && Uuid != CurrentHit.Uuid)
+                Uuid = CurrentHit.Uuid;
+            
             CurrentHit = hit;
             transform.localPosition = hit.Position;
             transform.localRotation = hit.Rotation;
