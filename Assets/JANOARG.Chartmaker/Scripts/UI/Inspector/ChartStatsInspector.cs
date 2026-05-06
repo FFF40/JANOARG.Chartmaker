@@ -30,7 +30,12 @@ namespace JANOARG.Chartmaker.UI.Inspector
         public TMP_Text EXScore;
         public TMP_Text MaxStreak;
 
-        private void Update()
+        void Start()
+        {
+            UpdateStats();
+        }
+
+        void UpdateStats()
         {
             if (HightlightedChart == null)
             {
@@ -90,11 +95,13 @@ namespace JANOARG.Chartmaker.UI.Inspector
                             omniFlickables++;
                     }
                     if (obj.HoldLength > 0)
+                    {
                         if (obj.Type is HitObject.HitType.Normal)
                             tapHolds++;
                         else if (obj.Type is HitObject.HitType.Catch)
                             catchHolds++;
-                        holdTicks += (int)Math.Floor(obj.HoldLength / 0.5f);
+                        holdTicks += Mathf.CeilToInt(obj.HoldLength / 0.5f);
+                    }
                 }
             }
 
@@ -117,6 +124,7 @@ namespace JANOARG.Chartmaker.UI.Inspector
                 omniFlickables +
                 (directionalFlickables * 2)
             ).ToString();
+            
             MaxStreak.text = (totalHitObjects + holdTicks).ToString();
         }
     }

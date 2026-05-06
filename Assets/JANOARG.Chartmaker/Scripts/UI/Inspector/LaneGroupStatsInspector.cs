@@ -20,8 +20,13 @@ namespace JANOARG.Chartmaker.UI.Inspector
         public TMP_Text Holds;
         
         private LaneGroup _lastLaneGroup;
+
+        void Start()
+        {
+            UpdateStats();
+        }
         
-        private void Update()
+        void UpdateStats()
         {
             if (HightlightedLaneGroup == null)
             {

@@ -17,7 +17,12 @@ namespace JANOARG.Chartmaker.UI.Inspector
         public TMP_Text Flickables;
         public TMP_Text Holds;
 
-        private void Update()
+        void Start()
+        {
+            UpdateStats();
+        }
+
+        void UpdateStats()
         {
             if (HightlightedLane == null)
             {

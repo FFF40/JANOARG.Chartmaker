@@ -6340,7 +6340,7 @@ MonoBehaviour:
   ExtraModesButton: {fileID: 1240274868}
   BackButton: {fileID: 1478809413}
   DebugStatsSample: {fileID: 8311844125951479924, guid: 1fbd1f8b6fa14e84cb36b911454c948c, type: 3}
-  ChartStatsSample: {fileID: -4986423182775574534, guid: b32e00c1c75dd0533b4f50744c3c1356, type: 3}
+  ChartStatsSample: {fileID: -4986423182775574534, guid: 89abc5c5ddb5eea82889adcabe17a7d9, type: 3}
   LaneStatsSample: {fileID: 8305561078053470523, guid: 49254c06e8da7c7c48b1e03c65e9c40b, type: 3}
   LaneGroupStatsSample: {fileID: 8825761266565416860, guid: 66757ad81898a415290d358d11befdc3, type: 3}
   EaseCopyToRightButtonSample: {fileID: 5372098700683617563, guid: 4c8ce988f02209d5ab557a8d1528bcee, type: 3}
