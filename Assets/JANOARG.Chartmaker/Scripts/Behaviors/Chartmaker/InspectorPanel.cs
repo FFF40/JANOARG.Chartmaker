@@ -746,9 +746,9 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                 ["EndEaseY"] = "End Ease Y",
                 
                 // Note
-                ["Length"] = "Note width",
-                ["HoldLength"] = "Note hold length",
-                ["FlickDirection"] = "Flick direction",
+                ["Length"] = "Width",
+                ["HoldLength"] = "Hold Length",
+                ["FlickDirection"] = "Flick Direction",
                 ["IsFake"] = "Fake",
                 
                 ["StyleIndex"] = "Style Index",
