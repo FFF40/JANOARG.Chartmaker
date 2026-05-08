@@ -940,7 +940,7 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
 
                 string ffmpegArgs = $"-f rawvideo -pix_fmt rgb24 -s {resolution.x}x{resolution.y} -r {frameRate} -i pipe:0 " +
                                     $"-ss {timeRange.x} -t {timeRange.y - timeRange.x} -i \"{audioPath}\" " +
-                                    $"-vcodec {videoFormatArg} -acodec {audioFormatArg} " +
+                                    $"-vcodec {videoFormatArg} -pix_fmt yuv420p -acodec {audioFormatArg} " +
                                     $"{qualityOptions} -b:a {Prefs.AudioBitRate}k " +
                                     $"-y \"{outputPath}\"";
 
