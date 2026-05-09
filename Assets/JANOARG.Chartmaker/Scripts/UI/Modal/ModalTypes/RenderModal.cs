@@ -648,7 +648,7 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
             SpawnForm<FormEntryHeader>("Quality");
             var resField = SpawnForm<FormEntryVector2, Vector2>("Resolution (px)", () => Prefs.Resolution, x =>
             {
-                Prefs.Resolution = new((int)x.x & ~1, (int)x.y & ~1); PrefsDirty = true; // snap to even for codec compatibility
+                Prefs.Resolution = new((int)x.x, (int)x.y); PrefsDirty = true;
                 UpdateResolutionVisualizer();
             });
             var resActions = SpawnForm<FormEntryButton>("Resolution Presets");
@@ -883,9 +883,7 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
                 await Task.Delay(300);
 
                 // Pre-calculate constants
-                // Ensure even dimensions — most codecs (H.264, H.265) require both
-                // width and height to be divisible by 2.
-                var resolution = new Vector2Int(Prefs.Resolution.x & ~1, Prefs.Resolution.y & ~1);
+                var resolution = Prefs.Resolution;
                 var frameRate = Prefs.FrameRate;
                 var timeRange = TimeRange;
 
@@ -933,6 +931,7 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
 
                 // Cache commonly used objects
                 var songSource = chartmaker.SongSource;
+                var informationBar = InformationBar.main;
                 var playerView = PlayerView.main;
 
                 // Setup FFmpeg arguments for streaming input
@@ -962,11 +961,7 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
                 FFmpegProcess.Start();
                 ffmpegInputStream = FFmpegProcess.StandardInput.BaseStream;
 
-                // Collect stderr for error reporting.
-                // Ring buffer — keeps only the last 6 stderr lines so error
-                // messages stay readable without FFmpeg boilerplate filling the dialog.
-                var ffmpegStderrLines = new System.Collections.Generic.Queue<string>();
-                const int ffmpegStderrMaxLines = 6;
+                // Start async task to read FFmpeg output (for debugging/logging)
                 ffmpegTask = Task.Run(() =>
                 {
                     try
@@ -975,12 +970,6 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
                         while ((line = FFmpegProcess.StandardError.ReadLine()) != null)
                         {
                             UnityEngine.Debug.Log($"FFmpeg: {line}");
-                            lock (ffmpegStderrLines)
-                            {
-                                ffmpegStderrLines.Enqueue(line);
-                                if (ffmpegStderrLines.Count > ffmpegStderrMaxLines)
-                                    ffmpegStderrLines.Dequeue();
-                            }
                         }
                     }
                     catch (Exception e)
@@ -989,22 +978,7 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
                     }
                 });
 
-                // Wait up to 2 s for FFmpeg to be ready for input.
-                // Process.Start() returns before the child's stdin pipe is open.
-                {
-                    var deadline = System.Diagnostics.Stopwatch.StartNew();
-                    while (!FFmpegProcess.HasExited && ffmpegStderrLines.Count == 0 && deadline.ElapsedMilliseconds < 2000)
-                        await Task.Delay(10);
-
-                    if (FFmpegProcess.HasExited)
-                    {
-                        string stderr;
-                        lock (ffmpegStderrLines) stderr = string.Join("\n", ffmpegStderrLines);
-                        throw new Exception($"FFmpeg exited before rendering started.\n{stderr}");
-                    }
-                }
-
-                double frameOrigin = timeRange.x;
+                float time = timeRange.x;
                 int frameIndex = 0;
                 int framePipedIndex = 0;
                 int frameYieldIndex = 0;
@@ -1065,7 +1039,7 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
                 int resumeFrameCount = maxFrameCount * 3 / 4;
 
                 // Main rendering loop
-                while (frameIndex < totalFrames)
+                while (time < timeRange.y && frameIndex < totalFrames)
                 {
                     if (frameQueue.Count >= maxFrameCount)
                     {
@@ -1082,19 +1056,11 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
                         continue;
                     }
 
-                    // Compute frame time from index to avoid float accumulation drift
-                    float time = (float)(frameOrigin + frameIndex / (double)frameRate);
-
-                    // Update scene — drive ChartManager directly from computed time,
-                    // bypassing InformationBar.sec (which reads quantized timeSamples).
-                    // When time is negative we are in pre-roll: update visuals only,
-                    // hold audio at position 0 (matching client behaviour).
-                    float audioTime = Mathf.Clamp(time, 0f, songSource.clip.length);
-                    songSource.time = audioTime;
-
-                    float sec  = time >= 0f ? audioTime : time;
-                    float beat = chartmaker.CurrentSong.Timing.ToBeat(sec);
-                    playerView.UpdateObjects(sec, beat);
+                    // Update scene
+                    songSource.time = Mathf.Clamp(time, 0f, songSource.clip.length);
+                    informationBar.Update();
+                    playerView.UpdateObjects();
+                    time += delta;
 
                     // Render frame
                     RenderTexture.active = rtex;
@@ -1119,9 +1085,7 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
                     if (FFmpegProcess.HasExited)
                     {
                         rendering = false;
-                        string stderr;
-                        lock (ffmpegStderrLines) stderr = string.Join("\n", ffmpegStderrLines);
-                        throw new Exception($"FFmpeg process ended prematurely.\n{stderr}");
+                        throw new Exception("FFmpeg process ended prematurely. Your copy of FFmpeg might not support the selected encoders.");
                     }
 
                     // Queue frame for FFmpeg
