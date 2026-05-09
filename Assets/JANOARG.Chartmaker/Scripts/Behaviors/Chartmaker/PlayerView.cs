@@ -273,6 +273,12 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                     _ => CoverBackground.rectTransform.sizeDelta
                 };
 
+                // Scale and position must be set before computing parallaxOffset
+                // so the IconCenter division uses the current frame's scale.
+                CoverBackground.rectTransform.localScale = Vector3.one * (BoundingBox.rectTransform.rect.width / CoverBackground.rectTransform.sizeDelta.x);
+                CoverBackground.rectTransform.anchoredPosition = BoundingBox.rectTransform.anchoredPosition;
+                CoverBackground.color = Chartmaker.main.CurrentSong.Cover.BackgroundColor;
+
                 float scale = CoverBackground.rectTransform.localScale.x;
                 Vector2 parallaxOffset = CoverPosition / scale;
             
@@ -281,10 +287,6 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
 
                 BoundingBox.color = NotificationText.color = NotificationBox.color = Color.white;
                 BoundingBox.rectTransform.anchoredPosition = new Vector2 (0, 16) + CoverPosition;
-            
-                CoverBackground.rectTransform.localScale = Vector3.one * (BoundingBox.rectTransform.rect.width / CoverBackground.rectTransform.sizeDelta.x);
-                CoverBackground.rectTransform.anchoredPosition = BoundingBox.rectTransform.anchoredPosition;
-                CoverBackground.color = Chartmaker.main.CurrentSong.Cover.BackgroundColor;
 
                 int index = 0;
                 foreach (CoverLayer layer in Chartmaker.main.CurrentSong.Cover.Layers)
