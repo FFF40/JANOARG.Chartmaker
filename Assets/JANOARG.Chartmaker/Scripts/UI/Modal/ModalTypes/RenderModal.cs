@@ -648,7 +648,7 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
             SpawnForm<FormEntryHeader>("Quality");
             var resField = SpawnForm<FormEntryVector2, Vector2>("Resolution (px)", () => Prefs.Resolution, x =>
             {
-                Prefs.Resolution = new((int)x.x, (int)x.y); PrefsDirty = true;
+                Prefs.Resolution = new((int)x.x & ~1, (int)x.y & ~1); PrefsDirty = true; // snap to even for codec compatibility
                 UpdateResolutionVisualizer();
             });
             var resActions = SpawnForm<FormEntryButton>("Resolution Presets");
@@ -883,7 +883,9 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
                 await Task.Delay(300);
 
                 // Pre-calculate constants
-                var resolution = Prefs.Resolution;
+                // Ensure even dimensions — most codecs (H.264, H.265) require both
+                // width and height to be divisible by 2.
+                var resolution = new Vector2Int(Prefs.Resolution.x & ~1, Prefs.Resolution.y & ~1);
                 var frameRate = Prefs.FrameRate;
                 var timeRange = TimeRange;
 
