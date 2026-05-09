@@ -940,10 +940,13 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
 
                 // Setup FFmpeg arguments for streaming input
                 string qualityOptions = Prefs.AdaptiveBitrate ? $"-crf {crf}" : $"-b:v {Prefs.VideoBitRate}k";
-                string audioPath = Path.Combine(Path.GetDirectoryName(chartmaker.CurrentSongPath), chartmaker.CurrentSong.ClipPath);
+                string audioPath = Path.Combine(Path.GetDirectoryName(chartmaker.CurrentSongPath)!, chartmaker.CurrentSong.ClipPath);
 
+                float leadIn = timeRange.x < 0 ? -timeRange.x : 0f;
+                float audioStart = leadIn > 0 ? 0f : timeRange.x;
                 string ffmpegArgs = $"-f rawvideo -pix_fmt rgb24 -s {resolution.x}x{resolution.y} -r {frameRate} -i pipe:0 " +
-                                    $"-ss {timeRange.x} -t {timeRange.y - timeRange.x} -i \"{audioPath}\" " +
+                                    (leadIn > 0 ? $"-itsoffset {leadIn.ToString(System.Globalization.CultureInfo.InvariantCulture)} " : "") +
+                                    $"-ss {audioStart.ToString(System.Globalization.CultureInfo.InvariantCulture)} -t {(timeRange.y - timeRange.x).ToString(System.Globalization.CultureInfo.InvariantCulture)} -i \"{audioPath}\" " +
                                     $"-vcodec {videoFormatArg} -vf format=rgb24 -pix_fmt yuv420p -acodec {audioFormatArg} " +
                                     $"{qualityOptions} -b:a {Prefs.AudioBitRate}k " +
                                     $"-y \"{outputPath}\"";
