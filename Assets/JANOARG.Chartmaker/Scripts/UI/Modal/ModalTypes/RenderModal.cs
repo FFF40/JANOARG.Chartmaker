@@ -963,7 +963,10 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
                 ffmpegInputStream = FFmpegProcess.StandardInput.BaseStream;
 
                 // Collect stderr for error reporting.
-                var ffmpegStderr = new System.Text.StringBuilder();
+                // Ring buffer — keeps only the last 6 stderr lines so error
+                // messages stay readable without FFmpeg boilerplate filling the dialog.
+                var ffmpegStderrLines = new System.Collections.Generic.Queue<string>();
+                const int ffmpegStderrMaxLines = 6;
                 ffmpegTask = Task.Run(() =>
                 {
                     try
@@ -972,7 +975,12 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
                         while ((line = FFmpegProcess.StandardError.ReadLine()) != null)
                         {
                             UnityEngine.Debug.Log($"FFmpeg: {line}");
-                            lock (ffmpegStderr) ffmpegStderr.AppendLine(line);
+                            lock (ffmpegStderrLines)
+                            {
+                                ffmpegStderrLines.Enqueue(line);
+                                if (ffmpegStderrLines.Count > ffmpegStderrMaxLines)
+                                    ffmpegStderrLines.Dequeue();
+                            }
                         }
                     }
                     catch (Exception e)
@@ -985,13 +993,13 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
                 // Process.Start() returns before the child's stdin pipe is open.
                 {
                     var deadline = System.Diagnostics.Stopwatch.StartNew();
-                    while (!FFmpegProcess.HasExited && ffmpegStderr.Length == 0 && deadline.ElapsedMilliseconds < 2000)
+                    while (!FFmpegProcess.HasExited && ffmpegStderrLines.Count == 0 && deadline.ElapsedMilliseconds < 2000)
                         await Task.Delay(10);
 
                     if (FFmpegProcess.HasExited)
                     {
                         string stderr;
-                        lock (ffmpegStderr) stderr = ffmpegStderr.ToString();
+                        lock (ffmpegStderrLines) stderr = string.Join("\n", ffmpegStderrLines);
                         throw new Exception($"FFmpeg exited before rendering started.\n{stderr}");
                     }
                 }
@@ -1112,7 +1120,7 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
                     {
                         rendering = false;
                         string stderr;
-                        lock (ffmpegStderr) stderr = ffmpegStderr.ToString();
+                        lock (ffmpegStderrLines) stderr = string.Join("\n", ffmpegStderrLines);
                         throw new Exception($"FFmpeg process ended prematurely.\n{stderr}");
                     }
 
