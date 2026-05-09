@@ -21,6 +21,8 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
         {
             if (HoldTail)
                 Destroy(HoldTail.gameObject);
+            if (FlickEmblem)
+                Destroy(FlickEmblem.gameObject);
         }
 
         public void UpdateObjects(HitObjectManager hit) 
@@ -101,6 +103,8 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                     FlickEmblem = Instantiate(PlayerView.main.HoldMeshSample, transform);
                 } 
             
+                
+                FlickEmblem.gameObject.SetActive(true);
                 FlickEmblem.sharedMaterial = mainMaterial;
                 FlickEmblem.transform.eulerAngles = PlayerView.main.MainCamera.transform.eulerAngles;
             
@@ -116,8 +120,8 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             }
             else 
             {
-                if (FlickEmblem) 
-                    Destroy(FlickEmblem.gameObject);
+                if (FlickEmblem)
+                    FlickEmblem.gameObject.SetActive(false); // hide, don't destroy yet
             }
         }
     }
