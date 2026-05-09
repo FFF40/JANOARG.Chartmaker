@@ -200,7 +200,9 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             lastTargetAspect = targetAspect;
         }
 
-        public void UpdateObjects()
+        public void UpdateObjects() => UpdateObjects(InformationBar.main.sec, InformationBar.main.beat);
+
+        public void UpdateObjects(float sec, float beat)
         {
             CurrentTime = Chartmaker.main.SongSource.time;
 
@@ -211,11 +213,11 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                         Chartmaker.main.CurrentSong,
                         Chartmaker.main.CurrentChart,
                         speed: 121, 
-                        time:  InformationBar.main.sec, 
-                        pos:   InformationBar.main.beat
+                        time:  sec, 
+                        pos:   beat
                     );
                 else 
-                    Manager!.Update(InformationBar.main.sec, InformationBar.main.beat);
+                    Manager!.Update(sec, beat);
             
                 MainCamera.transform.position = Manager.Camera.CameraPivot;
                 MainCamera.transform.eulerAngles = Manager.Camera.CameraRotation; 
