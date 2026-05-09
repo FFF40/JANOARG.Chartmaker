@@ -18,6 +18,7 @@ using JANOARG.Shared.Data.ChartInfo;
 using JANOARG.Chartmaker.Utils;
 using TMPro;
 using UnityEngine;
+using UnityEngine.Rendering;
 using UnityEngine.UI;
 using Random = UnityEngine.Random;
 
@@ -1055,13 +1056,14 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
 
                 pipingThread.Start();
 
-                // Pre-allocate buffer for raw frame data
+                // Pre-allocate ping-pong frame buffers — avoids a Clone() allocation
+                // every frame; the piping thread always drains one before we cycle back.
                 int frameSize = resolution.x * resolution.y * 3; // RGB24 = 3 bytes per pixel
-                byte[] frameBuffer = new byte[frameSize];
-                int frameBufferSize = frameBuffer.Length;
+                byte[][] bufferPool = { new byte[frameSize], new byte[frameSize] };
+                int bufferIndex = 0;
 
                 // Pre-calculate thresholds
-                int maxFrameCount = (int)(framebufferLimit / frameBufferSize);
+                int maxFrameCount = (int)(framebufferLimit / frameSize);
                 int resumeFrameCount = maxFrameCount * 3 / 4;
 
                 // Main rendering loop
@@ -1101,20 +1103,16 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
                     _Camera.Render();
 
                     tex.ReadPixels(rectConfig, 0, 0);
-                    tex.Apply();
+                    // tex.Apply() skipped — GetRawTextureData is CPU-only, no GPU upload needed.
 
-                    // Get raw RGB data directly
+                    // Flip vertically (Unity origin is bottom-left, FFmpeg expects top-left)
+                    // and write into the next ping-pong buffer.
+                    byte[] frameBuffer = bufferPool[bufferIndex ^= 1];
                     byte[] rawData = tex.GetRawTextureData();
-
-                    // Unity's texture data might need to be flipped vertically for FFmpeg
-                    int stride = resolution.x * 3; // 3 bytes per pixel for RGB24
-
+                    int stride = resolution.x * 3;
                     for (int y = 0; y < resolution.y; y++)
-                    {
-                        int srcOffset = (resolution.y - 1 - y) * stride;
-                        int dstOffset = y * stride;
-                        Array.Copy(rawData, srcOffset, frameBuffer, dstOffset, stride);
-                    }
+                        Buffer.BlockCopy(rawData, (resolution.y - 1 - y) * stride,
+                                         frameBuffer, y * stride, stride);
 
                     if (FFmpegProcess.HasExited)
                     {
@@ -1124,8 +1122,8 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
                         throw new Exception($"FFmpeg process ended prematurely.\n{stderr}");
                     }
 
-                    // Queue frame for FFmpeg
-                    frameQueue.Enqueue((byte[])frameBuffer.Clone());
+                    // Queue frame — no Clone needed; piping thread drains before we reuse.
+                    frameQueue.Enqueue(frameBuffer);
 
                     frameIndex++;
                     frameYieldIndex++;
