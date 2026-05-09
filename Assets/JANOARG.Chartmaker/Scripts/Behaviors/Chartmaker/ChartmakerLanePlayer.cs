@@ -69,7 +69,7 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
         
             foreach (HitObjectManager hitobject in lane.Objects)
             {
-                if (hitobject.TimeEnd < InformationBar.main.sec) 
+                if (hitobject.TimeEnd < PlayerView.main.CurrentTime) 
                     continue;
             
                 if (hitobject.Position.z > lane.CurrentDistance + 250) 

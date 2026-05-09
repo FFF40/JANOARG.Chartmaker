@@ -204,7 +204,7 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
 
         public void UpdateObjects(float sec, float beat)
         {
-            CurrentTime = Chartmaker.main.SongSource.time;
+            CurrentTime = sec;
 
             if (Chartmaker.main.CurrentChart != null)
             {
