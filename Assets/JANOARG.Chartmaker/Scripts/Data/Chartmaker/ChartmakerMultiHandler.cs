@@ -5,7 +5,7 @@ using System.Reflection;
 using JANOARG.Chartmaker.Behaviors.Chartmaker;
 using JANOARG.Chartmaker.Data.Chartmaker.Actions;
 using JANOARG.Shared.Data.ChartInfo;
-using JANOARG.Chartmaker.Utils;
+using JANOARG.Shared.Utils.Animation;
 using UnityEngine;
 
 namespace JANOARG.Chartmaker.Data.Chartmaker
