@@ -1162,37 +1162,19 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
                 if (useAsyncReadback)
                 {
                     // Pipelined async path:
-                    // Render frame N → request async readback → update scene for N+1
-                    // → render N+1 → collect N's readback → enqueue → repeat.
+                    // Collect frame N's readback → render frame N+1 → issue readback → repeat.
+                    // Collect comes before render so the RT is not overwritten before
+                    // the previous readback is drained.
                     AsyncGPUReadbackRequest pendingRequest = default;
                     bool hasPending = false;
-
-                    // Prime: render frame 0 and issue its readback before the loop.
-                    UpdateScene(frameIndex);
-                    RenderTexture.active = rtex;
-                    _Camera.Render();
-                    pendingRequest = AsyncGPUReadback.Request(rtex, 0, GraphicsFormat.R8G8B8_UNorm);
-                    hasPending = true;
-                    frameIndex++;
-                    frameYieldIndex++;
 
                     while (frameIndex < totalFrames || hasPending)
                     {
                         await WaitForQueueAsync();
 
-                        if (frameIndex < totalFrames)
-                        {
-                            // Render next frame while GPU transfers previous frame.
-                            UpdateScene(frameIndex);
-                            RenderTexture.active = rtex;
-                            _Camera.Render();
-                        }
-
-                        // Collect previous frame's readback.
-                        // WaitAllRequests() blocks until transfer is done, then we
-                        // copy out of the NativeArray on the main thread (it becomes
-                        // invalid after the next Request call) and hand the managed
-                        // copy to a worker for the vertical flip.
+                        // Collect previous frame's readback BEFORE rendering the next
+                        // frame — rendering overwrites the RT, so we must drain the
+                        // pending readback first to avoid capturing the wrong content.
                         if (hasPending)
                         {
                             AsyncGPUReadback.WaitAllRequests();
@@ -1213,9 +1195,15 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
                             hasPending = false;
                         }
 
-                        // Issue readback for the frame we just rendered.
                         if (frameIndex < totalFrames)
                         {
+                            // Render next frame into the RT now that the previous
+                            // readback has been collected.
+                            UpdateScene(frameIndex);
+                            RenderTexture.active = rtex;
+                            _Camera.Render();
+
+                            // Issue readback for the frame we just rendered.
                             pendingRequest = AsyncGPUReadback.Request(rtex, 0, GraphicsFormat.R8G8B8_UNorm);
                             hasPending = true;
                             frameIndex++;
