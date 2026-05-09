@@ -17,7 +17,9 @@ using JANOARG.Chartmaker.UI.Form.FormTypes;
 using JANOARG.Shared.Data.ChartInfo;
 using JANOARG.Chartmaker.Utils;
 using TMPro;
+using Unity.Collections;
 using UnityEngine;
+using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
 using UnityEngine.UI;
 using Random = UnityEngine.Random;
@@ -1127,36 +1129,22 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
 
                 int stride = resolution.x * 3;
 
-                // Readback uses the RT's native ARGB32 format to avoid a GPU-side
-                // format conversion pass. The CPU strips the alpha channel while flipping.
-                int srcStride = resolution.x * 4; // ARGB32 = 4 bytes per pixel
-                // Staging buffers: NativeArray data is copied out here on the main
-                // thread (must happen before the next readback request invalidates it),
-                // then the flip+channel-swap runs on a worker via Task.Run.
-                byte[][] stagingPool = { new byte[resolution.x * resolution.y * 4],
-                                         new byte[resolution.x * resolution.y * 4] };
-                int stagingIndex = 0;
+                // Staging buffer: NativeArray data is copied out here on the main thread
+                // (NativeArray becomes invalid after the next Request call), then the
+                // vertical flip runs on a worker via Task.Run.
+                byte[] staging = new byte[resolution.x * resolution.y * 3];
                 Task pendingFlipTask = null;
 
-                void ScheduleFlip(byte[] staging)
+                void ScheduleFlip(NativeArray<byte> data)
                 {
                     byte[] frameBuffer = bufferPool[bufferIndex ^= 1];
+                    data.CopyTo(staging);
                     pendingFlipTask = Task.Run(() =>
                     {
-                        int w = resolution.x, h = resolution.y;
+                        int h = resolution.y;
                         for (int y = 0; y < h; y++)
-                        {
-                            int srcRow = (h - 1 - y) * srcStride;
-                            int dstRow = y * stride;
-                            for (int x = 0; x < w; x++)
-                            {
-                                // ARGB32 native memory layout on little-endian: B, G, R, A.
-                                // FFmpeg rgb24 expects R, G, B.
-                                frameBuffer[dstRow + x * 3 + 0] = staging[srcRow + x * 4 + 2]; // R
-                                frameBuffer[dstRow + x * 3 + 1] = staging[srcRow + x * 4 + 1]; // G
-                                frameBuffer[dstRow + x * 3 + 2] = staging[srcRow + x * 4 + 0]; // B
-                            }
-                        }
+                            Buffer.BlockCopy(staging, (h - 1 - y) * stride,
+                                             frameBuffer, y * stride, stride);
                         frameQueue.Enqueue(frameBuffer);
                     });
                 }
@@ -1183,7 +1171,7 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
                     UpdateScene(frameIndex);
                     RenderTexture.active = rtex;
                     _Camera.Render();
-                    pendingRequest = AsyncGPUReadback.Request(rtex);
+                    pendingRequest = AsyncGPUReadback.Request(rtex, 0, GraphicsFormat.R8G8B8_UNorm);
                     hasPending = true;
                     frameIndex++;
                     frameYieldIndex++;
@@ -1204,7 +1192,7 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
                         // WaitAllRequests() blocks until transfer is done, then we
                         // copy out of the NativeArray on the main thread (it becomes
                         // invalid after the next Request call) and hand the managed
-                        // copy to a worker for the flip+channel-swap.
+                        // copy to a worker for the vertical flip.
                         if (hasPending)
                         {
                             AsyncGPUReadback.WaitAllRequests();
@@ -1220,9 +1208,7 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
                             else
                             {
                                 // Copy NativeArray → staging on main thread, schedule flip on worker.
-                                byte[] staging = stagingPool[stagingIndex ^= 1];
-                                pendingRequest.GetData<byte>().CopyTo(staging);
-                                ScheduleFlip(staging);
+                                ScheduleFlip(pendingRequest.GetData<byte>());
                             }
                             hasPending = false;
                         }
@@ -1230,7 +1216,7 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
                         // Issue readback for the frame we just rendered.
                         if (frameIndex < totalFrames)
                         {
-                            pendingRequest = AsyncGPUReadback.Request(rtex);
+                            pendingRequest = AsyncGPUReadback.Request(rtex, 0, GraphicsFormat.R8G8B8_UNorm);
                             hasPending = true;
                             frameIndex++;
                             frameYieldIndex++;
