@@ -139,6 +139,8 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             RectTransform rt = (RectTransform)transform;
             Vector3[] corners = new Vector3[4];
             rt.GetWorldCorners(corners);
+
+            float scale = Chartmaker.main.ChartmakerCanvas.scaleFactor;
         
             Rect bound = new(
                 corners[0].x,
@@ -153,6 +155,10 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                 bound.width / Screen.width,
                 bound.height / Screen.height
             );
+
+            // Resize bounds after main camera to account for UI scaling
+            bound.position /= scale;    
+            bound.size /= scale;
 
             Rect safeZone = new(
                 bound.x + 12,

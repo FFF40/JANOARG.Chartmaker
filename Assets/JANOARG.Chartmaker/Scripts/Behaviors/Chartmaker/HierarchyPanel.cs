@@ -688,11 +688,13 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
     
         public void OnResizerDrag()
         {
-            ResizeHierarchy(Input.mousePosition.x, false);
+            float scale = Chartmaker.main.ChartmakerCanvas.scaleFactor;
+            ResizeHierarchy(Input.mousePosition.x / scale, false);
         }
         public void OnResizerEndDrag()
         {
-            ResizeHierarchy(Input.mousePosition.x);
+            float scale = Chartmaker.main.ChartmakerCanvas.scaleFactor;
+            ResizeHierarchy(Input.mousePosition.x / scale);
         }
     
         public void ResizeHierarchy(float width, bool snap = true)
@@ -701,7 +703,9 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             const float COLLAPSED_WIDTH = 69;
             const float TRANSITION_WIDTH = (MIN_FEASIBLE_WIDTH + COLLAPSED_WIDTH) / 2;
 
-            float maxWidth = Mathf.Max(MIN_FEASIBLE_WIDTH, Screen.width * 0.33f);
+            float scale = Chartmaker.main.ChartmakerCanvas.scaleFactor;
+
+            float maxWidth = Mathf.Max(MIN_FEASIBLE_WIDTH, Screen.width / scale * 0.33f);
             
             if (snap) width = 
                 width < TRANSITION_WIDTH ? COLLAPSED_WIDTH : 

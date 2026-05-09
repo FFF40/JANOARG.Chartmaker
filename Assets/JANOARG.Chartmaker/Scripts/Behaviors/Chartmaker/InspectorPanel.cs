@@ -1038,11 +1038,13 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
 
         public void OnResizerDrag()
         {
-            ResizeInspector(Screen.width - Input.mousePosition.x, false);
+            float scale = Chartmaker.main.ChartmakerCanvas.scaleFactor;
+            ResizeInspector((Screen.width - Input.mousePosition.x) / scale, false);
         }
         public void OnResizerEndDrag()
         {
-            ResizeInspector(Screen.width - Input.mousePosition.x);
+            float scale = Chartmaker.main.ChartmakerCanvas.scaleFactor;
+            ResizeInspector((Screen.width - Input.mousePosition.x) / scale);
         }
     
         public void ResizeInspector(float width, bool snap = true)

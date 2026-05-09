@@ -2021,11 +2021,13 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
 
         public void OnResizerDrag()
         {
-            ResizeTimeline(Input.mousePosition.y, false);
+            float scale = Chartmaker.main.ChartmakerCanvas.scaleFactor;
+            ResizeTimeline(Input.mousePosition.y / scale, false);
         }
         public void OnResizerEndDrag()
         {
-            ResizeTimeline(Input.mousePosition.y);
+            float scale = Chartmaker.main.ChartmakerCanvas.scaleFactor;
+            ResizeTimeline(Input.mousePosition.y / scale);
         }
 
         public float SnapTimeline(float height)
@@ -2035,7 +2037,9 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
     
         public void ResizeTimeline(float height, bool snap = true)
         {
-            float maxHeight = SnapTimeline(Screen.height * 0.5f);
+            float scale = Chartmaker.main.ChartmakerCanvas.scaleFactor;
+
+            float maxHeight = SnapTimeline(Screen.height / scale * 0.5f);
             height = Mathf.Round(Mathf.Clamp(height, 40, maxHeight));
         
             if (snap)

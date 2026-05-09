@@ -15,9 +15,9 @@ namespace JANOARG.Chartmaker.Constants
         public bool AutoUpdateCheck = true;
         public bool ShowHiddenFiles;
 
-        public string Theme         = "Prototype";
-        public bool   CustomCursors = true;
-        public bool   UseDefaultWindow;
+        public string Theme            = "Prototype";
+        public bool   CustomCursors    = true;
+        public bool   UseDefaultWindow = false;
 
         public FileSizeBase   FileSizeBase   = Application.platform == RuntimePlatform.WindowsPlayer ? FileSizeBase.Binary : FileSizeBase.Decimal;
         public FFTWindow      FFTWindow      = FFTWindow.Hann;
@@ -27,7 +27,7 @@ namespace JANOARG.Chartmaker.Constants
     
         public bool  PerfectHitsounds;
         public bool  ForceNavigationBar;
-        public float InterfaceScaling;
+        public float InterfaceScaling = 1;
 
         public void Load(Storage storage)
         {
@@ -42,7 +42,7 @@ namespace JANOARG.Chartmaker.Constants
             UseDefaultWindow = storage.Get("LA:UseDefaultWindow", UseDefaultWindow);
             ForceNavigationBar = storage.Get("LA:ForceNavigationBar", true);
             
-            InterfaceScaling = storage.Get("LA:UIScalingFactor", 1);
+            InterfaceScaling = storage.Get("LA:UIScalingFactor", InterfaceScaling);
         
             QualitySettings.vSyncCount = storage.Get("GS:VSync", 1);
             QualitySettings.antiAliasing = storage.Get("GS:AntiAliasing", 0);
