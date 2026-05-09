@@ -1066,54 +1066,33 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
                 int maxFrameCount = (int)(framebufferLimit / frameSize);
                 int resumeFrameCount = maxFrameCount * 3 / 4;
 
-                // Main rendering loop
-                while (frameIndex < totalFrames)
+                // Async GPU readback hides PCI transfer latency by overlapping
+                // readback of frame N with scene update + render of frame N+1.
+                // Falls back to synchronous ReadPixels on APIs that don't support it
+                // (OpenGL ES — Android builds).
+                bool useAsyncReadback = SystemInfo.supportsAsyncGPUReadback;
+
+                // Shared helpers used by both paths.
+                void UpdateProgress()
                 {
-                    if (frameQueue.Count >= maxFrameCount)
-                    {
-                        while (frameQueue.Count >= resumeFrameCount)
-                        {
-                            await Task.Yield();
+                    UpdateETAProgress(framePipedIndex, totalFrames);
+                    loaderPanel.ActionLabel.text = $"Rendering... ({framePipedIndex} / {totalFrames})";
+                    loaderPanel.ProgressLabel.text = _EtaString;
+                    loaderPanel.ProgressBar.value = (float)framePipedIndex / totalFrames;
+                }
 
-                            UpdateETAProgress(framePipedIndex, totalFrames);
-
-                            loaderPanel.ActionLabel.text = $"Rendering... ({framePipedIndex} / {totalFrames})";
-                            loaderPanel.ProgressLabel.text = _EtaString;
-                            loaderPanel.ProgressBar.value = (float)framePipedIndex / totalFrames;
-                        }
-                        continue;
-                    }
-
-                    // Compute frame time from index to avoid float accumulation drift
-                    float time = (float)(frameOrigin + frameIndex / (double)frameRate);
-
-                    // Update scene — drive ChartManager directly from computed time,
-                    // bypassing InformationBar.sec (which reads quantized timeSamples).
-                    // When time is negative we are in pre-roll: update visuals only,
-                    // hold audio at position 0 (matching client behaviour).
+                void UpdateScene(int idx)
+                {
+                    float time = (float)(frameOrigin + idx / (double)frameRate);
                     float audioTime = Mathf.Clamp(time, 0f, songSource.clip.length);
                     songSource.time = audioTime;
-
                     float sec  = time >= 0f ? audioTime : time;
                     float beat = chartmaker.CurrentSong.Timing.ToBeat(sec);
                     playerView.UpdateObjects(sec, beat);
+                }
 
-                    // Render frame
-                    RenderTexture.active = rtex;
-                    _Camera.Render();
-
-                    tex.ReadPixels(rectConfig, 0, 0);
-                    // tex.Apply() skipped — GetRawTextureData is CPU-only, no GPU upload needed.
-
-                    // Flip vertically (Unity origin is bottom-left, FFmpeg expects top-left)
-                    // and write into the next ping-pong buffer.
-                    byte[] frameBuffer = bufferPool[bufferIndex ^= 1];
-                    byte[] rawData = tex.GetRawTextureData();
-                    int stride = resolution.x * 3;
-                    for (int y = 0; y < resolution.y; y++)
-                        Buffer.BlockCopy(rawData, (resolution.y - 1 - y) * stride,
-                                         frameBuffer, y * stride, stride);
-
+                void CheckErrors()
+                {
                     if (FFmpegProcess.HasExited)
                     {
                         rendering = false;
@@ -1121,46 +1100,186 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
                         lock (ffmpegStderrLines) stderr = string.Join("\n", ffmpegStderrLines);
                         throw new Exception($"FFmpeg process ended prematurely.\n{stderr}");
                     }
-
-                    // Queue frame — no Clone needed; piping thread drains before we reuse.
-                    frameQueue.Enqueue(frameBuffer);
-
-                    frameIndex++;
-                    frameYieldIndex++;
-
-                    // Update progress less frequently (by average fps) for performance
-                    float averageFrameTime = _RecentFrameTimes.Count > 0
-                        ? _RecentFrameTimes.Sum() / _RecentFrameTimes.Count : 0.033f; // fallback to ~30fps
-                    float averageFPS = averageFrameTime > 0
-                        ? 1f / averageFrameTime : 30f;
-                    int yieldInterval = Mathf.Clamp(Mathf.RoundToInt(averageFPS) / 5, 10, 120);
-
-                    if (frameYieldIndex > yieldInterval || frameIndex == totalFrames)
-                    {
-                        frameYieldIndex = 0;
-
-                        UpdateETAProgress(framePipedIndex, totalFrames);
-
-                        loaderPanel.ActionLabel.text = $"Rendering... ({framePipedIndex} / {totalFrames})";
-                        loaderPanel.ProgressLabel.text = _EtaString;
-                        loaderPanel.ProgressBar.value = (float)framePipedIndex / totalFrames;
-
-                        await Task.Yield();
-                    }
-                    
                     if (brokenPipe)
                     {
                         Exception e = new TaskCanceledException($"Broken pipe to FFmpeg - it may have crashed: \n{pipeError.Message} \n\nTry using another configuration?");
                         ThrowRenderModal(e, rtex, tex);
                         throw e;
                     }
-
                     if (cancelFlag)
                     {
                         rendering = false;
                         throw new TaskCanceledException("Cancelled");
                     }
                 }
+
+                async Task WaitForQueueAsync()
+                {
+                    while (frameQueue.Count >= maxFrameCount)
+                    {
+                        while (frameQueue.Count >= resumeFrameCount)
+                        {
+                            await Task.Yield();
+                            UpdateProgress();
+                        }
+                    }
+                }
+
+                int stride = resolution.x * 3;
+
+                // Readback uses the RT's native ARGB32 format to avoid a GPU-side
+                // format conversion pass. The CPU strips the alpha channel while flipping.
+                int srcStride = resolution.x * 4; // ARGB32 = 4 bytes per pixel
+                // Staging buffers: NativeArray data is copied out here on the main
+                // thread (must happen before the next readback request invalidates it),
+                // then the flip+channel-swap runs on a worker via Task.Run.
+                byte[][] stagingPool = { new byte[resolution.x * resolution.y * 4],
+                                         new byte[resolution.x * resolution.y * 4] };
+                int stagingIndex = 0;
+                Task pendingFlipTask = null;
+
+                void ScheduleFlip(byte[] staging)
+                {
+                    byte[] frameBuffer = bufferPool[bufferIndex ^= 1];
+                    pendingFlipTask = Task.Run(() =>
+                    {
+                        int w = resolution.x, h = resolution.y;
+                        for (int y = 0; y < h; y++)
+                        {
+                            int srcRow = (h - 1 - y) * srcStride;
+                            int dstRow = y * stride;
+                            for (int x = 0; x < w; x++)
+                            {
+                                // ARGB32 native memory layout on little-endian: B, G, R, A.
+                                // FFmpeg rgb24 expects R, G, B.
+                                frameBuffer[dstRow + x * 3 + 0] = staging[srcRow + x * 4 + 2]; // R
+                                frameBuffer[dstRow + x * 3 + 1] = staging[srcRow + x * 4 + 1]; // G
+                                frameBuffer[dstRow + x * 3 + 2] = staging[srcRow + x * 4 + 0]; // B
+                            }
+                        }
+                        frameQueue.Enqueue(frameBuffer);
+                    });
+                }
+
+
+                void FlipAndEnqueueManaged(byte[] src)
+                {
+                    byte[] frameBuffer = bufferPool[bufferIndex ^= 1];
+                    for (int y = 0; y < resolution.y; y++)
+                        Buffer.BlockCopy(src, (resolution.y - 1 - y) * stride,
+                                         frameBuffer, y * stride, stride);
+                    frameQueue.Enqueue(frameBuffer);
+                }
+
+                if (useAsyncReadback)
+                {
+                    // Pipelined async path:
+                    // Render frame N → request async readback → update scene for N+1
+                    // → render N+1 → collect N's readback → enqueue → repeat.
+                    AsyncGPUReadbackRequest pendingRequest = default;
+                    bool hasPending = false;
+
+                    // Prime: render frame 0 and issue its readback before the loop.
+                    UpdateScene(frameIndex);
+                    RenderTexture.active = rtex;
+                    _Camera.Render();
+                    pendingRequest = AsyncGPUReadback.Request(rtex);
+                    hasPending = true;
+                    frameIndex++;
+                    frameYieldIndex++;
+
+                    while (frameIndex < totalFrames || hasPending)
+                    {
+                        await WaitForQueueAsync();
+
+                        if (frameIndex < totalFrames)
+                        {
+                            // Render next frame while GPU transfers previous frame.
+                            UpdateScene(frameIndex);
+                            RenderTexture.active = rtex;
+                            _Camera.Render();
+                        }
+
+                        // Collect previous frame's readback.
+                        // WaitAllRequests() blocks until transfer is done, then we
+                        // copy out of the NativeArray on the main thread (it becomes
+                        // invalid after the next Request call) and hand the managed
+                        // copy to a worker for the flip+channel-swap.
+                        if (hasPending)
+                        {
+                            AsyncGPUReadback.WaitAllRequests();
+                            // Wait for previous flip task before reusing staging buffer.
+                            pendingFlipTask?.Wait();
+
+                            if (pendingRequest.hasError)
+                            {
+                                // Fall back to sync for this frame.
+                                tex.ReadPixels(rectConfig, 0, 0);
+                                FlipAndEnqueueManaged(tex.GetRawTextureData());
+                            }
+                            else
+                            {
+                                // Copy NativeArray → staging on main thread, schedule flip on worker.
+                                byte[] staging = stagingPool[stagingIndex ^= 1];
+                                pendingRequest.GetData<byte>().CopyTo(staging);
+                                ScheduleFlip(staging);
+                            }
+                            hasPending = false;
+                        }
+
+                        // Issue readback for the frame we just rendered.
+                        if (frameIndex < totalFrames)
+                        {
+                            pendingRequest = AsyncGPUReadback.Request(rtex);
+                            hasPending = true;
+                            frameIndex++;
+                            frameYieldIndex++;
+                        }
+
+                        CheckErrors();
+
+                        if (frameYieldIndex > Mathf.Clamp(Mathf.RoundToInt(
+                                (_RecentFrameTimes.Count > 0 ? 1f / (_RecentFrameTimes.Sum() / _RecentFrameTimes.Count) : 30f)) / 5, 10, 120)
+                            || frameIndex == totalFrames)
+                        {
+                            frameYieldIndex = 0;
+                            UpdateProgress();
+                            await Task.Yield();
+                        }
+                    }
+                }
+                else
+                {
+                    // Synchronous fallback path (OpenGL ES / unsupported APIs).
+                    while (frameIndex < totalFrames)
+                    {
+                        await WaitForQueueAsync();
+
+                        UpdateScene(frameIndex);
+                        RenderTexture.active = rtex;
+                        _Camera.Render();
+
+                        tex.ReadPixels(rectConfig, 0, 0);
+                        FlipAndEnqueueManaged(tex.GetRawTextureData());
+
+                        CheckErrors();
+
+                        frameIndex++;
+                        frameYieldIndex++;
+
+                        if (frameYieldIndex > Mathf.Clamp(Mathf.RoundToInt(
+                                (_RecentFrameTimes.Count > 0 ? 1f / (_RecentFrameTimes.Sum() / _RecentFrameTimes.Count) : 30f)) / 5, 10, 120)
+                            || frameIndex == totalFrames)
+                        {
+                            frameYieldIndex = 0;
+                            UpdateProgress();
+                            await Task.Yield();
+                        }
+                    }
+                }
+
+                // Ensure the last flip task has enqueued its frame before signalling done.
+                pendingFlipTask?.Wait();
 
                 // Close the input stream to signal end of video data
                 rendering = false;
