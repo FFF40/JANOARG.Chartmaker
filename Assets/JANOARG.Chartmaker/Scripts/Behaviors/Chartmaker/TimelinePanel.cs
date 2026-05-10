@@ -997,6 +997,17 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             TicksImage.uvRect = new Rect(uvLeft, 0f, uvSize, 1f);
         }
 
+        const int MaxTickLabels = 50;
+
+        readonly Dictionary<BeatPosition, string> _beatStringCache = new();
+
+        string GetBeatString(BeatPosition beat)
+        {
+            if (!_beatStringCache.TryGetValue(beat, out string s))
+                _beatStringCache[beat] = s = beat.ToString();
+            return s;
+        }
+
         void UpdateTickLabels(Metronome metronome, float factor, Color labelColor)
         {
             int labelCount = 0;
@@ -1005,7 +1016,7 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             BeatPosition interval = BeatInterval(Mathf.FloorToInt(factor), SeparationFactor);
             float        end      = metronome.ToBeat(PeekRange.y);
 
-            while (beat < end && labelCount <= 1000)
+            while (beat < end && labelCount < MaxTickLabels)
             {
                 float beatDensity = GetSeparationFactor(beat, SeparationFactor) - factor;
                 float labelAlpha  = Mathf.Clamp01(beatDensity - 2.5f) * .5f;
@@ -1030,11 +1041,10 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                     rt.anchorMin = new(normX, 0f);
                     rt.anchorMax = new(normX, 1f);
 
-                    // Image hidden — the texture already draws the line
                     tick.Image.color = Color.clear;
                     tick.Label.color = labelColor;
                     tick.Label.alpha = labelAlpha;
-                    tick.Label.text  = beat.ToString();
+                    tick.Label.text  = GetBeatString(beat);
 
                     labelCount++;
                 }
@@ -1045,6 +1055,14 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             for (int i = labelCount; i < Ticks.Count; i++)
                 if (Ticks[i].gameObject.activeSelf)
                     Ticks[i].gameObject.SetActive(false);
+
+            // Prune pool back to a reasonable size to avoid accumulation from rapid scroll
+            int poolCap = MaxTickLabels + 8;
+            while (Ticks.Count > poolCap)
+            {
+                Destroy(Ticks[^1].gameObject);
+                Ticks.RemoveAt(Ticks.Count - 1);
+            }
         }
 
         void HideAllTicks()
