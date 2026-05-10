@@ -1537,6 +1537,11 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
         PointerEventData      lastDrag;
         private Vector2       initialPreviewersPosition;
         private RectTransform hitobjectRect;
+
+        public bool IsTimelineDragging()
+        {
+            return (int)dragMode % 2 == 1;
+        }
         
         public void OnPointerDown(PointerEventData eventData)
         {
@@ -1627,25 +1632,27 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                 source.time = time;
 
             }
+            else if (eventData.button == PointerEventData.InputButton.Right) 
+            {
+                dragMode = TimelineDragMode.SeekBarRightClick;
+                // Immediately call OnDrag to set current time
+                OnDrag(eventData);
+            }
             else if (contains(PeekStartSlider))
             {
                 dragMode = TimelineDragMode.PeekStart;
-                localPos(PeekStartSlider, out dragStart);
             }
             else if (contains(PeekEndSlider))
             {
                 dragMode = TimelineDragMode.PeekEnd;
-                localPos(PeekEndSlider, out dragStart);
             }
             else if (contains(CurrentTimeSlider))
             {
                 dragMode = TimelineDragMode.CurrentTime;
-                localPos(CurrentTimeSlider, out dragStart);
             }
             else if (contains(PeekRangeSlider))
             {
                 dragMode = TimelineDragMode.PeekRange;
-                localPos(PeekRangeSlider, out dragStart);
             }
             else 
                 dragMode = TimelineDragMode.None;
@@ -1693,7 +1700,7 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
         
             // Timeline dragging
 
-            if ((int)dragMode % 2 == 1)
+            if (IsTimelineDragging())
             {
 
                 localPos(ItemsHolder, out dragEnd);
@@ -1915,13 +1922,21 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             if (localPos(TimeSliderHolder, out Vector2 localMousePos))
             {
                 float sliderWidth = TimeSliderHolder.rect.width;
-                time = ((localMousePos - dragStart).x / sliderWidth + TimeSliderHolder.pivot.x) * width + limit.x;
+                if (dragMode == TimelineDragMode.SeekBarRightClick)
+                {
+                    time = (localMousePos.x / sliderWidth + TimeSliderHolder.pivot.x) * width + limit.x;
+                }
+                else
+                {
+                    time = ((localMousePos - dragStart).x / sliderWidth + TimeSliderHolder.pivot.x) * width + limit.x;
+                }
             }
             else
                 return;
         
             switch (dragMode)
             {
+                case TimelineDragMode.SeekBarRightClick:
                 case TimelineDragMode.CurrentTime:
                 {
                     if (chartmaker.SongSource.time == 0 && !chartmaker.SongSource.isPlaying)
@@ -1953,8 +1968,10 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                 return;
 
             Metronome metronome = Chartmaker.main.CurrentSong.Timing;
-            if (eventData.button == PointerEventData.InputButton.Right)
+            if (eventData.button == PointerEventData.InputButton.Right && IsTimelineDragging())
+            {
                 Chartmaker.main.SongSource.time = Mathf.Clamp(metronome.ToSeconds(beatStart), 0, Chartmaker.main.SongSource.clip.length);
+            }
             
             OnEndDrag(eventData);
         }
@@ -2448,10 +2465,11 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
     {
         None = 0,
 
-        CurrentTime = 2,
-        PeekRange   = 4,
-        PeekStart   = 6,
-        PeekEnd     = 8,
+        CurrentTime       = 2,
+        PeekRange         = 4,
+        PeekStart         = 6,
+        PeekEnd           = 8,
+        SeekBarRightClick = 10,
 
         TimelineDrag = 1,
         Timeline     = 3,
