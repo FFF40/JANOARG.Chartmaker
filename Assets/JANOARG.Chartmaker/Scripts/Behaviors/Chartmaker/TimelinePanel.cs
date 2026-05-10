@@ -1136,7 +1136,8 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
         volatile bool    _waveBakePending = false;
         Color[]          _wavePendingPixels;
         Texture2D        _wavePendingTexture;
-        Rect             _wavePendingUV;
+        float            _wavePendingStep;
+        int              _wavePendingTexWidth;
 
         void FlushPendingWaveBake()
         {
@@ -1147,8 +1148,13 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             if (_wavePendingTexture != WaveformImage.texture) return; // texture was replaced, discard
 
             _wavePendingTexture.SetPixels(_wavePendingPixels);
-            _wavePendingTexture.Apply();
-            WaveformImage.uvRect = _wavePendingUV;
+            _wavePendingTexture.Apply(false, false);
+
+            // Compute UV from current PeekRange so we don't snap to a stale position
+            int   viewportLeft = Mathf.RoundToInt((PeekRange.x - waveTime) / _wavePendingStep);
+            float uvLeft       = (float)viewportLeft / _wavePendingTexWidth;
+            float uvSize       = (float)waveViewportWidth / _wavePendingTexWidth;
+            WaveformImage.uvRect = new Rect(uvLeft, 0f, uvSize, 1f);
         }
 
         public void UpdateWaveform()
@@ -1226,14 +1232,12 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
         void TriggerWaveBake(Texture2D texture, int texWidth, int texHeight, float step, Color color)
         {
             // Snapshot all values the background thread will need — no Unity API on bg thread.
-            int   vpWidth     = waveViewportWidth;
             float bakeTime    = waveTime;
             int   mode        = Options.WaveformMode;
-            FrequencyScale freqScale   = Chartmaker.Preferences.FrequencyScale;
-            float          freqMin     = Chartmaker.Preferences.FrequencyMin;
-            float          freqMax     = Chartmaker.Preferences.FrequencyMax;
-            FFTWindow      fftWindow   = Chartmaker.Preferences.FFTWindow;
-            float peekX       = PeekRange.x;
+            FrequencyScale freqScale = Chartmaker.Preferences.FrequencyScale;
+            float          freqMin  = Chartmaker.Preferences.FrequencyMin;
+            float          freqMax  = Chartmaker.Preferences.FrequencyMax;
+            FFTWindow      fftWindow = Chartmaker.Preferences.FFTWindow;
 
             int needed = texWidth * texHeight;
             if (_wavePixelBuffer == null || _wavePixelBuffer.Length != needed)
@@ -1251,14 +1255,11 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                     case 2: waveBakeSpectrogram(pixels, texWidth, texHeight, step, color, bakeTime, freqScale, freqMin, freqMax, fftWindow); break;
                 }
 
-                int   viewportLeft = Mathf.RoundToInt((peekX - bakeTime) / step);
-                float uvLeft       = (float)viewportLeft / texWidth;
-                float uvSize       = (float)vpWidth / texWidth;
-
-                _wavePendingPixels  = pixels;
-                _wavePendingTexture = texture;
-                _wavePendingUV      = new Rect(uvLeft, 0f, uvSize, 1f);
-                _waveBakePending    = true;
+                _wavePendingPixels   = pixels;
+                _wavePendingTexture  = texture;
+                _wavePendingStep     = step;
+                _wavePendingTexWidth = texWidth;
+                _waveBakePending     = true;
             });
         }
 
