@@ -16,6 +16,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
+using FFTWindow = JANOARG.Chartmaker.Utils.FFTWindow;
 
 namespace JANOARG.Chartmaker.Behaviors.Chartmaker
 {
@@ -1201,6 +1202,8 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             float uvSize = (float)vpWidth / texWidth;
             WaveformImage.uvRect = new Rect(uvLeft, 0f, uvSize, 1f);
         }
+        
+        Color[] _WavePixelBuffer;
 
         void TriggerWaveBake(Texture2D texture, int texWidth, int texHeight, float step, Color color)
         {
@@ -1214,7 +1217,10 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             FFTWindow      fftWindow   = Chartmaker.Preferences.FFTWindow;
             float peekX       = PeekRange.x;
 
-            Color[] pixels = new Color[texWidth * texHeight];
+            int needed = texWidth * texHeight;
+            if (_WavePixelBuffer == null || _WavePixelBuffer.Length != needed)
+                _WavePixelBuffer = new Color[needed];
+            Color[] pixels = _WavePixelBuffer;
 
             // Invalidate any in-flight bake for the previous texture
             _waveBakePending = false;
@@ -1223,8 +1229,8 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             {
                 switch (mode)
                 {
-                    case 1: waveBakeWaveform(pixels, texWidth, texHeight, step, color, bakeTime); break;
-                    case 2: waveBakeSpectrogram(pixels, texWidth, texHeight, step, color, bakeTime, freqScale, freqMin, freqMax, fftWindow); break;
+                    case 1: WaveBakeWaveform(pixels, texWidth, texHeight, step, color, bakeTime); break;
+                    case 2: WaveBakeSpectrogram(pixels, texWidth, texHeight, step, color, bakeTime, freqScale, freqMin, freqMax, fftWindow); break;
                 }
 
                 int   viewportLeft = Mathf.RoundToInt((peekX - bakeTime) / step);
@@ -1238,7 +1244,7 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             });
         }
 
-        void waveBakeWaveform(Color[] pixels, int texWidth, int texHeight, float step, Color color, float bakeTime)
+        void WaveBakeWaveform(Color[] pixels, int texWidth, int texHeight, float step, Color color, float bakeTime)
         {
             int   channels     = waveCacheChannels;
             float density      = waveCacheFrequency * step;
@@ -1293,7 +1299,7 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             }
         }
 
-        void waveBakeSpectrogram(Color[] pixels, int texWidth, int texHeight, float step, Color color, float bakeTime, FrequencyScale freqScale, float freqMin, float freqMax, FFTWindow fftWindow)
+        void WaveBakeSpectrogram(Color[] pixels, int texWidth, int texHeight, float step, Color color, float bakeTime, FrequencyScale freqScale, float freqMin, float freqMax, FFTWindow fftWindow)
         {
             int   channels   = waveCacheChannels;
             int   resolution = 512;
