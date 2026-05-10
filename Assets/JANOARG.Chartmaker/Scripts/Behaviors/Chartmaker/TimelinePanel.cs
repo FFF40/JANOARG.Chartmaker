@@ -882,6 +882,8 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                 HideAllTicks();
                 return;
             }
+            
+            if (TicksHolder.rect.width <= 0) return;
 
             if (!TicksImage.enabled)
                 TicksImage.enabled = true;
@@ -1172,6 +1174,8 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             int vpWidth  = Mathf.Max(1, (int)waveRT.rect.width);
             int vpHeight = Mathf.Max(1, (int)waveRT.rect.height);
             int texWidth = vpWidth * WaveBufferMultiplier;
+            
+            if (waveRT.rect.width <= 0 || waveRT.rect.height <= 0) return;
 
             float step    = (PeekRange.y - PeekRange.x) / vpWidth;
             float density = waveCacheFrequency * step;
