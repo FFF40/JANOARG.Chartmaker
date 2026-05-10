@@ -1098,15 +1098,25 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             AudioClip clip = Chartmaker.main.SongSource.clip;
             if (clip == null) { waveCache = null; return; }
 
-            float[] raw = new float[clip.samples * clip.channels];
-            clip.GetData(raw, 0);
+            int channels  = clip.channels;
+            int totalSamples = clip.samples * channels;
+            const int chunkSamples = 44100 * 2; // 1 second of stereo at 44.1kHz
 
-            waveCache          = new sbyte[raw.Length];
-            waveCacheChannels  = clip.channels;
+            waveCache          = new sbyte[totalSamples];
+            waveCacheChannels  = channels;
             waveCacheFrequency = clip.frequency;
 
-            for (int i = 0; i < raw.Length; i++)
-                waveCache[i] = (sbyte)Mathf.RoundToInt(Mathf.Clamp(raw[i], -1f, 1f) * 127f);
+            float[] chunk = new float[chunkSamples];
+            int written = 0;
+            while (written < clip.samples)
+            {
+                int count = Mathf.Min(chunkSamples / channels, clip.samples - written);
+                clip.GetData(chunk, written);
+                int end = written * channels + count * channels;
+                for (int i = written * channels; i < end; i++)
+                    waveCache[i] = (sbyte)Mathf.RoundToInt(Mathf.Clamp(chunk[i - written * channels], -1f, 1f) * 127f);
+                written += count;
+            }
 
             DiscardWaveform();
         }
