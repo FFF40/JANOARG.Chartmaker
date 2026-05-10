@@ -853,7 +853,16 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             }
         }
 
-        int    tickOffset                = 0;
+        // tickTime describes the left edge of the buffer in seconds.
+        // tickViewportWidth is the visible pixel width; texWidth = 9 * tickViewportWidth.
+        // Reconstruction triggers when the viewport has consumed more than 62% of
+        // the available margin on either side (i.e. drifted > 2.17× viewport widths
+        // from the buffer centre).
+        const int   TickBufferMultiplier    = 9;   // total buffer = this × viewport
+        const int   TickBufferHalfPad       = 4;   // padding on each side in viewport widths
+        const float TickReconstructThreshold = 0.62f;
+
+        int    tickViewportWidth = 0;
         float  tickTime, tickLastDensity = 0;
         bool[] tickBaked;
 
@@ -869,9 +878,29 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             if (!TicksImage.enabled)
                 TicksImage.enabled = true;
 
-            int texWidth = Mathf.Max(1, (int)TicksHolder.rect.width);
+            int vpWidth  = Mathf.Max(1, (int)TicksHolder.rect.width);
+            int texWidth = vpWidth * TickBufferMultiplier;
+
+            float density = (PeekRange.y - PeekRange.x) * metronome.GetStop(PeekRange.x, out _).BPM / vpWidth / 8;
+
+            // step = seconds per viewport pixel
+            float step = (PeekRange.y - PeekRange.x) / vpWidth;
+
+            // Left edge of the viewport in buffer-column space
+            float viewportLeftSec = PeekRange.x;
 
             Texture2D texture = TicksImage.texture as Texture2D;
+
+            // Viewport pixel width changed → full rebuild
+            if (tickViewportWidth != vpWidth)
+            {
+                texture = null;
+                tickViewportWidth = vpWidth;
+            }
+
+            // Density changed significantly → full rebuild
+            if (density == 0 || !(Math.Abs(tickLastDensity / density - 1) < 0.0001f))
+                texture = null;
 
             if (!texture || texture.width != texWidth)
             {
@@ -881,96 +910,84 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                     filterMode = FilterMode.Point,
                     wrapMode   = TextureWrapMode.Repeat,
                 };
-                tickBaked = new bool[texWidth];
-                tickOffset = 0;
-            }
-
-            float density = (PeekRange.y - PeekRange.x) * metronome.GetStop(PeekRange.x, out _).BPM / texWidth / 8;
-            float step    = (PeekRange.y - PeekRange.x) / texWidth;
-            float sec     = Mathf.Floor(PeekRange.x / step - 1) * step;
-            int   tickNewOffset = (int)((sec - tickTime) / step);
-
-            if (density == 0 || !(Math.Abs(tickLastDensity / density - 1) < 0.0001f) || Mathf.Abs(tickOffset - tickNewOffset) >= texWidth)
-            {
-                Destroy(TicksImage.texture);
-                TicksImage.texture = texture = new Texture2D(texWidth, 1, TextureFormat.RGBA32, false)
-                {
-                    filterMode = FilterMode.Point,
-                    wrapMode   = TextureWrapMode.Repeat,
-                };
-                tickBaked        = new bool[texWidth];
-                tickLastDensity  = density;
-                tickTime         = sec;
-                tickOffset = tickNewOffset = 0;
-            }
-
-            // Clear columns scrolled out of view
-            Color[] clear = { Color.clear };
-            while (tickOffset < tickNewOffset)
-            {
-                int col = (tickOffset % texWidth + texWidth) % texWidth;
-                tickBaked[col] = false;
-                texture.SetPixels(col, 0, 1, 1, clear);
-                tickOffset++;
-            }
-            while (tickOffset > tickNewOffset)
-            {
-                int col = (tickOffset % texWidth + texWidth) % texWidth;
-                tickBaked[col] = false;
-                texture.SetPixels(col, 0, 1, 1, clear);
-                tickOffset--;
-            }
-
-            TicksImage.uvRect = new Rect(tickOffset / (float)texWidth, 0, 1, 1);
-
-            if (density == 0)
-            {
-                texture.Apply();
-                HideAllTicks();
+                tickBaked       = new bool[texWidth];
+                tickLastDensity = density;
+                // Centre the buffer on the current viewport
+                tickTime   = viewportLeftSec - step * vpWidth * TickBufferHalfPad;
+                tickBakeAll(texture, texWidth, step, metronome);
+                UpdateTickLabels(metronome, Mathf.Log(density, SeparationFactor), Themer.main.Keys["TimelineTickMain"]);
                 return;
             }
 
-            float factor     = Mathf.Log(density, SeparationFactor);
-            Color labelColor = Themer.main.Keys["TimelineTickMain"];
+            // How many buffer columns does the viewport left edge currently occupy?
+            int viewportLeftCol = Mathf.RoundToInt((viewportLeftSec - tickTime) / step);
 
-            // Clear unbaked columns so stale tick lines from a previous frame don't bleed through
-            for (int x = 0; x < texWidth; x++)
+            // Reconstruct if viewport has drifted past the threshold on either side.
+            // Available margin on the left  = viewportLeftCol columns
+            // Available margin on the right = texWidth - (viewportLeftCol + vpWidth) columns
+            float reconstructMargin = TickBufferHalfPad * vpWidth * TickReconstructThreshold;
+            if (viewportLeftCol < reconstructMargin || viewportLeftCol + vpWidth > texWidth - reconstructMargin)
             {
-                int col = ((x + tickOffset) % texWidth + texWidth) % texWidth;
-                if (!tickBaked[col])
-                    texture.SetPixels(col, 0, 1, 1, clear);
+                // Recentre buffer on current viewport
+                tickTime   = viewportLeftSec - step * vpWidth * TickBufferHalfPad;
+                System.Array.Clear(tickBaked, 0, texWidth);
+                tickBakeAll(texture, texWidth, step, metronome);
+                UpdateTickLabels(metronome, Mathf.Log(density, SeparationFactor), Themer.main.Keys["TimelineTickMain"]);
+                return;
             }
 
-            // Iterate beats and write their pixel column into the texture
-            BeatPosition beat     = BeatFloor(metronome.ToBeat(PeekRange.x), Mathf.FloorToInt(factor), SeparationFactor);
+            // Viewport is well inside the buffer — just update the UV rect, no texture writes needed.
+            float uvLeft = (float)viewportLeftCol / texWidth;
+            float uvSize = (float)vpWidth / texWidth;
+            TicksImage.uvRect = new Rect(uvLeft, 0f, uvSize, 1f);
+
+            UpdateTickLabels(metronome, Mathf.Log(density, SeparationFactor), Themer.main.Keys["TimelineTickMain"]);
+        }
+
+        // Full bake of the entire buffer texture. Called on construction or recentre.
+        void tickBakeAll(Texture2D texture, int texWidth, float step, Metronome metronome)
+        {
+            int   vpWidth = tickViewportWidth;
+            float density = tickLastDensity;
+            float factor  = Mathf.Log(density, SeparationFactor);
+
+            Color[] clear = new Color[texWidth];   // default Color() is transparent black
+            texture.SetPixels(0, 0, texWidth, 1, clear);
+
+            // Bake range: full buffer width in time
+            float bufferStartSec = tickTime;
+            float bufferEndSec   = tickTime + texWidth * step;
+
+            BeatPosition beat     = BeatFloor(metronome.ToBeat(bufferStartSec), Mathf.FloorToInt(factor), SeparationFactor);
             BeatPosition interval = BeatInterval(Mathf.FloorToInt(factor), SeparationFactor);
-            float        end      = metronome.ToBeat(PeekRange.y);
+            float        end      = metronome.ToBeat(bufferEndSec);
             int          drawn    = 0;
 
-            while (beat < end && drawn <= 1000)
+            while (beat < end && drawn <= 9000)
             {
                 float beatSec = metronome.ToSeconds(beat);
-                float normX   = (beatSec - tickTime - tickOffset * step) / (texWidth * step);
-                int   col     = Mathf.RoundToInt(normX * texWidth);
+                int   col     = Mathf.RoundToInt((beatSec - tickTime) / step);
 
                 if (col >= 0 && col < texWidth)
                 {
-                    int texCol = ((col + tickOffset) % texWidth + texWidth) % texWidth;
-                    if (!tickBaked[texCol])
-                    {
-                        float beatDensity = GetSeparationFactor(beat, SeparationFactor) - factor;
-                        float alpha       = Mathf.Clamp01((Mathf.Pow(1.5f, beatDensity) - 1) / (Mathf.Pow(1.5f, 3) - 1)) * .5f;
-                        texture.SetPixels(texCol, 0, 1, 1, new[] { GetBeatColor(beat) * new Color(1, 1, 1, alpha) });
-                        tickBaked[texCol] = true;
-                    }
+                    float beatDensity = GetSeparationFactor(beat, SeparationFactor) - factor;
+                    float alpha       = Mathf.Clamp01((Mathf.Pow(1.5f, beatDensity) - 1) / (Mathf.Pow(1.5f, 3) - 1)) * .5f;
+                    clear[col] = GetBeatColor(beat) * new Color(1, 1, 1, alpha);
+                    tickBaked[col] = true;
                 }
 
                 beat += interval;
                 drawn++;
             }
 
+            texture.SetPixels(0, 0, texWidth, 1, clear);
             texture.Apply();
-            UpdateTickLabels(metronome, factor, labelColor);
+
+            // Set UV to current viewport position within the freshly baked buffer
+            int   viewportLeftCol = Mathf.RoundToInt((PeekRange.x - tickTime) / step);
+            float uvLeft = (float)viewportLeftCol / texWidth;
+            float uvSize = (float)vpWidth / texWidth;
+            TicksImage.uvRect = new Rect(uvLeft, 0f, uvSize, 1f);
         }
 
         void UpdateTickLabels(Metronome metronome, float factor, Color labelColor)
@@ -1033,15 +1050,11 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
         public void DiscardTickTexture()
         {
             if (TicksImage == null) return;
-            int texWidth = Mathf.Max(1, (int)TicksHolder.rect.width);
             Destroy(TicksImage.texture);
-            TicksImage.texture = new Texture2D(texWidth, 1, TextureFormat.RGBA32, false)
-            {
-                filterMode = FilterMode.Point,
-                wrapMode   = TextureWrapMode.Repeat,
-            };
-            if (tickBaked != null)
-                tickBaked = new bool[tickBaked.Length];
+            TicksImage.texture = null;
+            tickBaked          = null;
+            tickLastDensity    = 0;
+            tickViewportWidth  = 0;
         }
 
         int    waveOffset                = 0;
