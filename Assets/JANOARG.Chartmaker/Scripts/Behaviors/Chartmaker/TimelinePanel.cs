@@ -889,7 +889,7 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                 TicksImage.enabled = true;
 
             int vpWidth  = Mathf.Max(1, (int)TicksHolder.rect.width);
-            int texWidth = vpWidth * TickBufferMultiplier;
+            int texWidth = Mathf.Min(vpWidth * TickBufferMultiplier, SystemInfo.maxTextureSize);
 
             float density = (PeekRange.y - PeekRange.x) * metronome.GetStop(PeekRange.x, out _).BPM / vpWidth / 8;
 
@@ -1173,7 +1173,7 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             RectTransform waveRT = WaveformImage.rectTransform;
             int vpWidth  = Mathf.Max(1, (int)waveRT.rect.width);
             int vpHeight = Mathf.Max(1, (int)waveRT.rect.height);
-            int texWidth = vpWidth * WaveBufferMultiplier;
+            int texWidth = Mathf.Min(vpWidth * WaveBufferMultiplier, SystemInfo.maxTextureSize);
             
             if (waveRT.rect.width <= 0 || waveRT.rect.height <= 0) return;
 
