@@ -993,7 +993,7 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             }
 
             texture.SetPixels(0, 0, texWidth, 1, clear);
-            texture.Apply();
+            texture.Apply(false, false);
 
             // Set UV to current viewport position within the freshly baked buffer
             int   viewportLeftCol = Mathf.RoundToInt((PeekRange.x - tickTime) / step);
