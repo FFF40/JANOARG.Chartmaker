@@ -281,9 +281,10 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
 
                 float scale = CoverBackground.rectTransform.localScale.x;
                 Vector2 parallaxOffset = CoverPosition / scale;
-            
-                if (CurrentCoverViewMode == CoverViewMode.Icon)
-                    parallaxOffset -= Chartmaker.main.CurrentSong.Cover.IconCenter / scale;
+
+                Vector2 iconOffset = CurrentCoverViewMode == CoverViewMode.Icon
+                    ? Chartmaker.main.CurrentSong.Cover.IconCenter
+                    : Vector2.zero;
 
                 BoundingBox.color = NotificationText.color = NotificationBox.color = Color.white;
                 BoundingBox.rectTransform.anchoredPosition = new Vector2 (0, 16) + CoverPosition;
@@ -317,14 +318,14 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                                 CoverBackground.rectTransform.sizeDelta
                             ), 
                             new (
-                                layer.Position - parallaxOffset * layer.ParallaxFactor - imgSize * .5f, 
+                                layer.Position - parallaxOffset * layer.ParallaxFactor + iconOffset - imgSize * .5f, 
                                 imgSize
                             ));
                     }
                     else 
                     {
                         image.rectTransform.sizeDelta = new Vector2(1, (float)layer.Texture.height / layer.Texture.width) * (layer.Scale * 880);
-                        image.rectTransform.anchoredPosition = layer.Position - parallaxOffset * layer.ParallaxFactor;
+                        image.rectTransform.anchoredPosition = layer.Position - parallaxOffset * layer.ParallaxFactor + iconOffset;
                         image.uvRect = new (0, 0, 1, 1);
                     }
 
