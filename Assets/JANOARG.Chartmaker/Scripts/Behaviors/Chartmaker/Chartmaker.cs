@@ -402,6 +402,7 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
         
             TimelinePanel.main.UpdatePeekLimit();
             TimelinePanel.main.UpdateItems();
+            TimelinePanel.main.UpdateDensityGraph();
         
             PlayerView.main.UpdateObjects();
         
@@ -454,16 +455,24 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             }
 
             Loader.SetActive(false);
+
             InformationBar.main.UpdateChartButton();
+            
             InspectorPanel.main.UpdateButtons();
             InspectorPanel.main.UpdateForm();
             InspectorPanel.main.CurrentHierarchyObject = null;
+
             HierarchyPanel.main.SetMode(HierarchyMode.Chart);
+
             TimelinePanel.main.SetTabMode(TimelineMode.Lanes);
             TimelinePanel.main.UpdateItems();
+            TimelinePanel.main.UpdateDensityGraph();
+
             PlayerView.main.UpdateObjects();
+
             History = new();
             OnHistoryUpdate();
+
             ClipboardItem = null;
             OnClipboardUpdate();
         }
@@ -632,6 +641,7 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
         {
             InspectorPanel.main.UpdateForm();
             TimelinePanel.main.UpdateItems();
+            TimelinePanel.main.SetDensityGraphDirty();
             PlayerView.main.UpdateObjects();
             HierarchyPanel.main.UpdateHierarchy();
             IsDirty = true;
