@@ -1131,6 +1131,7 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
         int   waveViewportWidth  = 0;
         int   waveViewportHeight = 0;
         float waveTime, waveLastDensity = 0;
+        float _waveLiveTime = 0; // time origin of the currently displayed texture
         int   waveTexWidth = 0; // current live texture width (may differ from vpWidth * multiplier)
 
         // Pending async bake result — applied on the main thread by FlushPendingWaveBake().
@@ -1157,10 +1158,9 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             Destroy(_waveOldTexture);
             _waveOldTexture = null;
             WaveformImage.texture = _wavePendingTexture;
-            waveTexWidth = _wavePendingTexWidth;
-
-            // Adopt the baked buffer's time origin
-            waveTime = _wavePendingBakeTime;
+            waveTexWidth  = _wavePendingTexWidth;
+            waveTime      = _wavePendingBakeTime;
+            _waveLiveTime = _wavePendingBakeTime;
 
             int   viewportLeft = Mathf.RoundToInt((PeekRange.x - _wavePendingBakeTime) / _wavePendingStep);
             float uvLeft       = (float)viewportLeft / _wavePendingTexWidth;
@@ -1228,13 +1228,14 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                 };
                 waveLastDensity = density;
                 waveTime        = PeekRange.x - step * vpWidth * WaveBufferHalfPad;
+                _waveLiveTime   = waveTime;
                 TriggerWaveBake(newTex, texture, texWidth, vpHeight, step, color);
                 return;
             }
 
-            // Use the live texture's actual width for margin check (may differ from newly computed texWidth)
+            // Use the live texture's actual width for margin check
             int liveTexWidth = waveTexWidth > 0 ? waveTexWidth : texture.width;
-            int   viewportLeftCol   = Mathf.RoundToInt((PeekRange.x - waveTime) / step);
+            int   viewportLeftCol   = Mathf.RoundToInt((PeekRange.x - _waveLiveTime) / step);
             float reconstructMargin = WaveBufferHalfPad * vpWidth * WaveReconstructThreshold;
 
             if (viewportLeftCol < reconstructMargin || viewportLeftCol + vpWidth > liveTexWidth - reconstructMargin)
@@ -1246,9 +1247,9 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                     filterMode = FilterMode.Point,
                     wrapMode   = TextureWrapMode.Clamp,
                 };
-                TriggerWaveBake(newTex, texture, texWidth, vpHeight, step, color);
-                // Update waveTime optimistically so the margin check doesn't fire every frame
                 waveTime = newBakeTime;
+                TriggerWaveBake(newTex, texture, texWidth, vpHeight, step, color);
+                // Don't update _waveLiveTime — old texture stays live with its own origin until flush
                 return;
             }
 
@@ -1409,6 +1410,7 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             waveViewportWidth  = 0;
             waveViewportHeight = 0;
             waveTexWidth       = 0;
+            _waveLiveTime      = 0;
         }
 
         string FormatNumber(float number, int type) 
