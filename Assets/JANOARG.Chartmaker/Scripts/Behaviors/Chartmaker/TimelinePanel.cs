@@ -1242,7 +1242,7 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             if (!texture || texture.height != texHeight)
             {
                 // Don't destroy old texture yet — keep it live as stale hold during bake
-                texture = new Texture2D(texWidth, texHeight)
+                texture = new Texture2D(texWidth, texHeight, TextureFormat.RGBAHalf, false)
                 {
                     filterMode = FilterMode.Point,
                     wrapMode   = TextureWrapMode.Clamp,
@@ -1280,6 +1280,7 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                 float zoomLog = Mathf.Log10(Mathf.Max(1f, density));
                 float t = Mathf.InverseLerp(4f, 1.8f, zoomLog); 
                 WaveformImage.material.SetFloat("_Thickness", t * 0.03f);
+                WaveformImage.material.SetFloat("_Channels", waveCacheChannels);
             }
         }
         

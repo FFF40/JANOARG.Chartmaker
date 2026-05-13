@@ -6,6 +6,7 @@ Shader "UI/Waveform"
         _Color ("Tint", Color) = (1,1,1,1)
         _DarkAlpha ("Dark Alpha", Range(0,1)) = 0.4
         _Thickness ("Thickness", Range(0,0.5)) = 0.05
+        _Channels ("Channels", Float) = 2
     }
 
     SubShader
@@ -44,15 +45,16 @@ Shader "UI/Waveform"
 
             struct v2f
             {
-                float4 vertex   : SV_POSITION;
-                fixed4 color    : COLOR;
-                float2 texcoord : TEXCOORD0;
+                float4 vertex       : SV_POSITION;
+                fixed4 color        : COLOR;
+                float2 texcoord     : TEXCOORD0;
                 float4 worldPosition : TEXCOORD1;
             };
 
             fixed4 _Color;
-            float _DarkAlpha;
-            float _Thickness;
+            float  _DarkAlpha;
+            float  _Thickness;
+            float  _Channels;
             float4 _ClipRect;
 
             v2f vert(appdata_t v)
@@ -70,31 +72,26 @@ Shader "UI/Waveform"
             fixed4 frag(v2f IN) : SV_Target
             {
                 float2 uv = IN.texcoord;
-                float alpha = 0;
-                
-                // VERTICAL NEIGHBORS (Split View)
-                if (uv.y > 0.5)
-                {
-                    // TOP HALF: LEFT CHANNEL (Row 0)
-                    float4 data = tex2D(_MainTex, float2(uv.x, 0.25));
-                    float minVal = (data.r * 2.0 - 1.0) * 1.07 - _Thickness;
-                    float maxVal = (data.g * 2.0 - 1.0) * 1.07 + _Thickness;
-                    float rmsVal = data.b * 1.07;
-                    
-                    float yLocal = (uv.y - 0.5) * 4.0 - 1.0; // Remap 0.5..1.0 to -1..1
-                    alpha = (yLocal >= minVal && yLocal <= maxVal) ? ((abs(yLocal) < rmsVal) ? 0.8 : _DarkAlpha) : 0;
-                }
-                else
-                {
-                    // BOTTOM HALF: RIGHT CHANNEL (Row 1)
-                    float4 data = tex2D(_MainTex, float2(uv.x, 0.75));
-                    float minVal = (data.r * 2.0 - 1.0) * 1.07 - _Thickness;
-                    float maxVal = (data.g * 2.0 - 1.0) * 1.07 + _Thickness;
-                    float rmsVal = data.b * 1.07;
-                    
-                    float yLocal = uv.y * 4.0 - 1.0; // Remap 0.0..0.5 to -1..1
-                    alpha = (yLocal >= minVal && yLocal <= maxVal) ? ((abs(yLocal) < rmsVal) ? 0.8 : _DarkAlpha) : 0;
-                }
+
+                // Which channel band does this fragment fall in?
+                float bandF    = uv.y * _Channels;
+                int   ch       = (int)floor(bandF);
+                float bandLocal = frac(bandF); // 0..1 within this channel's band
+
+                // Sample the row for this channel: row centre = (ch + 0.5) / _Channels
+                float texV = (ch + 0.5) / _Channels;
+                float4 data = tex2D(_MainTex, float2(uv.x, texV));
+
+                float minVal = (data.r * 2.0 - 1.0) - _Thickness;
+                float maxVal = (data.g * 2.0 - 1.0) + _Thickness;
+                float rmsVal = data.b;
+
+                // Remap bandLocal 0..1 to waveform space -1..1
+                float yLocal = bandLocal * 2.0 - 1.0;
+
+                float alpha = (yLocal >= minVal && yLocal <= maxVal)
+                    ? ((abs(yLocal) < rmsVal) ? 0.8 : _DarkAlpha)
+                    : 0;
 
                 fixed4 color = IN.color;
                 color.a *= alpha;
