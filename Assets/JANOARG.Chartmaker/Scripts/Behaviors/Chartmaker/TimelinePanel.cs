@@ -80,7 +80,6 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
         public RawImage TicksImage;
         [Space]
         public RawImage WaveformImage;
-        public RawImage WaveformStagingImage;
         [Space]
         public Scrollbar VerticalScrollbar;
         public GameObject  Blocker;
@@ -305,8 +304,6 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
 
         public void UpdateTimeline(bool forced = false)
         {
-            FlushPendingWaveBake();
-
             if (lastLimit != PeekRange || lastPlayed != Chartmaker.main.SongSource.isPlaying || forced)
             {
                 lastLimit = PeekRange;
@@ -880,7 +877,6 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
 
         int    tickViewportWidth = 0;
         float  tickTime, tickLastDensity = 0;
-        bool[] tickBaked;
 
         void UpdateTickTexture(Metronome metronome)
         {
@@ -928,7 +924,6 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                     filterMode = FilterMode.Point,
                     wrapMode   = TextureWrapMode.Repeat,
                 };
-                tickBaked       = new bool[texWidth];
                 tickLastDensity = density;
                 // Centre the buffer on the current viewport
                 tickTime   = viewportLeftSec - step * vpWidth * TickBufferHalfPad;
@@ -948,7 +943,6 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             {
                 // Recentre buffer on current viewport
                 tickTime   = viewportLeftSec - step * vpWidth * TickBufferHalfPad;
-                System.Array.Clear(tickBaked, 0, texWidth);
                 tickBakeAll(texture, texWidth, step, metronome);
                 UpdateTickLabels(metronome, Mathf.Log(density, SeparationFactor), Themer.main.Keys["TimelineTickMain"]);
                 return;
@@ -995,7 +989,6 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                     float beatDensity = GetSeparationFactor(beat, SeparationFactor) - factor;
                     float alpha       = Mathf.Clamp01((Mathf.Pow(1.5f, beatDensity) - 1) / (Mathf.Pow(1.5f, 3) - 1)) * .5f;
                     clear[col] = GetBeatColor(beat) * new Color(1, 1, 1, alpha);
-                    tickBaked[col] = true;
                 }
 
                 beat += interval;
@@ -1092,7 +1085,6 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             if (TicksImage == null) return;
             Destroy(TicksImage.texture);
             TicksImage.texture = null;
-            tickBaked          = null;
             tickLastDensity    = 0;
             tickViewportWidth  = 0;
         }
@@ -1172,7 +1164,6 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
         int   waveViewportWidth  = 0;
         int   waveViewportHeight = 0;
         float waveTime, waveStep, waveLastDensity = 0;
-        int   waveTexWidth  = 0;
 
         int ComputeWaveTexWidth(int vpWidth, float step)
         {
@@ -1181,10 +1172,6 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             int targetCols   = Mathf.RoundToInt(WaveTargetBufferSeconds / step);
             int minCols      = vpWidth * (WaveBufferHalfPad * 2 + 1);
             return Mathf.Clamp(Mathf.Max(targetCols, minCols), minCols, SystemInfo.maxTextureSize);
-        }
-
-        void FlushPendingWaveBake()
-        {
         }
 
         public void UpdateWaveform()
@@ -1482,7 +1469,6 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             waveLastDensity    = 0;
             waveViewportWidth  = 0;
             waveViewportHeight = 0;
-            waveTexWidth       = 0;
         }
 
         string FormatNumber(float number, int type) 
