@@ -1346,7 +1346,7 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                         int posStart = Mathf.FloorToInt(secStart * freq / window);
                         int posEnd = Mathf.CeilToInt(secEnd * freq / window);
                         float rmsSqSumAccum = 0f;
-                        int bins = 0;
+                        int actualSamples = 0;
 
                         for (int p = posStart; p < posEnd; p++)
                         {
@@ -1357,11 +1357,11 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                                 if (stats.min < min) min = stats.min;
                                 if (stats.max > max) max = stats.max;
                                 rmsSqSumAccum += stats.rmsSqSum;
-                                bins++;
+                                actualSamples += window;
                             }
                         }
-                        if (bins > 0)
-                            rms = Mathf.Sqrt(rmsSqSumAccum / (bins * window));
+                        if (actualSamples > 0)
+                            rms = Mathf.Sqrt(rmsSqSumAccum / actualSamples);
                     }
                     else
                     {
@@ -1370,14 +1370,17 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
 
                         if (pos >= 0 && pos < localWaveCache.Length)
                         {
+                            int samplesRead = 0;
                             for (int i = pos; i < posEnd; i += channels)
                             {
                                 float sample = localWaveCache[i] / 127f;
                                 if (sample < min) min = sample;
                                 if (sample > max) max = sample;
                                 rms += sample * sample;
+                                samplesRead++;
                             }
-                            rms = Mathf.Sqrt(rms / (sampleWindow / channels));
+                            if (samplesRead > 0)
+                                rms = Mathf.Sqrt(rms / samplesRead);
                         }
                     }
 
