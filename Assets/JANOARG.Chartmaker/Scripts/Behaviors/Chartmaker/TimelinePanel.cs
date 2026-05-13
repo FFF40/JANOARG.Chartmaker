@@ -1365,11 +1365,14 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
 
             for (int ch = 0; ch < channels; ch++)
             {
+                float lastMin = -1f, lastMax = 1f;
+
                 for (int x = 0; x < texWidth; x++)
                 {
-                    float min = 1f, max = -1f, rms = 0f;
+                    float min = 0f, max = 0f, rms = 0f;
                     float secStart = bakeTime + x * step;
                     float secEnd = secStart + step;
+                    bool hasData = false;
 
                     if (mipIndex >= 0)
                     {
@@ -1378,6 +1381,7 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                         int posEnd = Mathf.CeilToInt(secEnd * freq / window);
                         float rmsSqSumAccum = 0f;
                         int actualSamples = 0;
+                        float rawMin = 1f, rawMax = -1f;
 
                         for (int p = posStart; p < posEnd; p++)
                         {
@@ -1385,14 +1389,18 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                             if (idx >= 0 && idx < _waveMipChain[mipIndex].Length)
                             {
                                 var stats = _waveMipChain[mipIndex][idx];
-                                if (stats.min < min) min = stats.min;
-                                if (stats.max > max) max = stats.max;
+                                if (stats.min < rawMin) rawMin = stats.min;
+                                if (stats.max > rawMax) rawMax = stats.max;
                                 rmsSqSumAccum += stats.rmsSqSum;
                                 actualSamples += window;
                             }
                         }
                         if (actualSamples > 0)
+                        {
+                            min = rawMin; max = rawMax;
                             rms = Mathf.Sqrt(rmsSqSumAccum / actualSamples);
+                            hasData = true;
+                        }
                     }
                     else
                     {
@@ -1401,18 +1409,33 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
 
                         if (pos >= 0 && pos < localWaveCache.Length)
                         {
+                            float rawMin = 1f, rawMax = -1f;
                             int samplesRead = 0;
                             for (int i = pos; i < posEnd; i += channels)
                             {
                                 float sample = localWaveCache[i] / 127f;
-                                if (sample < min) min = sample;
-                                if (sample > max) max = sample;
+                                if (sample < rawMin) rawMin = sample;
+                                if (sample > rawMax) rawMax = sample;
                                 rms += sample * sample;
                                 samplesRead++;
                             }
                             if (samplesRead > 0)
+                            {
+                                min = rawMin; max = rawMax;
                                 rms = Mathf.Sqrt(rms / samplesRead);
+                                hasData = true;
+                            }
                         }
+                    }
+
+                    if (hasData)
+                    {
+                        // Bridge to previous column and attenuate — matches legacy envelope feel
+                        float tempMin = min;
+                        min = Mathf.Min(lastMax, min) * 0.8f;
+                        max = Mathf.Max(lastMin, lastMax = max) * 0.8f;
+                        rms *= 0.8f;
+                        lastMin = tempMin;
                     }
 
                     _waveStatsBuffer[ch * texWidth + x] = new WaveformStats { min = min, max = max, rmsSqSum = rms };
