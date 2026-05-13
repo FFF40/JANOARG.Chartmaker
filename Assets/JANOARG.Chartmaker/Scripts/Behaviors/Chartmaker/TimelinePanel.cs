@@ -1345,11 +1345,8 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                     if (mipIndex >= 0)
                     {
                         int window = 64 << mipIndex;
-                        // Use viewStep for bin range — LOD matches what's visible, not bake granularity
-                        float viewSecStart = bakeTime + x * viewStep;
-                        float viewSecEnd   = viewSecStart + viewStep;
-                        int posStart = Mathf.FloorToInt(viewSecStart * freq / window);
-                        int posEnd = Mathf.CeilToInt(viewSecEnd * freq / window);
+                        int posStart = Mathf.FloorToInt(secStart * freq / window);
+                        int posEnd = Mathf.CeilToInt(secEnd * freq / window);
                         float rmsSqSumAccum = 0f;
                         int actualSamples = 0;
 
