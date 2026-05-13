@@ -1308,6 +1308,8 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             texture.Apply(false, false);
         }
 
+        WaveformStats[] _waveStatsBuffer;
+
         void waveBakeWaveform(Color[] pixels, int texWidth, float step, Color color, float bakeTime)
         {
             sbyte[] localWaveCache = waveCache;
@@ -1318,7 +1320,8 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             float density = freq * step;
             int sampleWindow = Mathf.Max(1, Mathf.CeilToInt(density / channels) * channels);
 
-            // Use mipmap if possible
+            // Use mipmap if possible; clamp to coarsest level rather than falling back
+            // to raw cache for very wide windows
             int mipIndex = -1;
             if (_waveMipChain != null)
             {
@@ -1330,9 +1333,15 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                         break;
                     }
                 }
+                if (mipIndex < 0)
+                    mipIndex = _waveMipChain.Length - 1;
             }
 
-            // Calculate stats per column per channel
+            // Pass 1: compute raw stats per column per channel into _waveStatsBuffer
+            int statsCount = channels * texWidth;
+            if (_waveStatsBuffer == null || _waveStatsBuffer.Length != statsCount)
+                _waveStatsBuffer = new WaveformStats[statsCount];
+
             for (int ch = 0; ch < channels; ch++)
             {
                 for (int x = 0; x < texWidth; x++)
@@ -1385,9 +1394,35 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                         }
                     }
 
+                    _waveStatsBuffer[ch * texWidth + x] = new WaveformStats { min = min, max = max, rmsSqSum = rms };
+                }
+            }
+
+            // Pass 2: write pixels, bridging each column to its neighbours so bars connect.
+            // min is pulled down to the previous column's max, max is pulled up to the next
+            // column's min — guaranteeing no gaps without blurring the packed values.
+            for (int ch = 0; ch < channels; ch++)
+            {
+                for (int x = 0; x < texWidth; x++)
+                {
+                    var cur  = _waveStatsBuffer[ch * texWidth + x];
+                    float min = cur.min;
+                    float max = cur.max;
+
+                    if (x > 0)
+                    {
+                        float prevMax = _waveStatsBuffer[ch * texWidth + x - 1].max;
+                        if (prevMax < min) min = prevMax;
+                    }
+                    if (x < texWidth - 1)
+                    {
+                        float nextMin = _waveStatsBuffer[ch * texWidth + x + 1].min;
+                        if (nextMin > max) max = nextMin;
+                    }
+
                     // Pack into pixel: R=(min+1)/2, G=(max+1)/2, B=RMS
                     // Each channel gets its own row in the texture
-                    pixels[ch * texWidth + x] = new Color((min + 1) * 0.5f, (max + 1) * 0.5f, rms, 1f);
+                    pixels[ch * texWidth + x] = new Color((min + 1) * 0.5f, (max + 1) * 0.5f, cur.rmsSqSum, 1f);
                 }
             }
         }
