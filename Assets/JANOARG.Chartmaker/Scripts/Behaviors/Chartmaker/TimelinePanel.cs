@@ -1163,7 +1163,7 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
 
         int   waveViewportWidth  = 0;
         int   waveViewportHeight = 0;
-        float waveTime, waveStep, waveLastDensity = 0;
+        float waveTime, waveStep, waveViewStep, waveLastDensity = 0;
 
         int ComputeWaveTexWidth(int vpWidth, float step)
         {
@@ -1226,6 +1226,9 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             if (!(Math.Abs(waveLastDensity / density - 1) < 0.0001f))
                 texture = null;
 
+            // Always track current viewport step for LOD — independent of bake cadence
+            waveViewStep = step;
+
             if (!texture || texture.height != texHeight)
             {
                 // Don't destroy old texture yet — keep it live as stale hold during bake
@@ -1283,7 +1286,7 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             {
                 case 1: 
                     WaveformImage.material = WaveformMaterial;
-                    waveBakeWaveform(_wavePixelBuffer, texWidth, step, color, waveTime); 
+                    waveBakeWaveform(_wavePixelBuffer, texWidth, step, waveViewStep, color, waveTime); 
                     break;
                 case 2: 
                     WaveformImage.material = null;
@@ -1297,31 +1300,30 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
 
         WaveformStats[] _waveStatsBuffer;
 
-        void waveBakeWaveform(Color[] pixels, int texWidth, float step, Color color, float bakeTime)
+        void waveBakeWaveform(Color[] pixels, int texWidth, float step, float viewStep, Color color, float bakeTime)
         {
             sbyte[] localWaveCache = waveCache;
             if (localWaveCache == null) return;
 
             int channels = waveCacheChannels;
             int freq = waveCacheFrequency;
+
+            // LOD selection driven by viewport step (what the user sees), not bake step
+            int sampleWindowPerChannel = Mathf.Max(1, Mathf.CeilToInt(freq * viewStep));
+
+            // Bake step used for column time positions
             float density = freq * step;
             int sampleWindow = Mathf.Max(1, Mathf.CeilToInt(density / channels) * channels);
 
-            // Use mipmap if possible; clamp to coarsest level rather than falling back
-            // to raw cache for very wide windows
+            // Finest mip whose bin size meets or exceeds the visible samples-per-pixel
             int mipIndex = -1;
             if (_waveMipChain != null)
             {
-                for (int m = _waveMipChain.Length - 1; m >= 0; m--)
+                for (int m = 0; m < _waveMipChain.Length; m++)
                 {
-                    if ((64 << m) <= sampleWindow)
-                    {
-                        mipIndex = m;
-                        break;
-                    }
+                    mipIndex = m;
+                    if ((64 << m) >= sampleWindowPerChannel) break;
                 }
-                if (mipIndex < 0)
-                    mipIndex = _waveMipChain.Length - 1;
             }
 
             // Pass 1: compute raw stats per column per channel into _waveStatsBuffer
@@ -1340,8 +1342,11 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                     if (mipIndex >= 0)
                     {
                         int window = 64 << mipIndex;
-                        int posStart = Mathf.FloorToInt(secStart * freq / window);
-                        int posEnd = Mathf.CeilToInt(secEnd * freq / window);
+                        // Use viewStep for bin range — LOD matches what's visible, not bake granularity
+                        float viewSecStart = bakeTime + x * viewStep;
+                        float viewSecEnd   = viewSecStart + viewStep;
+                        int posStart = Mathf.FloorToInt(viewSecStart * freq / window);
+                        int posEnd = Mathf.CeilToInt(viewSecEnd * freq / window);
                         float rmsSqSumAccum = 0f;
                         int actualSamples = 0;
 
