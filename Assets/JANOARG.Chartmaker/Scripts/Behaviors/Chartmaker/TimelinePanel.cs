@@ -1711,9 +1711,6 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                 if (eventData.button != PointerEventData.InputButton.Left) 
                     return;
 
-                if (eventData.button != PointerEventData.InputButton.Left)
-                    return;
-
                 TimelinePickerMode mode = PickerPanel.main.CurrentTimelinePickerMode;
 
                 if (mode is TimelinePickerMode.Lane or TimelinePickerMode.LaneStep or TimelinePickerMode.BPMStop)
@@ -2488,8 +2485,6 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                 float center = GetPointerTimeAtTimeline(eventData);
                 float currentXRange = PeekRange.x - (center - PeekRange.x) * (zoom - 1);
                 float currentYRange = PeekRange.y - (center - PeekRange.y) * (zoom - 1);
-
-                UnityEngine.Debug.Log($"{PeekRange.x} -> {currentXRange}, {PeekRange.y} -> {currentYRange}");
 
                 PeekRange.x = Mathf.Clamp(currentXRange, PeekLimit.x, PeekRange.y);
                 PeekRange.y = Mathf.Clamp(currentYRange, PeekRange.x, PeekLimit.y);
