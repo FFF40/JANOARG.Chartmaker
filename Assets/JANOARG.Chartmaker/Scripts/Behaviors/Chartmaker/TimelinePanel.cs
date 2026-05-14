@@ -1329,10 +1329,8 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
 
             if (!texture || texture.height != texHeight)
             {
-                // Bake into a staging texture. If there's an existing texture, keep it
-                // visible as a lo-res hold while the bake runs. On first run there's no
-                // existing texture so assign the staging tex immediately (it'll be blank
-                // until the bake completes, but that's unavoidable).
+                // Bake into a staging texture — keep old texture on WaveformImage until
+                // _bakeReady fires, so zoom shows a lo-res stretched hold instead of blank.
                 Texture2D stagingTex = new Texture2D(texWidth, texHeight, TextureFormat.RGBAHalf, false)
                 {
                     filterMode = FilterMode.Point,
@@ -1341,8 +1339,6 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                 waveLastDensity = density;
                 waveStep        = step;
                 waveTime        = PeekRange.x - step * vpWidth * ComputeWaveBufferHalfPad(step);
-                if (WaveformImage.texture == null)
-                    WaveformImage.texture = stagingTex;
                 TriggerWaveBake(stagingTex, texWidth, texHeight, step, color);
             }
             else
