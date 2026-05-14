@@ -1169,7 +1169,8 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             if (clip == null) { waveCache = null; _waveMipChain = null; return; }
 
             int channels  = clip.channels;
-            int totalSamples = clip.samples * channels;
+            int samples   = clip.samples;
+            int totalSamples = samples * channels;
             const int chunkSamples = 44100 * 2; // 1 second of stereo at 44.1kHz
 
             waveCache          = new sbyte[totalSamples];
@@ -1178,9 +1179,9 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
 
             float[] chunk = new float[chunkSamples];
             int written = 0;
-            while (written < clip.samples)
+            while (written < samples)
             {
-                int count = Mathf.Min(chunkSamples / channels, clip.samples - written);
+                int count = Mathf.Min(chunkSamples / channels, samples - written);
                 clip.GetData(chunk, written);
                 int end = written * channels + count * channels;
                 for (int i = written * channels; i < end; i++)
@@ -1188,34 +1189,61 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                 written += count;
             }
 
-            // Generate MipChain (Base power of 2: 64 samples)
-            int baseSize = 64;
-            int numMips = 10; // Covers up to 64*2^9 = 32768 samples per window
-            _waveMipChain = new WaveformStats[numMips][];
-            
-            for (int m = 0; m < numMips; m++)
+            // Generate MipChain in background to avoid blocking the main thread
+            Task.Run(() =>
             {
-                int window = baseSize << m;
-                int count = clip.samples / window;
-                _waveMipChain[m] = new WaveformStats[count * channels];
+                sbyte[] localCache = waveCache;
+                if (localCache == null) return;
+
+                int baseSize = 64;
+                int numMips = 10; // Covers up to 64*2^9 = 32768 samples per window
+                var mipChain = new WaveformStats[numMips][];
                 
-                for (int i = 0; i < count; i++)
+                // Level 0: Generate from raw cache
+                int count0 = samples / baseSize;
+                mipChain[0] = new WaveformStats[count0 * channels];
+                
+                for (int i = 0; i < count0; i++)
                 {
                     for (int ch = 0; ch < channels; ch++)
                     {
                         float min = 1f, max = -1f, rmsSqSum = 0f;
-                        int start = i * window * channels + ch;
-                        for (int s = 0; s < window; s++)
+                        int start = i * baseSize * channels + ch;
+                        for (int s = 0; s < baseSize; s++)
                         {
-                            float val = waveCache[start + s * channels] / 127f;
+                            float val = localCache[start + s * channels] / 127f;
                             if (val < min) min = val;
                             if (val > max) max = val;
                             rmsSqSum += val * val;
                         }
-                        _waveMipChain[m][i * channels + ch] = new WaveformStats { min = min, max = max, rmsSqSum = rmsSqSum };
+                        mipChain[0][i * channels + ch] = new WaveformStats { min = min, max = max, rmsSqSum = rmsSqSum };
                     }
                 }
-            }
+
+                // Level 1..N: Generate hierarchically from previous level (O(N) total)
+                for (int m = 1; m < numMips; m++)
+                {
+                    int count = samples / (baseSize << m);
+                    mipChain[m] = new WaveformStats[count * channels];
+                    
+                    for (int i = 0; i < count; i++)
+                    {
+                        for (int ch = 0; ch < channels; ch++)
+                        {
+                            var s1 = mipChain[m - 1][(i * 2) * channels + ch];
+                            var s2 = mipChain[m - 1][(i * 2 + 1) * channels + ch];
+                            mipChain[m][i * channels + ch] = new WaveformStats 
+                            { 
+                                min = Math.Min(s1.min, s2.min), 
+                                max = Math.Max(s1.max, s2.max), 
+                                rmsSqSum = s1.rmsSqSum + s2.rmsSqSum 
+                            };
+                        }
+                    }
+                }
+
+                _waveMipChain = mipChain;
+            });
 
             DiscardWaveform();
             UpdateTimeline(true);
