@@ -883,6 +883,7 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
         const int   TickBufferMultiplier    = 9;   // total buffer = this × viewport
         const int   TickBufferHalfPad       = 4;   // padding on each side in viewport widths
         const float TickReconstructThreshold = 0.62f;
+        const int   TickGradientHeight      = 128;  // texture rows; gradient fades bottom→top
 
         int    tickViewportWidth = 0;
         float  tickTime, tickLastDensity = 0;
@@ -928,9 +929,9 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             if (!texture || texture.width != texWidth)
             {
                 Destroy(TicksImage.texture);
-                TicksImage.texture = texture = new Texture2D(texWidth, 1, TextureFormat.RGBA32, false)
+                TicksImage.texture = texture = new Texture2D(texWidth, TickGradientHeight, TextureFormat.RGBA32, false)
                 {
-                    filterMode = FilterMode.Point,
+                    filterMode = FilterMode.Bilinear,
                     wrapMode   = TextureWrapMode.Repeat,
                 };
                 tickLastDensity = density;
@@ -973,13 +974,14 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             int   vpWidth = tickViewportWidth;
             float density = tickLastDensity;
             float factor  = Mathf.Log(density, SeparationFactor);
+            int   texHeight = TickGradientHeight;
 
-            if (_tickPixelBuffer == null || _tickPixelBuffer.Length != texWidth)
-                _tickPixelBuffer = new Color[texWidth];
-            Color[] clear = _tickPixelBuffer;
-            System.Array.Clear(clear, 0, texWidth);
+            int needed = texWidth * texHeight;
+            if (_tickPixelBuffer == null || _tickPixelBuffer.Length != needed)
+                _tickPixelBuffer = new Color[needed];
+            Color[] pixels = _tickPixelBuffer;
+            System.Array.Clear(pixels, 0, needed);
 
-            // Bake range: full buffer width in time
             float bufferStartSec = tickTime;
             float bufferEndSec   = tickTime + texWidth * step;
 
@@ -997,14 +999,21 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                 {
                     float beatDensity = GetSeparationFactor(beat, SeparationFactor) - factor;
                     float alpha       = Mathf.Clamp01((Mathf.Pow(1.5f, beatDensity) - 1) / (Mathf.Pow(1.5f, 3) - 1)) * .5f;
-                    clear[col] = GetBeatColor(beat) * new Color(1, 1, 1, alpha);
+                    Color baseColor   = GetBeatColor(beat) * new Color(1, 1, 1, alpha);
+
+                    // Gradient simulation in legacy tick renderer
+                    for (int y = 0; y < texHeight; y++)
+                    {
+                        float t = (float)y / (texHeight - 1);
+                        pixels[y * texWidth + col] = Color.Lerp(baseColor, Color.clear, t * t);
+                    }
                 }
 
                 beat += interval;
                 drawn++;
             }
 
-            texture.SetPixels(0, 0, texWidth, 1, clear);
+            texture.SetPixels(0, 0, texWidth, texHeight, pixels);
             texture.Apply(false, false);
 
             // Set UV to current viewport position within the freshly baked buffer
@@ -1364,14 +1373,11 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
 
             for (int ch = 0; ch < channels; ch++)
             {
-                float lastMin = -1f, lastMax = 1f;
-
                 for (int x = 0; x < texWidth; x++)
                 {
-                    float min = 0f, max = 0f, rms = 0f;
+                    float min = 1f, max = -1f, rms = 0f;
                     float secStart = bakeTime + x * step;
                     float secEnd = secStart + step;
-                    bool hasData = false;
 
                     if (mipIndex >= 0)
                     {
@@ -1380,7 +1386,6 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                         int posEnd = Mathf.CeilToInt(secEnd * freq / window);
                         float rmsSqSumAccum = 0f;
                         int actualSamples = 0;
-                        float rawMin = 1f, rawMax = -1f;
 
                         for (int p = posStart; p < posEnd; p++)
                         {
@@ -1388,18 +1393,14 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                             if (idx >= 0 && idx < _waveMipChain[mipIndex].Length)
                             {
                                 var stats = _waveMipChain[mipIndex][idx];
-                                if (stats.min < rawMin) rawMin = stats.min;
-                                if (stats.max > rawMax) rawMax = stats.max;
+                                if (stats.min < min) min = stats.min;
+                                if (stats.max > max) max = stats.max;
                                 rmsSqSumAccum += stats.rmsSqSum;
                                 actualSamples += window;
                             }
                         }
                         if (actualSamples > 0)
-                        {
-                            min = rawMin; max = rawMax;
                             rms = Mathf.Sqrt(rmsSqSumAccum / actualSamples);
-                            hasData = true;
-                        }
                     }
                     else
                     {
@@ -1408,33 +1409,18 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
 
                         if (pos >= 0 && pos < localWaveCache.Length)
                         {
-                            float rawMin = 1f, rawMax = -1f;
                             int samplesRead = 0;
                             for (int i = pos; i < posEnd; i += channels)
                             {
                                 float sample = localWaveCache[i] / 127f;
-                                if (sample < rawMin) rawMin = sample;
-                                if (sample > rawMax) rawMax = sample;
+                                if (sample < min) min = sample;
+                                if (sample > max) max = sample;
                                 rms += sample * sample;
                                 samplesRead++;
                             }
                             if (samplesRead > 0)
-                            {
-                                min = rawMin; max = rawMax;
                                 rms = Mathf.Sqrt(rms / samplesRead);
-                                hasData = true;
-                            }
                         }
-                    }
-
-                    if (hasData)
-                    {
-                        // Bridge to previous column and attenuate — matches legacy envelope feel
-                        float tempMin = min;
-                        min = Mathf.Min(lastMax, min) * 0.8f;
-                        max = Mathf.Max(lastMin, lastMax = max) * 0.8f;
-                        rms *= 0.8f;
-                        lastMin = tempMin;
                     }
 
                     _waveStatsBuffer[ch * texWidth + x] = new WaveformStats { min = min, max = max, rmsSqSum = rms };
