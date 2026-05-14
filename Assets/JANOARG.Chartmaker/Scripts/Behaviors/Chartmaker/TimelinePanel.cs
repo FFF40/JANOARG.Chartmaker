@@ -242,6 +242,12 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                 _bakeReady = false;
                 _bakeDstTexture.SetPixels(_bakeResultBuffer);
                 _bakeDstTexture.Apply(false, false);
+                // Destroy old texture and swap in the freshly baked one
+                if (WaveformImage.texture != _bakeDstTexture)
+                {
+                    Destroy(WaveformImage.texture);
+                    WaveformImage.texture = _bakeDstTexture;
+                }
                 _bakeDstTexture = null;
             }
 
@@ -1332,17 +1338,17 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
 
             if (!texture || texture.height != texHeight)
             {
-                // Don't destroy old texture yet — keep it live as stale hold during bake
-                texture = new Texture2D(texWidth, texHeight, TextureFormat.RGBAHalf, false)
+                // Bake into a staging texture — keep old texture on WaveformImage until
+                // _bakeReady fires, so zoom shows a lo-res stretched hold instead of blank.
+                Texture2D stagingTex = new Texture2D(texWidth, texHeight, TextureFormat.RGBAHalf, false)
                 {
                     filterMode = FilterMode.Point,
                     wrapMode   = TextureWrapMode.Clamp,
                 };
-                WaveformImage.texture = texture;
                 waveLastDensity = density;
                 waveStep        = step;
                 waveTime        = PeekRange.x - step * vpWidth * WaveBufferHalfPad;
-                TriggerWaveBake(texture, texWidth, texHeight, step, color);
+                TriggerWaveBake(stagingTex, texWidth, texHeight, step, color);
             }
             else
             {
