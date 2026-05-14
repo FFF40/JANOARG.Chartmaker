@@ -370,6 +370,10 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                 UpdateItems();
                 UpdateWaveform();
             }
+            else if (waveTimeouted)
+            {
+                UpdateWaveform();
+            }
 
             if (densityGraphDirty)
             {
@@ -1284,6 +1288,7 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
         // Spectrogram: circular-buffer column-by-column state
         int      waveOffset;
         bool[]   waveBaked;
+        bool     waveTimeouted;
         Color[]  _spectroLineBuffer;
 
         volatile bool _bakeInFlight  = false;
@@ -1440,6 +1445,8 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             // Pad line buffer if needed
             if (_spectroLineBuffer == null || _spectroLineBuffer.Length < texture.height)
                 _spectroLineBuffer = new Color[texture.height];
+            else
+                Array.Clear(_spectroLineBuffer, 0, _spectroLineBuffer.Length);
 
             // Clear scrolled-out columns
             while (waveOffset < waveNewOffset)
@@ -1478,6 +1485,10 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             float minScale = scale(freqMin);
             float maxScale = scale(freqMax);
 
+            var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+            bool Timeout() => stopwatch.ElapsedMilliseconds >= 15;
+            waveTimeouted = false;
+
             for (int x = 0; x < texture.width; x++)
             {
                 int sampleLine = ((x + waveOffset) % texture.width + texture.width) % texture.width;
@@ -1509,6 +1520,12 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                 }
                 texture.SetPixels(sampleLine, 0, 1, texture.height, _spectroLineBuffer);
                 waveBaked[sampleLine] = true;
+
+                if (Timeout())
+                {
+                    waveTimeouted = true;
+                    break;
+                }
             }
 
             texture.Apply();
@@ -1677,6 +1694,7 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             waveViewportHeight = 0;
             waveBaked          = null;
             waveOffset         = 0;
+            waveTimeouted      = false;
         }
 
         #endregion
