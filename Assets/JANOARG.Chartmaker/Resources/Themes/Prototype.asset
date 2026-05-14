@@ -105,6 +105,16 @@ MonoBehaviour:
     Value: {r: 0, g: 0, b: 0, a: 0.7490196}
   - Key: TimelineBorderEnd
     Value: {r: 0, g: 0, b: 0, a: 0.7490196}
+  - Key: TimelineModeStoryboard
+    Value: {r: 0.16078432, g: 0.8117647, b: 0.13725491, a: 1}
+  - Key: TimelineModeTiming
+    Value: {r: 0.7606162, g: 0, b: 0.96908164, a: 1}
+  - Key: TimelineModeLanes
+    Value: {r: 0.51833284, g: 0.4721455, b: 1, a: 1}
+  - Key: TimelineModeLaneSteps
+    Value: {r: 0.1752387, g: 0.61961925, b: 0.8764631, a: 1}
+  - Key: TimelineModeHitObjects
+    Value: {r: 0.87983733, g: 0.55033207, b: 0.12417194, a: 1}
   - Key: TimelineHandleNormal
     Value: {r: 0.2, g: 0.2, b: 0.2, a: 0.8}
   - Key: TimelineHandleBorder
@@ -149,15 +159,5 @@ MonoBehaviour:
     Value: {r: 1, g: 1, b: 1, a: 1}
   - Key: HeaderInactiveBackground
     Value: {r: 0.29803923, g: 0.29803923, b: 0.29803923, a: 1}
-  - Key: TimelineModeStoryboard
-    Value: {r: 0.16078432, g: 0.8117647, b: 0.13725491, a: 1}
-  - Key: TimelineModeTiming
-    Value: {r: 0.7606162, g: 0, b: 0.96908164, a: 1}
-  - Key: TimelineModeLanes
-    Value: {r: 0.51833284, g: 0.4721455, b: 1, a: 1}
-  - Key: TimelineModeLaneSteps
-    Value: {r: 0.1752387, g: 0.61961925, b: 0.8764631, a: 1}
-  - Key: TimelineModeHitObjects
-    Value: {r: 0.87983733, g: 0.55033207, b: 0.12417194, a: 1}
   - Key: PickerBackground
     Value: {r: 0, g: 0, b: 0, a: 1}

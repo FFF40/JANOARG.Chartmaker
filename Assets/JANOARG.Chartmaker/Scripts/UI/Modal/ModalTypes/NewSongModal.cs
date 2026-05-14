@@ -121,9 +121,23 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
             SpawnForm<FormEntryColor, Color>("Interface",  () => InitialValues.InterfaceColor,  x => InitialValues.InterfaceColor  = x);
         
             SpawnForm<FormEntryHeader>            ("Timing");
-            bpm = SpawnForm<FormEntryFloat, float>("Base BPM",       () => InitialValues.Timing.Stops[0].BPM,       x  => InitialValues.Timing.Stops[0].BPM       = x);
-            SpawnForm      <FormEntryFloat, float>("Base Offset",    () => InitialValues.Timing.Stops[0].Offset,    x  => InitialValues.Timing.Stops[0].Offset    = x);
-            SpawnForm      <FormEntryInt,     int>("Base Signature", () => InitialValues.Timing.Stops[0].Signature, x    => InitialValues.Timing.Stops[0].Signature = x);
+            bpm = SpawnForm<FormEntryFloat, float>("Base BPM",       () => InitialValues.Timing.Stops[0].BPM, x => InitialValues.Timing.Stops[0].BPM = x);
+            var bpmTapper = SpawnForm<FormEntryBPMTapper, float>("", () => InitialValues.Timing.Stops[0].BPM, x => { 
+                InitialValues.Timing.Stops[0].BPM = x;  
+                bpm.Start();
+                bpm.Reset();
+            });
+            bpmTapper.OnStartTap.AddListener(() =>
+            {
+                if (PreviewSource.clip && !PreviewSource.isPlaying)
+                {
+                    PreviewSource.Play();
+                    bpmTapper.Reset();
+                }
+            });
+            
+            SpawnForm      <FormEntryFloat,     float>("Base Offset",    () => InitialValues.Timing.Stops[0].Offset,    x => InitialValues.Timing.Stops[0].Offset    = x);
+            SpawnForm      <FormEntryInt,         int>("Base Signature", () => InitialValues.Timing.Stops[0].Signature, x => InitialValues.Timing.Stops[0].Signature = x);
 
             LayoutRebuilder.ForceRebuildLayoutImmediate(FormHolder);
             FormLayout.preferredHeight = FormHolderLayout.preferredHeight;

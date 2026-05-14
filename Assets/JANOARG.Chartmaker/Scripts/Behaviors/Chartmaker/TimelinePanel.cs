@@ -12,7 +12,6 @@ using JANOARG.Chartmaker.UI.Themeable;
 using JANOARG.Chartmaker.UI.Timeline;
 using JANOARG.Chartmaker.Utils;
 using JANOARG.Shared.Data.ChartInfo;
-using JANOARG.Chartmaker.Utils;
 using JANOARG.Shared.Utils;
 using TMPro;
 using Unity.Burst;
@@ -27,6 +26,9 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
 {
     public class TimelinePanel : MonoBehaviour, IPointerDownHandler, IPointerUpHandler, IDragHandler, IEndDragHandler, IScrollHandler
     {
+
+        #region Fields
+
         public static           TimelinePanel main;
         private static readonly int           OutlineColor = Shader.PropertyToID("_OutlineColor");
 
@@ -80,6 +82,7 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
         public RawImage TicksImage;
         [Space]
         public RawImage WaveformImage;
+        public RawImage DensityGraphImage;
         [Space]
         public Scrollbar VerticalScrollbar;
         public GameObject  Blocker;
@@ -144,6 +147,11 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
         bool         lastPlayed;
         public IList DraggingItem;
         float        DraggingItemOffset;
+        
+
+        #endregion
+
+        #region Unity Events
 
         public void Awake()
         {
@@ -240,6 +248,10 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             UpdateTimeline();
         }
 
+        #endregion
+
+        #region Tabs
+
         public void EventCollapsible()
         {
             if (TimelineHeight <= 0)
@@ -311,8 +323,26 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
 
         }
 
+        #endregion
+
+        #region Update Timeline
+
         public void UpdateTimeline(bool forced = false)
         {
+
+            if (
+                densityGraphDirtyTimer <= 0 
+                    && DensityGraphImage.texture 
+                    && DensityGraphImage.texture.width != (int)DensityGraphImage.rectTransform.rect.width
+            )
+            {
+                // If I comment this line the waveform discards when resized 
+                // in the Unity editor (desired behavior) but not in the build
+                // TODO research
+                DiscardWaveform();
+                SetDensityGraphDirty(0.1f);
+            }
+
             if (lastLimit != PeekRange || lastPlayed != Chartmaker.main.SongSource.isPlaying || forced)
             {
                 lastLimit = PeekRange;
@@ -334,7 +364,20 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                 UpdateItems();
                 UpdateWaveform();
             }
+
+            if (densityGraphDirty)
+            {
+                densityGraphDirtyTimer -= Time.deltaTime;
+                if (densityGraphDirtyTimer <= 0)
+                {
+                    UpdateDensityGraph();
+                }
+            }
         }
+
+        #endregion
+
+        #region Object Pool
         TimelineItem GetTimelineItem(int index)
         {
             TimelineItem item;
@@ -414,6 +457,10 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
         
             return item;
         }
+
+        #endregion
+
+        #region Items
 
         public void UpdateItems()
         {
@@ -1196,6 +1243,10 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             return Mathf.Clamp(preferred, vpWidth, SystemInfo.maxTextureSize);
         }
 
+        #endregion
+
+        #region Waveform
+
         public void UpdateWaveform()
         {
             if (
@@ -1518,6 +1569,140 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             waveViewportHeight = 0;
         }
 
+        #endregion
+
+        #region Density Graph
+
+        Material densityGraphMat = null;
+
+        bool densityGraphDirty       = false;
+        float densityGraphDirtyTimer = 0;
+
+        public void UpdateDensityGraph()
+        {
+        
+            Color color = Themer.main.Keys["TimelineTickMain"];
+
+            // Initialize the density map
+            Texture2D texture = null;
+            if (DensityGraphImage.texture is Texture2D imageTexture)
+                texture = imageTexture;
+
+            RectTransform graphRT = DensityGraphImage.rectTransform;
+            if (!texture || texture.width != (int)graphRT.rect.width || texture.height != (int)graphRT.rect.height)
+            {
+                Destroy(DensityGraphImage.texture);
+                DensityGraphImage.texture = texture = new Texture2D((int)graphRT.rect.width, (int)graphRT.rect.height, TextureFormat.ARGB32, false);
+            }
+
+            // Calculate the density map
+            const float RANGE_PADDING_PX = 20;
+
+            float[] densityMap = new float[texture.width / 3];
+            float densityMapPaddingSec = (Chartmaker.main.SongSource.clip.length + 10)
+                / texture.width * RANGE_PADDING_PX;
+            Vector2 densityMapRange = new (
+                -densityMapPaddingSec - 5,
+                Chartmaker.main.SongSource.clip.length + 5 + densityMapPaddingSec
+            );
+
+            void addAtTime(float weight, float time)
+            {
+
+                int pos = Mathf.FloorToInt(
+                    Mathf.InverseLerp(densityMapRange.x, densityMapRange.y, time)
+                        * texture.width / 3
+                );
+
+                UnityEngine.Debug.Log(weight + " " + time + " " + pos);
+
+                if (pos < 0 || pos >= densityMap.Length) return;
+
+                densityMap[pos] += weight;
+            }
+
+            if (Chartmaker.main.CurrentChart != null)
+            {
+                foreach (Lane lane in Chartmaker.main.CurrentChart.Lanes)
+                {
+                    foreach (HitObject hit in lane.Objects)
+                    {
+                        float time = Chartmaker.main.CurrentSong.Timing.ToSeconds(hit.Offset);
+                        float weight = hit.Type == HitObject.HitType.Normal ? 3 : 1;
+                        if (hit.Flickable)
+                        {
+                            weight++;
+                            if (float.IsFinite(hit.FlickDirection)) weight++;
+                        }
+                        addAtTime(weight, time);
+
+                        for (float t = 0; t < hit.HoldLength; t += 0.5f)
+                        {
+                            float tickTime = Chartmaker.main.CurrentSong.Timing.ToSeconds(hit.Offset + t);
+                            addAtTime(1, tickTime);
+                        }
+                    } 
+                }
+            }
+
+            float densityMapMax = Mathf.Max(densityMap) + 1;
+
+            // Draw the density map
+            if (!densityGraphMat)
+            {
+                Shader shader = Shader.Find("Hidden/Internal-Colored");
+                densityGraphMat = new Material(shader);
+                densityGraphMat.SetInt("_Cull", (int)UnityEngine.Rendering.CullMode.Off);
+                densityGraphMat.SetInt("_ZWrite", 0);
+                densityGraphMat.SetInt("_ZTest", (int)UnityEngine.Rendering.CompareFunction.Always);
+            }
+
+            RenderTexture currentTexture = RenderTexture.active;
+            RenderTexture drawingTexture = RenderTexture.GetTemporary(texture.width, texture.height, 0, RenderTextureFormat.ARGB32);
+            RenderTexture.active = drawingTexture;
+
+            densityGraphMat.SetPass(0);
+            GL.Clear(true, true, Color.clear);
+            GL.PushMatrix();
+            GL.LoadOrtho();
+            GL.Begin(GL.QUADS);
+            GL.Color(color);
+            for (int i = 0; i < densityMap.Length; i++)
+            {
+                float density = densityMap[i];
+                float heightY = density / densityMapMax * 0.9f + (density > 0 ? 1 : 0) * 0.05f;
+                Vector2[] corners = new Vector2[] {
+                    new ((i * 3 + 1f) / texture.width, 0),
+                    new ((i * 3 + 3f) / texture.width, 0),
+                    new ((i * 3 + 3f) / texture.width, heightY),
+                    new ((i * 3 + 1f) / texture.width, heightY),
+                };
+                GL.Vertex(corners[0]);
+                GL.Vertex(corners[1]);
+                GL.Vertex(corners[2]);
+                GL.Vertex(corners[3]);
+            }
+            GL.End();
+            GL.PopMatrix();
+
+            Graphics.CopyTexture(drawingTexture, texture);
+            RenderTexture.active = currentTexture;
+            RenderTexture.ReleaseTemporary(drawingTexture);
+
+            densityGraphDirty = false;
+            densityGraphDirtyTimer = 0;
+        }
+
+        public void SetDensityGraphDirty(float timeout = 1)
+        {
+            densityGraphDirty = true;
+            densityGraphDirtyTimer = timeout;
+        }
+
+        #endregion
+
+        #region Beat Lines
+
         string FormatNumber(float number, int type) 
         {
             return type switch
@@ -1602,6 +1787,10 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             }
         }
 
+        #endregion
+
+        #region Scrollbar
+
         private void UpdateScrollbar()
         {
             if (ItemHeight > TimelineHeight)
@@ -1665,6 +1854,10 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             }
         }
 
+        #endregion
+
+        #region Beat Utils
+
         BeatPosition BeatFloor(float time, int factor, int sep) 
         {
             int fMin = (int)Math.Pow(sep, Math.Max(factor, 0));
@@ -1713,6 +1906,10 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             }
         }
 
+        #endregion
+
+        #region Timeline Interactivity
+
         float InverseLerpUnclamped(float start, float end, float value)
         {
             return (value - start) / (end - start);
@@ -1728,6 +1925,11 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
         PointerEventData      lastDrag;
         private Vector2       initialPreviewersPosition;
         private RectTransform hitobjectRect;
+
+        public bool IsTimelineDragging()
+        {
+            return (int)dragMode % 2 == 1;
+        }
         
         public void OnPointerDown(PointerEventData eventData)
         {
@@ -1815,6 +2017,12 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                 source.time = time;
 
             }
+            else if (eventData.button == PointerEventData.InputButton.Right) 
+            {
+                dragMode = TimelineDragMode.SeekBarRightClick;
+                // Immediately call OnDrag to set current time
+                OnDrag(eventData);
+            }
             else if (contains(PeekStartSlider))
             {
                 dragMode = TimelineDragMode.PeekStart;
@@ -1881,7 +2089,7 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
         
             // Timeline dragging
 
-            if ((int)dragMode % 2 == 1)
+            if (IsTimelineDragging())
             {
 
                 localPos(ItemsHolder, out dragEnd);
@@ -2117,13 +2325,21 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             if (localPos(TimeSliderHolder, out Vector2 localMousePos))
             {
                 float sliderWidth = TimeSliderHolder.rect.width;
-                time = ((localMousePos - dragStart).x / sliderWidth + TimeSliderHolder.pivot.x) * width + limit.x;
+                if (dragMode == TimelineDragMode.SeekBarRightClick)
+                {
+                    time = (localMousePos.x / sliderWidth + TimeSliderHolder.pivot.x) * width + limit.x;
+                }
+                else
+                {
+                    time = ((localMousePos - dragStart).x / sliderWidth + TimeSliderHolder.pivot.x) * width + limit.x;
+                }
             }
             else
                 return;
         
             switch (dragMode)
             {
+                case TimelineDragMode.SeekBarRightClick:
                 case TimelineDragMode.CurrentTime:
                 {
                     if (chartmaker.SongSource.time == 0 && !chartmaker.SongSource.isPlaying)
@@ -2155,8 +2371,10 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                 return;
 
             Metronome metronome = Chartmaker.main.CurrentSong.Timing;
-            if (eventData.button == PointerEventData.InputButton.Right)
+            if (eventData.button == PointerEventData.InputButton.Right && IsTimelineDragging())
+            {
                 Chartmaker.main.SongSource.time = Mathf.Clamp(metronome.ToSeconds(beatStart), 0, Chartmaker.main.SongSource.clip.length);
+            }
             
             OnEndDrag(eventData);
         }
@@ -2383,114 +2601,6 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             SelectionRect.gameObject.SetActive(false);
         }
 
-        public void ShowEditHistory()
-        {
-            ChartmakerHistory history = Chartmaker.main.History;
-            ContextMenuList list = new();
-            IChartmakerAction[] ahead = history.ActionsAhead.ToArray();
-            IChartmakerAction[] behind = history.ActionsBehind.ToArray();
-
-            if (ahead.Length == 0 && behind.Length == 0)
-            {
-                list.Items.Add(new ContextMenuListAction("No edit history", () => {}, _enabled: false));
-            }
-            else 
-            {
-                if (ahead.Length != 0) for (int a = Mathf.Min(ahead.Length, 10) - 1; a >= 0; a--)
-                {
-                    int A = a;
-                    list.Items.Add(new ContextMenuListAction(ahead[a].GetName(), () => Chartmaker.main.Redo(A + 1), icon: "Redo"));
-                }
-                else 
-                    list.Items.Add(new ContextMenuListAction("Nothing to Redo", () => {}, _enabled: false));
-
-                list.Items.Add(new ContextMenuListSeparator());
-
-                if (behind.Length != 0) for (int a = 0; a < Mathf.Min(behind.Length, 10); a++)
-                {
-                    int A = a;
-                    list.Items.Add(new ContextMenuListAction(behind[a].GetName(), () => Chartmaker.main.Undo(A + 1), icon: "Undo"));
-                }
-                else 
-                    list.Items.Add(new ContextMenuListAction("Nothing to Undo", () => {}, _enabled: false));
-            }
-
-            ContextMenuHolder.main.OpenRoot(list, EditHistoryHolder, ContextMenuDirection.Up);
-        }
-
-        public void OnResizerDrag()
-        {
-            float scale = Chartmaker.main.ChartmakerCanvas.scaleFactor;
-            ResizeTimeline(Input.mousePosition.y / scale, false);
-        }
-        public void OnResizerEndDrag()
-        {
-            float scale = Chartmaker.main.ChartmakerCanvas.scaleFactor;
-            ResizeTimeline(Input.mousePosition.y / scale);
-        }
-
-        public float SnapTimeline(float height)
-        {
-            return height < 72 ? 40 : Mathf.Max(Mathf.Round((height - 80) / 24) * 24 + 80, 104);
-        }
-    
-        public void ResizeTimeline(float height, bool snap = true)
-        {
-            float scale = Chartmaker.main.ChartmakerCanvas.scaleFactor;
-
-            float maxHeight = SnapTimeline(Screen.height / scale * 0.5f);
-            height = Mathf.Round(Mathf.Clamp(height, 40, maxHeight));
-        
-            if (snap)
-                height = SnapTimeline(height);
-       
-            Chartmaker.main.TimelineHolder.anchoredPosition = new(
-                Chartmaker.main.TimelineHolder.sizeDelta.x, 
-                -Mathf.Pow(Mathf.Max(106 - height, 0) / 64, 2) * 32
-            );
-       
-            Chartmaker.main.TimelineHolder.sizeDelta = new (
-                Chartmaker.main.TimelineHolder.sizeDelta.x, 
-                height - Chartmaker.main.TimelineHolder.anchoredPosition.y
-            );
-       
-            Chartmaker.main.MainViewHolder.sizeDelta = new (Chartmaker.main.MainViewHolder.sizeDelta.x, - 33 - height);
-        
-            Chartmaker.main.PickerHolder.sizeDelta = new (
-                Chartmaker.main.PickerHolder.sizeDelta.x, 
-                -32 - Chartmaker.main.TimelineHolder.anchoredPosition.y + Chartmaker.main.PickerHolder.anchoredPosition.y
-            );
-      
-            CurrentTimeCoonectorGroup.alpha = PeekSliderGroup.alpha = BlockerTextGroup.alpha =
-                1 + Chartmaker.main.TimelineHolder.anchoredPosition.y / 32;
-       
-            TimelineHeight = height <= 40 ? 0 : Mathf.Max(Mathf.RoundToInt((height - 80) / 24), 1);
-      
-            if (snap) 
-            {
-                if (TimelineHeight > 0) TimelineRestoreHeight = TimelineHeight;
-                UpdateTabs();
-            }
-      
-            UpdateTimeline(true);
-            UpdateScrollbar();
-      
-            PlayerView.main.Update();
-            PlayerView.main.UpdateObjects();
-        }
-    
-        public void Collapse()
-        {
-            TimelineRestoreHeight = TimelineHeight;
-            ResizeTimeline(40);
-        }
-    
-        public void Restore()
-        {
-            if (TimelineHeight <= 0) ResizeTimeline(TimelineRestoreHeight * 24 + 80);
-            PlayerView.main.IsMaximised = false;
-        }
-
         public void OnScroll(PointerEventData eventData)
         {
             bool isShift = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
@@ -2627,6 +2737,120 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             if (index >= 0 && index < targetList.Count) 
                 InspectorPanel.main.SetObject(targetList[index]);
         }
+
+        #endregion
+
+        #region Toolbar Interactivity
+
+        public void ShowEditHistory()
+        {
+            ChartmakerHistory history = Chartmaker.main.History;
+            ContextMenuList list = new();
+            IChartmakerAction[] ahead = history.ActionsAhead.ToArray();
+            IChartmakerAction[] behind = history.ActionsBehind.ToArray();
+
+            if (ahead.Length == 0 && behind.Length == 0)
+            {
+                list.Items.Add(new ContextMenuListAction("No edit history", () => {}, _enabled: false));
+            }
+            else 
+            {
+                if (ahead.Length != 0) for (int a = Mathf.Min(ahead.Length, 10) - 1; a >= 0; a--)
+                {
+                    int A = a;
+                    list.Items.Add(new ContextMenuListAction(ahead[a].GetName(), () => Chartmaker.main.Redo(A + 1), icon: "Redo"));
+                }
+                else 
+                    list.Items.Add(new ContextMenuListAction("Nothing to Redo", () => {}, _enabled: false));
+
+                list.Items.Add(new ContextMenuListSeparator());
+
+                if (behind.Length != 0) for (int a = 0; a < Mathf.Min(behind.Length, 10); a++)
+                {
+                    int A = a;
+                    list.Items.Add(new ContextMenuListAction(behind[a].GetName(), () => Chartmaker.main.Undo(A + 1), icon: "Undo"));
+                }
+                else 
+                    list.Items.Add(new ContextMenuListAction("Nothing to Undo", () => {}, _enabled: false));
+            }
+
+            ContextMenuHolder.main.OpenRoot(list, EditHistoryHolder, ContextMenuDirection.Up);
+        }
+
+        public void OnResizerDrag()
+        {
+            float scale = Chartmaker.main.ChartmakerCanvas.scaleFactor;
+            ResizeTimeline(Input.mousePosition.y / scale, false);
+        }
+        public void OnResizerEndDrag()
+        {
+            float scale = Chartmaker.main.ChartmakerCanvas.scaleFactor;
+            ResizeTimeline(Input.mousePosition.y / scale);
+        }
+
+        public float SnapTimeline(float height)
+        {
+            return height < 84 ? 52 : Mathf.Max(Mathf.Round((height - 80) / 24) * 24 + 92, 116);
+        }
+    
+        public void ResizeTimeline(float height, bool snap = true)
+        {
+            float scale = Chartmaker.main.ChartmakerCanvas.scaleFactor;
+
+            float maxHeight = SnapTimeline(Screen.height / scale * 0.5f);
+            height = Mathf.Round(Mathf.Clamp(height, 52, maxHeight));
+        
+            if (snap)
+                height = SnapTimeline(height);
+       
+            Chartmaker.main.TimelineHolder.anchoredPosition = new(
+                Chartmaker.main.TimelineHolder.sizeDelta.x, 
+                -Mathf.Pow(Mathf.Max(116 - height, 0) / 64, 2) * 32
+            );
+       
+            Chartmaker.main.TimelineHolder.sizeDelta = new (
+                Chartmaker.main.TimelineHolder.sizeDelta.x, 
+                height - Chartmaker.main.TimelineHolder.anchoredPosition.y
+            );
+       
+            Chartmaker.main.MainViewHolder.sizeDelta = new (Chartmaker.main.MainViewHolder.sizeDelta.x, - 33 - height);
+        
+            Chartmaker.main.PickerHolder.sizeDelta = new (
+                Chartmaker.main.PickerHolder.sizeDelta.x, 
+                -32 - Chartmaker.main.TimelineHolder.anchoredPosition.y + Chartmaker.main.PickerHolder.anchoredPosition.y
+            );
+      
+            CurrentTimeCoonectorGroup.alpha = PeekSliderGroup.alpha = BlockerTextGroup.alpha =
+                1 + Chartmaker.main.TimelineHolder.anchoredPosition.y / 32;
+       
+            TimelineHeight = height <= 52 ? 0 : Mathf.Max(Mathf.RoundToInt((height - 92) / 24), 1);
+      
+            if (snap) 
+            {
+                if (TimelineHeight > 0) TimelineRestoreHeight = TimelineHeight;
+                UpdateTabs();
+            }
+      
+            UpdateTimeline(true);
+            UpdateScrollbar();
+      
+            PlayerView.main.Update();
+            PlayerView.main.UpdateObjects();
+        }
+    
+        public void Collapse()
+        {
+            TimelineRestoreHeight = TimelineHeight;
+            ResizeTimeline(60);
+        }
+    
+        public void Restore()
+        {
+            if (TimelineHeight <= 0) ResizeTimeline(TimelineRestoreHeight * 24 + 92);
+            PlayerView.main.IsMaximised = false;
+        }
+
+        #endregion
     }
 
     public enum TimelineMode
@@ -2642,10 +2866,11 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
     {
         None = 0,
 
-        CurrentTime = 2,
-        PeekRange   = 4,
-        PeekStart   = 6,
-        PeekEnd     = 8,
+        CurrentTime       = 2,
+        PeekRange         = 4,
+        PeekStart         = 6,
+        PeekEnd           = 8,
+        SeekBarRightClick = 10,
 
         TimelineDrag = 1,
         Timeline     = 3,

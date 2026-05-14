@@ -387,7 +387,20 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                                         MakeOffsetEntry(() => stop.Offset, x => Chartmaker.main.SetItem(stop, "Offset", x));
 
                                         SpawnForm<FormEntryHeader>("Properties");
-                                        SpawnForm<FormEntryFloat, float>("BPM", () => stop.BPM, x => Chartmaker.main.SetItem(stop, "BPM", x));
+                                        var bpm = SpawnForm<FormEntryFloat, float>("BPM",        () => stop.BPM, x => Chartmaker.main.SetItem(stop, "BPM", x));
+                                        var bpmTapper = SpawnForm<FormEntryBPMTapper, float>("", () => stop.BPM, x => { 
+                                            Chartmaker.main.SetItem(stop, "BPM", x);
+                                            bpm.Start();
+                                            bpm.Reset();
+                                        });
+                                        bpmTapper.OnStartTap.AddListener(() =>
+                                        {
+                                            if (Chartmaker.main.SongSource.clip && !Chartmaker.main.SongSource.isPlaying)
+                                            {
+                                                Chartmaker.main.SongSource.Play();
+                                                bpmTapper.Reset();
+                                            }
+                                        });
                                         SpawnForm<FormEntryInt, int>("Signature", () => stop.Signature, x => Chartmaker.main.SetItem(stop, "Signature", x));
                                         SpawnForm<FormEntryHeader>("Flags");
                                         SpawnForm<FormEntryBool, bool>("Significant", () => stop.Significant, x => Chartmaker.main.SetItem(stop, "Significant", x));
