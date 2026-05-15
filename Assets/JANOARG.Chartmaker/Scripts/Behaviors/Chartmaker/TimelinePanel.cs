@@ -1183,6 +1183,8 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
         struct WaveformStats { public float min, max, rmsSqSum; }
         WaveformStats[][] _waveMipChain; // Tiered stats for faster baking
 
+        const int WAVEFORM_MIP_BASE_SIZE = 64;
+
         public void CacheWaveformData()
         {
             AudioClip clip = Chartmaker.main.SongSource.clip;
@@ -1217,12 +1219,11 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                 sbyte[] localCache = waveCache;
                 if (localCache == null) return;
 
-                int baseSize = 4;
-                int numMips  = 16;
+                int numMips  = 10;
                 var mipChain = new WaveformStats[numMips][];
 
                 // Level 0: Generate from raw cache
-                int count0 = samples / baseSize;
+                int count0 = samples / WAVEFORM_MIP_BASE_SIZE;
                 mipChain[0] = new WaveformStats[count0 * channels];
 
                 for (int i = 0; i < count0; i++)
@@ -1230,8 +1231,8 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                     for (int ch = 0; ch < channels; ch++)
                     {
                         float min = 1f, max = -1f, rmsSqSum = 0f;
-                        int start = i * baseSize * channels + ch;
-                        for (int s = 0; s < baseSize; s++)
+                        int start = i * WAVEFORM_MIP_BASE_SIZE * channels + ch;
+                        for (int s = 0; s < WAVEFORM_MIP_BASE_SIZE; s++)
                         {
                             float val = localCache[start + s * channels] / 127f;
                             if (val < min) min = val;
@@ -1251,7 +1252,7 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                     // Stop if chart was unloaded
                     if (_waveMipChain == null) return;
 
-                    int count = samples / (baseSize << m);
+                    int count = samples / (WAVEFORM_MIP_BASE_SIZE << m);
                     var level = new WaveformStats[count * channels];
 
                     for (int i = 0; i < count; i++)
@@ -1406,8 +1407,8 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             if (WaveformImage.material != null)
             {
                 WaveformImage.material.SetFloat("_Channels", waveCacheChannels);
-                WaveformImage.material.SetFloat("_Thickness", 1f / waveViewportHeight * waveCacheChannels);
-                WaveformImage.material.SetFloat("_DarkAlpha", Mathf.Clamp(Mathf.Sqrt(5 / density), 0.5f, 0.8f));
+                WaveformImage.material.SetFloat("_Thickness", 1f / waveViewportHeight);
+                WaveformImage.material.SetFloat("_DarkAlpha", Mathf.Clamp(Mathf.Sqrt(2 / density) + 0.1f, 0.5f, 0.8f));
             }
         }
 
@@ -1588,12 +1589,12 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                 for (int m = 0; m < _waveMipChain.Length; m++)
                 {
                     if (_waveMipChain[m] == null) break; // level not built yet, stop here
+                    if ((WAVEFORM_MIP_BASE_SIZE << m) >= sampleWindowPerChannel) break;
                     mipIndex = m;
-                    if ((64 << m) >= sampleWindowPerChannel) break;
                 }
-                if (mipIndex == 0 && sampleWindowPerChannel < 64)
-                    mipIndex = -1;
             }
+
+            print($"mipIndex = {mipIndex} | sampleWindowPerChannel = {sampleWindowPerChannel}");
 
             // Pass 1: compute raw stats per column per channel into _waveStatsBuffer
             int statsCount = channels * texWidth;
@@ -1610,36 +1611,40 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
 
                     if (mipIndex >= 0)
                     {
-                        int window = 4 << mipIndex;
-                        int posStart = Mathf.FloorToInt(secStart * freq / window);
-                        int posEnd = Mathf.CeilToInt(secEnd * freq / window);
+                        WaveformStats[] targetMip = _waveMipChain[mipIndex];
+
+                        int window = WAVEFORM_MIP_BASE_SIZE << mipIndex;
+                        int posStart = Mathf.FloorToInt(secStart * freq / window) * channels + ch;
+                        int posEnd = Mathf.FloorToInt(secEnd * freq / window) * channels + ch;
+                        posEnd = Mathf.Min(Math.Max(posEnd, posStart + 1), targetMip.Length);
+
                         float rmsSqSumAccum = 0f;
                         int actualSamples = 0;
 
-                        for (int p = posStart; p < posEnd; p++)
+                        if (posStart >= 0 && posStart < targetMip.Length)
                         {
-                            int idx = p * channels + ch;
-                            if (idx >= 0 && idx < _waveMipChain[mipIndex].Length)
+                            for (int i = posStart; i < posEnd; i += channels)
                             {
-                                var stats = _waveMipChain[mipIndex][idx];
+                                var stats = targetMip[i];
                                 if (stats.min < min) min = stats.min;
                                 if (stats.max > max) max = stats.max;
                                 rmsSqSumAccum += stats.rmsSqSum;
                                 actualSamples += window;
                             }
+                            if (actualSamples > 0)
+                                rms = Mathf.Sqrt(rmsSqSumAccum / actualSamples);
                         }
-                        if (actualSamples > 0)
-                            rms = Mathf.Sqrt(rmsSqSumAccum / actualSamples);
                     }
                     else
                     {
-                        int pos = Mathf.FloorToInt(secStart * freq) * channels + ch;
-                        int posEnd = Mathf.Min(pos + sampleWindow, localWaveCache.Length);
+                        int posStart = Mathf.FloorToInt(secStart * freq) * channels + ch;
+                        int posEnd = Mathf.FloorToInt(secEnd * freq) * channels + ch;
+                        posEnd = Mathf.Min(Math.Max(posEnd, posStart + 1), localWaveCache.Length);
 
-                        if (pos >= 0 && pos < localWaveCache.Length)
+                        if (posStart >= 0 && posStart < localWaveCache.Length)
                         {
                             int samplesRead = 0;
-                            for (int i = pos; i < posEnd; i += channels)
+                            for (int i = posStart; i < posEnd; i += channels)
                             {
                                 float sample = localWaveCache[i] / 127f;
                                 if (sample < min) min = sample;

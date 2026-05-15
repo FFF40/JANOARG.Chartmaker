@@ -76,14 +76,22 @@ Shader "UI/Waveform"
                 float2 uv = IN.texcoord;
 
                 // Which channel band does this fragment fall in?
-                float bandF   = uv.y * (_Channels + (1 - _Scale)) - (1 - _Scale) * 0.5;
+                float viewSizeY = _Channels + (1 - _Scale);
+                float bandF     = uv.y * viewSizeY - (1 - _Scale) * 0.5;
 
                 float texV    = (floor(bandF) + 0.5) / _Channels;
                 float bandLocal = frac(bandF);
                 float4 data = tex2D(_MainTex, float2(uv.x, texV));
 
-                float minVal = (data.r * 2.0 - 1.0) * _Scale - _Thickness;
-                float maxVal = (data.g * 2.0 - 1.0) * _Scale + _Thickness;
+                if (data.b < 0.00001) 
+                {
+                    data.rg = float2(0.5, 0.5);
+                }
+                
+                float thickness = _Thickness * viewSizeY;
+
+                float minVal = (data.r * 2.0 - 1.0) * _Scale - thickness;
+                float maxVal = (data.g * 2.0 - 1.0) * _Scale + thickness;
                 float rmsVal = data.b * _Scale;
 
                 // Remap bandLocal 0..1 to waveform space -1..1
