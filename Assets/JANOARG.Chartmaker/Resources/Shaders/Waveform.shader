@@ -6,6 +6,7 @@ Shader "UI/Waveform"
         _Color ("Tint", Color) = (1,1,1,1)
         _DarkAlpha ("Dark Alpha", Range(0,1)) = 0.4
         _Thickness ("Thickness", Range(0,0.5)) = 0.05
+        _Scale ("Scale", Range(0,1)) = 0.9
         _Channels ("Channels", Float) = 2
     }
 
@@ -55,6 +56,7 @@ Shader "UI/Waveform"
             float  _DarkAlpha;
             float  _Thickness;
             float  _Channels;
+            float  _Scale;
             float4 _ClipRect;
 
             v2f vert(appdata_t v)
@@ -74,14 +76,15 @@ Shader "UI/Waveform"
                 float2 uv = IN.texcoord;
 
                 // Which channel band does this fragment fall in?
-                float bandF   = uv.y * _Channels;
+                float bandF   = uv.y * (_Channels + (1 - _Scale)) - (1 - _Scale) * 0.5;
+
                 float texV    = (floor(bandF) + 0.5) / _Channels;
                 float bandLocal = frac(bandF);
                 float4 data = tex2D(_MainTex, float2(uv.x, texV));
 
-                float minVal = (data.r * 2.0 - 1.0) - _Thickness;
-                float maxVal = (data.g * 2.0 - 1.0) + _Thickness;
-                float rmsVal = data.b;
+                float minVal = (data.r * 2.0 - 1.0) * _Scale - _Thickness;
+                float maxVal = (data.g * 2.0 - 1.0) * _Scale + _Thickness;
+                float rmsVal = data.b * _Scale;
 
                 // Remap bandLocal 0..1 to waveform space -1..1
                 float yLocal = bandLocal * 2.0 - 1.0;
