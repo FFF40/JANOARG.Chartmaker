@@ -1306,17 +1306,26 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
         int     _WaveCacheFrequency;
 
         struct WaveformStats { public float Min, Max, RmsSqSum; }
-        WaveformStats[][] _WaveMipChain; // Tiered stats for faster baking
+
+        // Mip chain constants.
+        // WaveMipBaseSize: samples per bin at level 0.
+        // WaveMipLevels:   total levels; level N covers WaveMipBaseSize << N samples per bin.
+        // WaveSbyteMax:    sbyte range max; divide to normalise to [-1, 1].
+        const int   WaveMipBaseSize = 4;
+        const int   WaveMipLevels   = 16;
+        const float WaveSbyteMax    = 127f;
+
+        WaveformStats[][] _WaveMipChain; // tiered stats built from _WaveCache; levels appended as they complete
 
         public void CacheWaveformData()
         {
             AudioClip clip = Chartmaker.main.SongSource.clip;
             if (clip == null) { _WaveCache = null; _WaveMipChain = null; return; }
 
-            int channels  = clip.channels;
-            int samples   = clip.samples;
+            int channels     = clip.channels;
+            int samples      = clip.samples;
             int totalSamples = samples * channels;
-            const int chunkSamples = 44100 * 2; // 1 second of stereo at 44.1kHz
+            int chunkSamples = clip.frequency * channels; // one second of audio per chunk
 
             _WaveCache          = new sbyte[totalSamples];
             _WaveCacheChannels  = channels;
@@ -1330,24 +1339,22 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                 clip.GetData(chunk, written);
                 int end = written * channels + count * channels;
                 for (int i = written * channels; i < end; i++)
-                    _WaveCache[i] = (sbyte)Mathf.RoundToInt(Mathf.Clamp(chunk[i - written * channels], -1f, 1f) * 127f);
+                    _WaveCache[i] = (sbyte)Mathf.RoundToInt(Mathf.Clamp(chunk[i - written * channels], -1f, 1f) * WaveSbyteMax);
                 written += count;
             }
 
-            // Generate MipChain in background to avoid blocking the main thread.
-            // Assigns _waveMipChain after level 0 so UpdateWaveform can start baking
-            // immediately; deeper levels are appended as they complete.
+            // Build the mip chain on a background thread. Level 0 is assigned to
+            // _WaveMipChain immediately so baking can start; higher levels are appended
+            // as they complete and become visible to the main thread via the array reference.
             Task.Run(() =>
             {
                 sbyte[] localCache = _WaveCache;
                 if (localCache == null) return;
 
-                int baseSize = 4;
-                int numMips  = 16;
-                var mipChain = new WaveformStats[numMips][];
+                var mipChain = new WaveformStats[WaveMipLevels][];
 
-                // Level 0: Generate from raw cache
-                int count0 = samples / baseSize;
+                // Level 0: built directly from raw cache
+                int count0  = samples / WaveMipBaseSize;
                 mipChain[0] = new WaveformStats[count0 * channels];
 
                 for (int i = 0; i < count0; i++)
@@ -1355,10 +1362,10 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                     for (int ch = 0; ch < channels; ch++)
                     {
                         float min = 1f, max = -1f, rmsSqSum = 0f;
-                        int start = i * baseSize * channels + ch;
-                        for (int s = 0; s < baseSize; s++)
+                        int start = i * WaveMipBaseSize * channels + ch;
+                        for (int s = 0; s < WaveMipBaseSize; s++)
                         {
-                            float val = localCache[start + s * channels] / 127f;
+                            float val = localCache[start + s * channels] / WaveSbyteMax;
                             if (val < min) min = val;
                             if (val > max) max = val;
                             rmsSqSum += val * val;
@@ -1367,23 +1374,21 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                     }
                 }
 
-                // Make level 0 available immediately so baking can start
-                _WaveMipChain = mipChain;
+                _WaveMipChain = mipChain; // level 0 now visible; baking may start
 
-                // Level 1..N: build lazily, assigning each level as it completes
-                for (int m = 1; m < numMips; m++)
+                // Levels 1..N: each downsampled from the previous level
+                for (int m = 1; m < WaveMipLevels; m++)
                 {
-                    // Stop if chart was unloaded
-                    if (_WaveMipChain == null) return;
+                    if (_WaveMipChain == null) return; // chart was unloaded
 
-                    int count = samples / (baseSize << m);
+                    int count = samples / (WaveMipBaseSize << m);
                     var level = new WaveformStats[count * channels];
 
                     for (int i = 0; i < count; i++)
                     {
                         for (int ch = 0; ch < channels; ch++)
                         {
-                            var s1 = mipChain[m - 1][(i * 2) * channels + ch];
+                            var s1 = mipChain[m - 1][(i * 2)     * channels + ch];
                             var s2 = mipChain[m - 1][(i * 2 + 1) * channels + ch];
                             level[i * channels + ch] = new WaveformStats
                             {
@@ -1394,7 +1399,7 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                         }
                     }
 
-                    mipChain[m] = level; // visible to main thread via _waveMipChain reference
+                    mipChain[m] = level; // appended; visible to main thread via _WaveMipChain
                 }
             });
 
@@ -1405,7 +1410,8 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
         // Read-ahead waveform buffer: dynamically sized to cover WaveTargetBufferSeconds.
         const int   WaveBufferHalfPad        = 4;
         const float WaveReconstructThreshold = 0.62f;
-        const float WaveTargetBufferSeconds  = 60f; // aim for this many seconds of buffer total
+        const float WaveTargetBufferSeconds  = 60f;     // aim for this many seconds of buffer total
+        const float WaveDensityEpsilon       = 0.0001f; // relative density delta that triggers a rebake
 
         int   _WaveViewportWidth  = 0;
         int   _WaveViewportHeight = 0;
@@ -1443,11 +1449,10 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                 return;
             }
 
-            // Optional: Hide when playing if WaveformIdle is configured that way
-            // But ALWAYS show if we are interacting (zooming/scrolling)
+            // Hide when playing if WaveformIdle is set below the playing threshold,
+            // but keep visible if already shown and the user isn't scrolling/zooming.
             if (!isDragged && lastLimit == PeekRange && Options.WaveformIdle < (Chartmaker.main.SongSource.isPlaying ? 1 : 0))
             {
-                // But keep it visible if we already have a texture and aren't moving
                 if (!WaveformImage.enabled) return;
             }
 
@@ -1469,11 +1474,11 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                 return;
             }
 
-            float step    = (PeekRange.y - PeekRange.x) / vpWidth;
-            float density = _WaveCacheFrequency * step;
+            float step     = (PeekRange.y - PeekRange.x) / vpWidth;
+            float density  = _WaveCacheFrequency * step;
             int   texWidth = ComputeWaveTexWidth(vpWidth, step);
 
-            // Shader optimization: Waveform mode needs 1px height per channel
+            // Waveform mode packs one row per audio channel.
             int texHeight = Mathf.Max(1, _WaveCacheChannels);
 
             Texture2D texture = WaveformImage.texture as Texture2D;
@@ -1485,8 +1490,8 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                 _WaveViewportHeight = vpHeight;
             }
 
-            // Naive refresh on zoom: invalidate texture if density changes significantly
-            if (!(Math.Abs(_WaveLastDensity / density - 1) < 0.0001f))
+            // Invalidate texture if density changed enough to warrant a rebake.
+            if (!(Math.Abs(_WaveLastDensity / density - 1) < WaveDensityEpsilon))
                 texture = null;
 
             // Always track current viewport step for LOD — independent of bake cadence
@@ -1504,11 +1509,11 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                 _WaveLastDensity = density;
                 _WaveStep        = step;
                 _WaveTime        = PeekRange.x - step * vpWidth * WaveBufferHalfPad;
-                TriggerWaveBake(stagingTex, texWidth, texHeight, step, color);
+                TriggerWaveBake(stagingTex, texWidth, texHeight, step);
             }
             else
             {
-                // Simple margin check for re-centering
+                // Rebuild if the viewport has scrolled too close to either edge of the buffer.
                 int   viewportLeftCol   = Mathf.RoundToInt((PeekRange.x - _WaveTime) / _WaveStep);
                 float reconstructMargin = WaveBufferHalfPad * vpWidth * WaveReconstructThreshold;
 
@@ -1517,7 +1522,7 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                     // Recentre
                     _WaveTime = PeekRange.x - step * vpWidth * WaveBufferHalfPad;
                     _WaveStep = step;
-                    TriggerWaveBake(texture, texWidth, texHeight, step, color);
+                    TriggerWaveBake(texture, texWidth, texHeight, step);
                 }
             }
 
@@ -1526,7 +1531,7 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             float uvLeft = (PeekRange.x - _WaveTime) / texDuration;
             float uvSize = (PeekRange.y - PeekRange.x) / texDuration;
             WaveformImage.uvRect = new Rect(uvLeft, 0f, uvSize, 1f);
-                
+
             // Update waveform properties based on timeline zoom
             if (WaveformImage.material != null)
             {
@@ -1536,130 +1541,130 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             }
         }
 
-        // ── Spectrogram: original circular-buffer column-by-column bake ──
-        // Restored from eb35f518 — uses waveCache instead of raw AudioClip reads.
+        // Spectrogram: circular-buffer column-by-column bake on the main thread.
+        // Uses _WaveCache for sample reads; capped per-frame by a 15ms stopwatch timeout.
         void UpdateWaveformSpectrogram(int vpWidth, int vpHeight, Color color)
         {
             Texture2D texture = null;
-                if (WaveformImage.texture is Texture2D imageTexture)
-                    texture = imageTexture;
+            if (WaveformImage.texture is Texture2D imageTexture)
+                texture = imageTexture;
 
-                if (!texture || texture.width != vpWidth || texture.height != vpHeight)
+            if (!texture || texture.width != vpWidth || texture.height != vpHeight)
+            {
+                Destroy(WaveformImage.texture);
+                WaveformImage.texture = texture = new Texture2D(vpWidth, vpHeight);
+                _WaveBaked  = new bool[vpWidth];
+                _WaveOffset = 0;
+            }
+
+            float step    = (PeekRange.y - PeekRange.x) / vpWidth;
+            float density = _WaveCacheFrequency * step;
+            float sec     = Mathf.Floor(PeekRange.x / step - 1) * step;
+            int   waveNewOffset = (int)((sec - _WaveTime) / step);
+
+            if (!(Math.Abs(_WaveLastDensity / density - 1) < WaveDensityEpsilon) || Mathf.Abs(_WaveOffset - waveNewOffset) >= texture.width)
+            {
+                Destroy(WaveformImage.texture);
+                WaveformImage.texture = texture = new Texture2D(vpWidth, vpHeight);
+                _WaveBaked       = new bool[vpWidth];
+                _WaveLastDensity = density;
+                _WaveTime        = sec;
+                _WaveOffset      = 0;
+                waveNewOffset    = 0;
+            }
+
+            // Pad line buffer if needed
+            if (_SpectroLineBuffer == null || _SpectroLineBuffer.Length < texture.height)
+                _SpectroLineBuffer = new Color[texture.height];
+            else
+                Array.Clear(_SpectroLineBuffer, 0, _SpectroLineBuffer.Length);
+
+            // Clear scrolled-out columns
+            while (_WaveOffset < waveNewOffset)
+            {
+                int sLine = (_WaveOffset % texture.width + texture.width) % texture.width;
+                _WaveBaked[sLine] = false;
+                texture.SetPixels(sLine, 0, 1, texture.height, _SpectroLineBuffer);
+                _WaveOffset++;
+            }
+            while (_WaveOffset > waveNewOffset)
+            {
+                int sLine = (_WaveOffset % texture.width + texture.width) % texture.width;
+                _WaveBaked[sLine] = false;
+                texture.SetPixels(sLine, 0, 1, texture.height, _SpectroLineBuffer);
+                _WaveOffset--;
+            }
+
+            WaveformImage.uvRect = new Rect(_WaveOffset / (float)texture.width, 0, 1, 1);
+
+            WaveformImage.material = null;
+
+            int   channels   = _WaveCacheChannels;
+            int   resolution = 512;
+            float denY       = 1f / texture.height * channels;
+
+            float[][] fft = new float[channels][];
+            for (int i = 0; i < channels; i++)
+                fft[i] = new float[resolution];
+
+            FrequencyScale freqScale = Chartmaker.Preferences.FrequencyScale;
+            float          freqMin   = Chartmaker.Preferences.FrequencyMin;
+            float          freqMax   = Chartmaker.Preferences.FrequencyMax;
+            FFTWindow      fftWindow = Chartmaker.Preferences.FFTWindow;
+
+            FrequencyScaling.GetScalingFunctions(freqScale, out var scale, out var unscale);
+            float minScale = scale(freqMin);
+            float maxScale = scale(freqMax);
+
+            var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+            bool Timeout() => stopwatch.ElapsedMilliseconds >= 15;
+            _WaveTimeouted = false;
+
+            for (int x = 0; x < texture.width; x++)
+            {
+                int sampleLine = ((x + _WaveOffset) % texture.width + texture.width) % texture.width;
+                if (_WaveBaked[sampleLine]) continue;
+
+                float colSec = _WaveTime + (x + _WaveOffset) * step;
+                int   pos    = ((int)(colSec * _WaveCacheFrequency) - resolution / 2) * channels;
+
+                if (pos >= 0 && pos + resolution * channels <= _WaveCache.Length)
                 {
-                    Destroy(WaveformImage.texture);
-                    WaveformImage.texture = texture = new Texture2D(vpWidth, vpHeight);
-                    _WaveBaked = new bool[vpWidth];
-                    _WaveOffset = 0;
-                }
-
-                float step    = (PeekRange.y - PeekRange.x) / vpWidth;
-                float density = _WaveCacheFrequency * step;
-                float sec     = Mathf.Floor(PeekRange.x / step - 1) * step;
-                int   waveNewOffset = (int)((sec - _WaveTime) / step);
-
-                if (!(Math.Abs(_WaveLastDensity / density - 1) < 0.0001f) || Mathf.Abs(_WaveOffset - waveNewOffset) >= texture.width)
-                {
-                    Destroy(WaveformImage.texture);
-                    WaveformImage.texture = texture = new Texture2D(vpWidth, vpHeight);
-                    _WaveBaked      = new bool[vpWidth];
-                    _WaveLastDensity = density;
-                    _WaveTime        = sec;
-                    _WaveOffset      = 0;
-                    waveNewOffset   = 0;
-                }
-
-                // Pad line buffer if needed
-                if (_SpectroLineBuffer == null || _SpectroLineBuffer.Length < texture.height)
-                    _SpectroLineBuffer = new Color[texture.height];
-                else
-                    Array.Clear(_SpectroLineBuffer, 0, _SpectroLineBuffer.Length);
-
-                // Clear scrolled-out columns
-                while (_WaveOffset < waveNewOffset)
-                {
-                    int sLine = (_WaveOffset % texture.width + texture.width) % texture.width;
-                    _WaveBaked[sLine] = false;
-                    texture.SetPixels(sLine, 0, 1, texture.height, _SpectroLineBuffer);
-                    _WaveOffset++;
-                }
-                while (_WaveOffset > waveNewOffset)
-                {
-                    int sLine = (_WaveOffset % texture.width + texture.width) % texture.width;
-                    _WaveBaked[sLine] = false;
-                    texture.SetPixels(sLine, 0, 1, texture.height, _SpectroLineBuffer);
-                    _WaveOffset--;
-                }
-
-                WaveformImage.uvRect = new Rect(_WaveOffset / (float)texture.width, 0, 1, 1);
-
-                WaveformImage.material = null;
-
-                int   channels   = _WaveCacheChannels;
-                int   resolution = 512;
-                float denY       = 1f / texture.height * channels;
-
-                float[][] fft = new float[channels][];
-                for (int i = 0; i < channels; i++)
-                    fft[i] = new float[resolution];
-
-                FrequencyScale freqScale = Chartmaker.Preferences.FrequencyScale;
-                float          freqMin   = Chartmaker.Preferences.FrequencyMin;
-                float          freqMax   = Chartmaker.Preferences.FrequencyMax;
-                FFTWindow      fftWindow = Chartmaker.Preferences.FFTWindow;
-
-                FrequencyScaling.GetScalingFunctions(freqScale, out var scale, out var unscale);
-                float minScale = scale(freqMin);
-                float maxScale = scale(freqMax);
-
-                var stopwatch = System.Diagnostics.Stopwatch.StartNew();
-                bool Timeout() => stopwatch.ElapsedMilliseconds >= 15;
-                _WaveTimeouted = false;
-
-                for (int x = 0; x < texture.width; x++)
-                {
-                    int sampleLine = ((x + _WaveOffset) % texture.width + texture.width) % texture.width;
-                    if (_WaveBaked[sampleLine]) continue;
-
-                    float colSec = _WaveTime + (x + _WaveOffset) * step;
-                    int   pos    = ((int)(colSec * _WaveCacheFrequency) - resolution / 2) * channels;
-
-                    if (pos >= 0 && pos + resolution * channels <= _WaveCache.Length)
+                    for (int y = 0; y < resolution * channels; y++)
                     {
-                        for (int y = 0; y < resolution * channels; y++)
-                        {
-                            int ch = (pos + y) % channels;
-                            int p  = y / channels;
-                            fft[ch][p] = _WaveCache[pos + y] / 127f;
-                        }
-                        foreach (var t in fft)
-                            FFT.Transform(t, fftWindow);
+                        int ch = (pos + y) % channels;
+                        int p  = y / channels;
+                        fft[ch][p] = _WaveCache[pos + y] / WaveSbyteMax;
                     }
-
-                    float sPos = 0;
-                    for (int y = 0; y < texture.height; y++)
-                    {
-                        int   ch    = Mathf.FloorToInt(sPos);
-                        float cPos  = Mathf.Clamp(unscale(Mathf.Lerp(minScale, maxScale, sPos % 1)) / _WaveCacheFrequency * resolution, 0, resolution - 1);
-                        float value = Mathf.Sqrt(Mathf.Lerp(fft[ch][Mathf.FloorToInt(cPos)], fft[ch][Mathf.CeilToInt(cPos)], cPos % 1) / resolution * cPos) / 4;
-                        _SpectroLineBuffer[y] = color * new Color(1, 1, 1, value);
-                        sPos += denY;
-                    }
-                    texture.SetPixels(sampleLine, 0, 1, texture.height, _SpectroLineBuffer);
-                    _WaveBaked[sampleLine] = true;
-
-                    if (Timeout())
-                    {
-                        _WaveTimeouted = true;
-                        break;
-                    }
+                    foreach (var t in fft)
+                        FFT.Transform(t, fftWindow);
                 }
 
-                texture.Apply();
+                float sPos = 0;
+                for (int y = 0; y < texture.height; y++)
+                {
+                    int   ch    = Mathf.FloorToInt(sPos);
+                    float cPos  = Mathf.Clamp(unscale(Mathf.Lerp(minScale, maxScale, sPos % 1)) / _WaveCacheFrequency * resolution, 0, resolution - 1);
+                    float value = Mathf.Sqrt(Mathf.Lerp(fft[ch][Mathf.FloorToInt(cPos)], fft[ch][Mathf.CeilToInt(cPos)], cPos % 1) / resolution * cPos) / 4;
+                    _SpectroLineBuffer[y] = color * new Color(1, 1, 1, value);
+                    sPos += denY;
+                }
+                texture.SetPixels(sampleLine, 0, 1, texture.height, _SpectroLineBuffer);
+                _WaveBaked[sampleLine] = true;
+
+                if (Timeout())
+                {
+                    _WaveTimeouted = true;
+                    break;
+                }
+            }
+
+            texture.Apply();
         }
 
         Color[] _WavePixelBuffer;
 
-        void TriggerWaveBake(Texture2D texture, int texWidth, int texHeight, float step, Color color)
+        void TriggerWaveBake(Texture2D texture, int texWidth, int texHeight, float step)
         {
             if (_BakeInFlight) return;
 
@@ -1668,9 +1673,9 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                 _WavePixelBuffer = new Color[needed];
 
             // Capture locals for the background thread
-            Color[]           buffer   = _WavePixelBuffer;
-            float             viewStep = _WaveViewStep;
-            float             bakeTime = _WaveTime;
+            Color[] buffer   = _WavePixelBuffer;
+            float   viewStep = _WaveViewStep;
+            float   bakeTime = _WaveTime;
 
             _BakeInFlight     = true;
             _BakeReady        = false;
@@ -1681,7 +1686,7 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
 
             Task.Run(() =>
             {
-                WaveBakeWaveform(buffer, texWidth, step, viewStep, color, bakeTime);
+                WaveBakeWaveform(buffer, texWidth, step, viewStep, bakeTime);
                 _BakeReady    = true;
                 _BakeInFlight = false;
             });
@@ -1689,38 +1694,37 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
 
         WaveformStats[] _WaveStatsBuffer;
 
-        void WaveBakeWaveform(Color[] pixels, int texWidth, float step, float viewStep, Color color, float bakeTime)
+        void WaveBakeWaveform(Color[] pixels, int texWidth, float step, float viewStep, float bakeTime)
         {
             sbyte[] localWaveCache = _WaveCache;
             if (localWaveCache == null) return;
 
             int channels = _WaveCacheChannels;
-            int freq = _WaveCacheFrequency;
+            int freq     = _WaveCacheFrequency;
 
-            // LOD selection driven by viewport step (what the user sees), not bake step
+            // LOD selection driven by viewport step (what the user sees), not bake step.
             int sampleWindowPerChannel = Mathf.Max(1, Mathf.CeilToInt(freq * viewStep));
 
-            // Bake step used for column time positions
-            float density = freq * step;
+            // Raw sample window used as fallback when no mip level is coarse enough.
+            float density    = freq * step;
             int sampleWindow = Mathf.Max(1, Mathf.CeilToInt(density / channels) * channels);
 
-            // Finest mip whose bin size meets or exceeds the visible samples-per-pixel.
-            // When the finest mip bin is still coarser than what the viewport demands,
-            // fall through to raw samples so zoomed-in waveforms stay crisp.
+            // Pick the finest mip level whose bin size meets or exceeds sampleWindowPerChannel.
+            // Falls back to raw samples (-1) when zoomed in past the base bin size.
             int mipIndex = -1;
             if (_WaveMipChain != null)
             {
                 for (int m = 0; m < _WaveMipChain.Length; m++)
                 {
-                    if (_WaveMipChain[m] == null) break; // level not built yet, stop here
+                    if (_WaveMipChain[m] == null) break; // level not yet built
                     mipIndex = m;
-                    if ((64 << m) >= sampleWindowPerChannel) break;
+                    if ((WaveMipBaseSize << m) >= sampleWindowPerChannel) break;
                 }
-                if (mipIndex == 0 && sampleWindowPerChannel < 64)
+                if (mipIndex == 0 && sampleWindowPerChannel < WaveMipBaseSize)
                     mipIndex = -1;
             }
 
-            // Pass 1: compute raw stats per column per channel into _waveStatsBuffer
+            // Pass 1: compute stats (min/max/rms) per column per channel.
             int statsCount = channels * texWidth;
             if (_WaveStatsBuffer == null || _WaveStatsBuffer.Length != statsCount)
                 _WaveStatsBuffer = new WaveformStats[statsCount];
@@ -1729,17 +1733,17 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             {
                 for (int x = 0; x < texWidth; x++)
                 {
-                    float min = 1f, max = -1f, rms = 0f;
+                    float min      = 1f, max = -1f, rms = 0f;
                     float secStart = bakeTime + x * step;
-                    float secEnd = secStart + step;
+                    float secEnd   = secStart + step;
 
                     if (mipIndex >= 0)
                     {
-                        int window = 4 << mipIndex;
-                        int posStart = Mathf.FloorToInt(secStart * freq / window);
-                        int posEnd = Mathf.CeilToInt(secEnd * freq / window);
+                        int   window        = WaveMipBaseSize << mipIndex;
+                        int   posStart      = Mathf.FloorToInt(secStart * freq / window);
+                        int   posEnd        = Mathf.CeilToInt(secEnd   * freq / window);
                         float rmsSqSumAccum = 0f;
-                        int actualSamples = 0;
+                        int   actualSamples = 0;
 
                         for (int p = posStart; p < posEnd; p++)
                         {
@@ -1760,7 +1764,7 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                     }
                     else
                     {
-                        int pos = Mathf.FloorToInt(secStart * freq) * channels + ch;
+                        int pos    = Mathf.FloorToInt(secStart * freq) * channels + ch;
                         int posEnd = Mathf.Min(pos + sampleWindow, localWaveCache.Length);
 
                         if (pos >= 0 && pos < localWaveCache.Length)
@@ -1768,7 +1772,7 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                             int samplesRead = 0;
                             for (int i = pos; i < posEnd; i += channels)
                             {
-                                float sample = localWaveCache[i] / 127f;
+                                float sample = localWaveCache[i] / WaveSbyteMax;
                                 if (sample < min) min = sample;
                                 if (sample > max) max = sample;
                                 rms += sample * sample;
