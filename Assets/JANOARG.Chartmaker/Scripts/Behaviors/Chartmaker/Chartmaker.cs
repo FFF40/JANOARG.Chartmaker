@@ -303,6 +303,7 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                 try
                 {
                     SongSource.clip = CurrentSong.Clip = DownloadHandlerAudioClip.GetContent(stream);
+                    TimelinePanel.main.CacheWaveformData();
                 }
                 catch (Exception e)
                 {

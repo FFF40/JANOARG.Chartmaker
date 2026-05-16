@@ -186,7 +186,10 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                     WaveformMode = a;
 
             if (waveformDirty)
+            {
                 TimelinePanel.main.DiscardWaveform();
+                TimelinePanel.main.UpdateWaveform();
+            }
 
             SetValues();
             recursionBuster = false;
