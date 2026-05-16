@@ -967,10 +967,11 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
         // Reconstruction triggers when the viewport has consumed more than 62% of
         // the available margin on either side (i.e. drifted > 2.17× viewport widths
         // from the buffer centre).
-        const int   TickBufferMultiplier    = 9;   // total buffer = this × viewport
-        const int   TickBufferHalfPad       = 4;   // padding on each side in viewport widths
-        const float TickReconstructThreshold = 0.62f;
-        const int   TickGradientHeight      = 8;    // [Optimization] 8px + Clamp + Bilinear = sharp bottom + smooth non-linear fade
+        const int   TICK_BUFFER_MULT           = 9;   // total buffer = this × viewport
+        const int   TICK_BUFFER_PADDING        = 4;   // padding on each side in viewport widths
+        const float TICK_RECONSTRUCT_THRESHOLD = 0.62f;
+        const int   TICK_GRADIENT_HEIGHT       = 8;    // [Optimization] 8px + Clamp + Bilinear = sharp bottom + smooth non-linear fade
+        const int   TICK_MAX_LABEL_COUNT       = 50;
 
         int    tickViewportWidth = 0;
         float  tickTime, tickLastDensity = 0;
@@ -990,7 +991,7 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                 TicksImage.enabled = true;
 
             int vpWidth  = Mathf.Max(1, (int)TicksHolder.rect.width);
-            int texWidth = Mathf.Min(vpWidth * TickBufferMultiplier, SystemInfo.maxTextureSize);
+            int texWidth = Mathf.Min(vpWidth * TICK_BUFFER_MULT, SystemInfo.maxTextureSize);
 
             float density = (PeekRange.y - PeekRange.x) * metronome.GetStop(PeekRange.x, out _).BPM / vpWidth / 8;
             float factor  = Mathf.Log(density, SeparationFactor);
@@ -1017,14 +1018,14 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             if (!texture || texture.width != texWidth)
             {
                 // Rebuilder
-                Texture2D stagingTex = new Texture2D(texWidth, TickGradientHeight, TextureFormat.RGBA32, false)
+                Texture2D stagingTex = new Texture2D(texWidth, TICK_GRADIENT_HEIGHT, TextureFormat.RGBA32, false)
                 {
                     filterMode = FilterMode.Bilinear,
                     wrapMode   = TextureWrapMode.Clamp,
                 };
                 tickLastDensity = density;
                 // Centre the buffer on the current viewport
-                tickTime   = viewportLeftSec - step * vpWidth * TickBufferHalfPad;
+                tickTime   = viewportLeftSec - step * vpWidth * TICK_BUFFER_PADDING;
                 TriggerTickBake(stagingTex, texWidth, vpWidth, step, metronome, factor);
             }
             else
@@ -1033,11 +1034,11 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                 int viewportLeftCol = Mathf.RoundToInt((viewportLeftSec - tickTime) / step);
 
                 // Reconstruct if viewport has drifted past the threshold on either side.
-                float reconstructMargin = TickBufferHalfPad * vpWidth * TickReconstructThreshold;
+                float reconstructMargin = TICK_BUFFER_PADDING * vpWidth * TICK_RECONSTRUCT_THRESHOLD;
                 if (viewportLeftCol < reconstructMargin || viewportLeftCol + vpWidth > texWidth - reconstructMargin)
                 {
                     // Recentre buffer on current viewport
-                    tickTime   = viewportLeftSec - step * vpWidth * TickBufferHalfPad;
+                    tickTime   = viewportLeftSec - step * vpWidth * TICK_BUFFER_PADDING;
                     TriggerTickBake(texture, texWidth, vpWidth, step, metronome, factor);
                 }
                 else 
@@ -1056,7 +1057,7 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
         {
             if (_tickBakeInFlight) return;
 
-            int needed = texWidth * TickGradientHeight;
+            int needed = texWidth * TICK_GRADIENT_HEIGHT;
             if (_tickBakeResultBuffer == null || _tickBakeResultBuffer.Length != needed)
                 _tickBakeResultBuffer = new Color[needed];
 
@@ -1102,7 +1103,7 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
 
         void BakeTicksTask(Color[] pixels, int texWidth, float step, float bakeTickTime, float factor, int sepFactor, List<BPMStop> stops, Dictionary<int, Color> tickColors)
         {
-            int texHeight = TickGradientHeight;
+            int texHeight = TICK_GRADIENT_HEIGHT;
             System.Array.Clear(pixels, 0, pixels.Length);
 
             float bufferStartSec = bakeTickTime;
@@ -1206,8 +1207,6 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             }
         }
 
-        const int MaxTickLabels = 50;
-
         readonly Dictionary<BeatPosition, string> _BeatStringCache = new();
 
         string GetBeatString(BeatPosition beat)
@@ -1225,7 +1224,7 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             BeatPosition interval = BeatInterval(Mathf.FloorToInt(factor), SeparationFactor);
             float        end      = metronome.ToBeat(PeekRange.y);
 
-            while (beat < end && labelCount < MaxTickLabels)
+            while (beat < end && labelCount < TICK_MAX_LABEL_COUNT)
             {
                 float beatDensity = GetSeparationFactor(beat, SeparationFactor) - factor;
                 float labelAlpha  = Mathf.Clamp01(beatDensity - 2.5f) * .5f;
@@ -1266,7 +1265,7 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                     Ticks[i].gameObject.SetActive(false);
 
             // Prune pool back to a reasonable size to avoid accumulation from rapid scroll
-            int poolCap = MaxTickLabels + 8;
+            int poolCap = TICK_MAX_LABEL_COUNT + 8;
             while (Ticks.Count > poolCap)
             {
                 Destroy(Ticks[^1].gameObject);
@@ -1296,8 +1295,95 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
 
         #endregion
 
-        #region Waveform
+        #region Beat Lines Utils
 
+        string FormatNumber(float number, int type) 
+        {
+            return type switch
+            {
+                0 => number.ToString("0.###"),
+                1 => number.ToString("0.##"),
+                2 => number.ToString("0.#"),
+                3 => number.ToString("0"),
+                4 => number.ToString("0.###e0"),
+                5 => number.ToString("0.##e0"),
+                6 => number.ToString("0.#e0"),
+                7 => number.ToString("0e0"),
+                _ => "…",
+            };
+        }
+
+        private void NumberLabelTest(float number, TMP_Text label, float targetSize) 
+        {
+            int type = 0;
+            label.text = FormatNumber(number, type);
+            label.ForceMeshUpdate();
+        
+            while (true) 
+            {
+                if (label.textBounds.size.x <= targetSize) 
+                    break;
+            
+                if (type >= 7)
+                {
+                    label.text = "…";
+                    label.ForceMeshUpdate();
+                
+                    if (label.textBounds.size.x > targetSize)
+                        label.text = "";
+                    break;
+                }
+                type++;
+                label.text = FormatNumber(number, type);
+                label.ForceMeshUpdate();
+            }
+        }
+
+        private void NumberLabelTest(float number1, TMP_Text label1, float number2, TMP_Text label2, float targetSize) 
+        {
+            int type1 = 0, type2 = 0;
+        
+            label1.text = FormatNumber(number1, type1);
+            label1.ForceMeshUpdate();
+        
+            label2.text = FormatNumber(number2, type2);
+            label2.ForceMeshUpdate();
+       
+            while (true) 
+            {
+                float width1 = label1.textBounds.size.x;
+                float width2 = label2.textBounds.size.x;
+           
+                if (width1 + width2 <= targetSize)
+                    break;
+            
+                if (type1 >= 7 && type2 >= 7)
+                {
+                    label1.text = label2.text = "…";
+                    label1.ForceMeshUpdate(); label2.ForceMeshUpdate();
+                    if (label1.textBounds.size.x + label2.textBounds.size.x > targetSize) 
+                        label1.text = label2.text = "";
+                    break;
+                }
+            
+                if ((width1 > width2 && type1 < 7) || type2 >= 7) 
+                {
+                    type1++;
+                    label1.text = FormatNumber(number1, type1);
+                    label1.ForceMeshUpdate();
+                }
+                else
+                {
+                    type2++;
+                    label2.text = FormatNumber(number2, type2);
+                    label2.ForceMeshUpdate();
+                }
+            }
+        }
+
+        #endregion
+
+        #region Waveform
 
         // Flat sbyte[] audio cache populated once on clip load.
         // Interleaved: index = sample * channels + channel, range [-127, 127].
@@ -1311,9 +1397,9 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
         // WaveMipBaseSize: samples per bin at level 0.
         // WaveMipLevels:   total levels; level N covers WaveMipBaseSize << N samples per bin.
         // WaveSbyteMax:    sbyte range max; divide to normalise to [-1, 1].
-        const int   WaveMipBaseSize = 4;
-        const int   WaveMipLevels   = 16;
-        const float WaveSbyteMax    = 127f;
+        const int   WAVE_MIP_BASE_SIZE = 4;
+        const int   WAVE_MIP_LEVELS    = 16;
+        const float WAVE_DOMAIN_MAX    = 127f;
 
         WaveformStats[][] _WaveMipChain; // tiered stats built from _WaveCache; levels appended as they complete
 
@@ -1339,7 +1425,7 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                 clip.GetData(chunk, written);
                 int end = written * channels + count * channels;
                 for (int i = written * channels; i < end; i++)
-                    _WaveCache[i] = (sbyte)Mathf.RoundToInt(Mathf.Clamp(chunk[i - written * channels], -1f, 1f) * WaveSbyteMax);
+                    _WaveCache[i] = (sbyte)Mathf.RoundToInt(Mathf.Clamp(chunk[i - written * channels], -1f, 1f) * WAVE_DOMAIN_MAX);
                 written += count;
             }
 
@@ -1351,10 +1437,10 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                 sbyte[] localCache = _WaveCache;
                 if (localCache == null) return;
 
-                var mipChain = new WaveformStats[WaveMipLevels][];
+                var mipChain = new WaveformStats[WAVE_MIP_LEVELS][];
 
                 // Level 0: built directly from raw cache
-                int count0  = samples / WaveMipBaseSize;
+                int count0  = samples / WAVE_MIP_BASE_SIZE;
                 mipChain[0] = new WaveformStats[count0 * channels];
 
                 for (int i = 0; i < count0; i++)
@@ -1362,10 +1448,10 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                     for (int ch = 0; ch < channels; ch++)
                     {
                         float min = 1f, max = -1f, rmsSqSum = 0f;
-                        int start = i * WaveMipBaseSize * channels + ch;
-                        for (int s = 0; s < WaveMipBaseSize; s++)
+                        int start = i * WAVE_MIP_BASE_SIZE * channels + ch;
+                        for (int s = 0; s < WAVE_MIP_BASE_SIZE; s++)
                         {
-                            float val = localCache[start + s * channels] / WaveSbyteMax;
+                            float val = localCache[start + s * channels] / WAVE_DOMAIN_MAX;
                             if (val < min) min = val;
                             if (val > max) max = val;
                             rmsSqSum += val * val;
@@ -1377,11 +1463,11 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                 _WaveMipChain = mipChain; // level 0 now visible; baking may start
 
                 // Levels 1..N: each downsampled from the previous level
-                for (int m = 1; m < WaveMipLevels; m++)
+                for (int m = 1; m < WAVE_MIP_LEVELS; m++)
                 {
                     if (_WaveMipChain == null) return; // chart was unloaded
 
-                    int count = samples / (WaveMipBaseSize << m);
+                    int count = samples / (WAVE_MIP_BASE_SIZE << m);
                     var level = new WaveformStats[count * channels];
 
                     for (int i = 0; i < count; i++)
@@ -1408,10 +1494,10 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
         }
 
         // Read-ahead waveform buffer: dynamically sized to cover WaveTargetBufferSeconds.
-        const int   WaveBufferHalfPad        = 4;
-        const float WaveReconstructThreshold = 0.62f;
-        const float WaveTargetBufferSeconds  = 60f;     // aim for this many seconds of buffer total
-        const float WaveDensityEpsilon       = 0.0001f; // relative density delta that triggers a rebake
+        const int   WAVE_BUFFER_PADDING        = 4;
+        const float WAVE_RECONSTRUCT_THRESHOLD = 0.62f;
+        const float WAVE_TARGET_BUFFER_SECONDS = 60f;     // aim for this many seconds of buffer total
+        const float WAVE_DENSITY_EPSILON       = 0.0001f; // relative density delta that triggers a rebake
 
         int   _WaveViewportWidth  = 0;
         int   _WaveViewportHeight = 0;
@@ -1430,8 +1516,8 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
 
         int ComputeWaveTexWidth(int vpWidth, float step)
         {
-            int targetCols = Mathf.RoundToInt(WaveTargetBufferSeconds / step);
-            int minCols    = vpWidth * (WaveBufferHalfPad * 2 + 1);
+            int targetCols = Mathf.RoundToInt(WAVE_TARGET_BUFFER_SECONDS / step);
+            int minCols    = vpWidth * (WAVE_BUFFER_PADDING * 2 + 1);
             int preferred  = Mathf.Max(targetCols, minCols);
             return Mathf.Clamp(preferred, vpWidth, SystemInfo.maxTextureSize);
         }
@@ -1491,7 +1577,7 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             }
 
             // Invalidate texture if density changed enough to warrant a rebake.
-            if (!(Math.Abs(_WaveLastDensity / density - 1) < WaveDensityEpsilon))
+            if (!(Math.Abs(_WaveLastDensity / density - 1) < WAVE_DENSITY_EPSILON))
                 texture = null;
 
             // Always track current viewport step for LOD — independent of bake cadence
@@ -1508,19 +1594,19 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                 };
                 _WaveLastDensity = density;
                 _WaveStep        = step;
-                _WaveTime        = PeekRange.x - step * vpWidth * WaveBufferHalfPad;
+                _WaveTime        = PeekRange.x - step * vpWidth * WAVE_BUFFER_PADDING;
                 TriggerWaveBake(stagingTex, texWidth, texHeight, step);
             }
             else
             {
                 // Rebuild if the viewport has scrolled too close to either edge of the buffer.
                 int   viewportLeftCol   = Mathf.RoundToInt((PeekRange.x - _WaveTime) / _WaveStep);
-                float reconstructMargin = WaveBufferHalfPad * vpWidth * WaveReconstructThreshold;
+                float reconstructMargin = WAVE_BUFFER_PADDING * vpWidth * WAVE_RECONSTRUCT_THRESHOLD;
 
                 if (viewportLeftCol < reconstructMargin || viewportLeftCol + vpWidth > texWidth - reconstructMargin)
                 {
                     // Recentre
-                    _WaveTime = PeekRange.x - step * vpWidth * WaveBufferHalfPad;
+                    _WaveTime = PeekRange.x - step * vpWidth * WAVE_BUFFER_PADDING;
                     _WaveStep = step;
                     TriggerWaveBake(texture, texWidth, texHeight, step);
                 }
@@ -1536,7 +1622,7 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             if (WaveformImage.material != null)
             {
                 WaveformImage.material.SetFloat(WaveformChannels, _WaveCacheChannels);
-                WaveformImage.material.SetFloat(WaveformThickness, 1f / _WaveViewportHeight * _WaveCacheChannels);
+                WaveformImage.material.SetFloat(WaveformThickness, 1f / _WaveViewportHeight);
                 WaveformImage.material.SetFloat(WaveformDarkAlpha, Mathf.Clamp(Mathf.Sqrt(5 / density), 0.5f, 0.8f));
             }
         }
@@ -1562,7 +1648,7 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             float sec     = Mathf.Floor(PeekRange.x / step - 1) * step;
             int   waveNewOffset = (int)((sec - _WaveTime) / step);
 
-            if (!(Math.Abs(_WaveLastDensity / density - 1) < WaveDensityEpsilon) || Mathf.Abs(_WaveOffset - waveNewOffset) >= texture.width)
+            if (!(Math.Abs(_WaveLastDensity / density - 1) < WAVE_DENSITY_EPSILON) || Mathf.Abs(_WaveOffset - waveNewOffset) >= texture.width)
             {
                 Destroy(WaveformImage.texture);
                 WaveformImage.texture = texture = new Texture2D(vpWidth, vpHeight);
@@ -1634,7 +1720,7 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                     {
                         int ch = (pos + y) % channels;
                         int p  = y / channels;
-                        fft[ch][p] = _WaveCache[pos + y] / WaveSbyteMax;
+                        fft[ch][p] = _WaveCache[pos + y] / WAVE_DOMAIN_MAX;
                     }
                     foreach (var t in fft)
                         FFT.Transform(t, fftWindow);
@@ -1716,12 +1802,10 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             {
                 for (int m = 0; m < _WaveMipChain.Length; m++)
                 {
-                    if (_WaveMipChain[m] == null) break; // level not yet built
+                    if (_WaveMipChain[m] == null) break;
+                    if ((WAVE_MIP_BASE_SIZE << m) >= sampleWindowPerChannel) break;
                     mipIndex = m;
-                    if ((WaveMipBaseSize << m) >= sampleWindowPerChannel) break;
                 }
-                if (mipIndex == 0 && sampleWindowPerChannel < WaveMipBaseSize)
-                    mipIndex = -1;
             }
 
             // Pass 1: compute stats (min/max/rms) per column per channel.
@@ -1739,40 +1823,42 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
 
                     if (mipIndex >= 0)
                     {
-                        int   window        = WaveMipBaseSize << mipIndex;
-                        int   posStart      = Mathf.FloorToInt(secStart * freq / window);
-                        int   posEnd        = Mathf.CeilToInt(secEnd   * freq / window);
+                        WaveformStats[] targetMip = _WaveMipChain[mipIndex];
+
+                        int window = WAVE_MIP_BASE_SIZE << mipIndex;
+                        int posStart = Mathf.FloorToInt(secStart * freq / window) * channels + ch;
+                        int posEnd = Mathf.FloorToInt(secEnd * freq / window) * channels + ch;
+                        posEnd = Mathf.Min(Math.Max(posEnd, posStart + 1), targetMip.Length);
+
                         float rmsSqSumAccum = 0f;
-                        int   actualSamples = 0;
+                        int actualSamples = 0;
 
-                        for (int p = posStart; p < posEnd; p++)
+                        if (posStart >= 0 && posStart < targetMip.Length)
                         {
-                            int idx = p * channels + ch;
-
-                            if (_WaveMipChain == null) break;
-                            if (idx >= 0 && idx < _WaveMipChain[mipIndex].Length)
+                            for (int i = posStart; i < posEnd; i += channels)
                             {
-                                var stats = _WaveMipChain[mipIndex][idx];
+                                var stats = targetMip[i];
                                 if (stats.Min < min) min = stats.Min;
                                 if (stats.Max > max) max = stats.Max;
                                 rmsSqSumAccum += stats.RmsSqSum;
                                 actualSamples += window;
                             }
+                            if (actualSamples > 0)
+                                rms = Mathf.Sqrt(rmsSqSumAccum / actualSamples);
                         }
-                        if (actualSamples > 0)
-                            rms = Mathf.Sqrt(rmsSqSumAccum / actualSamples);
                     }
                     else
                     {
-                        int pos    = Mathf.FloorToInt(secStart * freq) * channels + ch;
-                        int posEnd = Mathf.Min(pos + sampleWindow, localWaveCache.Length);
+                        int posStart = Mathf.FloorToInt(secStart * freq) * channels + ch;
+                        int posEnd = Mathf.FloorToInt(secEnd * freq) * channels + ch;
+                        posEnd = Mathf.Min(Math.Max(posEnd, posStart + 1), localWaveCache.Length);
 
-                        if (pos >= 0 && pos < localWaveCache.Length)
+                        if (posStart >= 0 && posStart < localWaveCache.Length)
                         {
                             int samplesRead = 0;
-                            for (int i = pos; i < posEnd; i += channels)
+                            for (int i = posStart; i < posEnd; i += channels)
                             {
-                                float sample = localWaveCache[i] / WaveSbyteMax;
+                                float sample = localWaveCache[i] / 127f;
                                 if (sample < min) min = sample;
                                 if (sample > max) max = sample;
                                 rms += sample * sample;
@@ -1957,94 +2043,6 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
         {
             _DensityGraphDirty = true;
             _DensityGraphDirtyTimer = timeout;
-        }
-
-        #endregion
-
-        #region Beat Lines
-
-        string FormatNumber(float number, int type) 
-        {
-            return type switch
-            {
-                0 => number.ToString("0.###"),
-                1 => number.ToString("0.##"),
-                2 => number.ToString("0.#"),
-                3 => number.ToString("0"),
-                4 => number.ToString("0.###e0"),
-                5 => number.ToString("0.##e0"),
-                6 => number.ToString("0.#e0"),
-                7 => number.ToString("0e0"),
-                _ => "…",
-            };
-        }
-
-        private void NumberLabelTest(float number, TMP_Text label, float targetSize) 
-        {
-            int type = 0;
-            label.text = FormatNumber(number, type);
-            label.ForceMeshUpdate();
-        
-            while (true) 
-            {
-                if (label.textBounds.size.x <= targetSize) 
-                    break;
-            
-                if (type >= 7)
-                {
-                    label.text = "…";
-                    label.ForceMeshUpdate();
-                
-                    if (label.textBounds.size.x > targetSize)
-                        label.text = "";
-                    break;
-                }
-                type++;
-                label.text = FormatNumber(number, type);
-                label.ForceMeshUpdate();
-            }
-        }
-
-        private void NumberLabelTest(float number1, TMP_Text label1, float number2, TMP_Text label2, float targetSize) 
-        {
-            int type1 = 0, type2 = 0;
-        
-            label1.text = FormatNumber(number1, type1);
-            label1.ForceMeshUpdate();
-        
-            label2.text = FormatNumber(number2, type2);
-            label2.ForceMeshUpdate();
-       
-            while (true) 
-            {
-                float width1 = label1.textBounds.size.x;
-                float width2 = label2.textBounds.size.x;
-           
-                if (width1 + width2 <= targetSize)
-                    break;
-            
-                if (type1 >= 7 && type2 >= 7)
-                {
-                    label1.text = label2.text = "…";
-                    label1.ForceMeshUpdate(); label2.ForceMeshUpdate();
-                    if (label1.textBounds.size.x + label2.textBounds.size.x > targetSize) 
-                        label1.text = label2.text = "";
-                    break;
-                }
-            
-                if ((width1 > width2 && type1 < 7) || type2 >= 7) 
-                {
-                    type1++;
-                    label1.text = FormatNumber(number1, type1);
-                    label1.ForceMeshUpdate();
-                }
-                else
-                {
-                    type2++;
-                    label2.text = FormatNumber(number2, type2);
-                    label2.ForceMeshUpdate();
-                }
-            }
         }
 
         #endregion
