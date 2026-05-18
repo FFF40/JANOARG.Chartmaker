@@ -41,7 +41,9 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
         [Space]
         [Header("World")]
         public Transform Holder;
+        public ChartmakerLaneGroupPlayer LaneGroupPlayerSample;
         public ChartmakerLanePlayer LanePlayerSample;
+        public Dictionary<string, ChartmakerLaneGroupPlayer> LaneGroupPlayers { get; private set; } = new();
         public List<ChartmakerLanePlayer> LanePlayers { get; private set; } = new();
         public ChartmakerHitPlayer HitPlayerSample;
         public MeshRenderer        HoldMeshSample;
@@ -230,14 +232,76 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                 RenderSettings.fogColor = MainCamera.backgroundColor = Manager.PalleteManager.CurrentPallete.BackgroundColor;
                 BoundingBox.color = NotificationText.color = NotificationBox.color = Manager.PalleteManager.CurrentPallete.InterfaceColor;
 
+                // Update lane group GameObjects — one per named group, nested by their Group field.
+                // Mark all existing players untouched; we'll remove any that are no longer in the chart.
+                foreach (var pair in LaneGroupPlayers)
+                    pair.Value.CurrentGroup = null;
+
+                foreach (var pair in Manager.Groups)
+                {
+                    LaneGroupManager groupManager = pair.Value;
+                    string groupName = pair.Key;
+
+                    if (!LaneGroupPlayers.TryGetValue(groupName, out ChartmakerLaneGroupPlayer groupPlayer))
+                    {
+                        groupPlayer = Instantiate(LaneGroupPlayerSample, Holder);
+                        if (groupPlayer.gameObject.name != groupName && groupPlayer.gameObject.name != "Lane Group (Clone)")
+                            groupPlayer.gameObject.name = groupName;
+                        LaneGroupPlayers[groupName] = groupPlayer;
+                    }
+
+                    groupPlayer.UpdateObjects(groupManager);
+                }
+
+                // Destroy group players that are no longer in the chart
+                var toRemove = new System.Collections.Generic.List<string>();
+                foreach (var pair in LaneGroupPlayers)
+                {
+                    if (pair.Value.CurrentGroup == null)
+                    {
+                        Destroy(pair.Value.gameObject);
+                        toRemove.Add(pair.Key);
+                    }
+                }
+                foreach (string key in toRemove)
+                    LaneGroupPlayers.Remove(key);
+
+                // Now nest group players under their parent group player (or Holder if no parent).
+                foreach (var pair in LaneGroupPlayers)
+                {
+                    LaneGroupManager groupManager = pair.Value.CurrentGroup;
+                    string parentGroupName = groupManager.CurrentGroup.Group;
+
+                    Transform desiredParent = !string.IsNullOrEmpty(parentGroupName) && LaneGroupPlayers.TryGetValue(parentGroupName, out ChartmakerLaneGroupPlayer parentPlayer)
+                        ? parentPlayer.transform
+                        : Holder;
+
+                    if (pair.Value.transform.parent != desiredParent)
+                        pair.Value.transform.SetParent(desiredParent, worldPositionStays: false);
+                }
+
+                // Update lane players, parenting each under its group player (or Holder if ungrouped).
                 for (int a = 0; a < Manager.Lanes.Count; a++)
                 {
-                    if (LanePlayers.Count <= a) 
-                        LanePlayers.Add(Instantiate(LanePlayerSample, Holder));
-                
-                    LanePlayers[a].UpdateObjects(Manager.Lanes[a]);
+                    LaneManager laneManager = Manager.Lanes[a];
+                    string laneGroupName = laneManager.Current.Group;
+
+                    Transform desiredParent = !string.IsNullOrEmpty(laneGroupName) && LaneGroupPlayers.TryGetValue(laneGroupName, out ChartmakerLaneGroupPlayer groupPlayer)
+                        ? groupPlayer.transform
+                        : Holder;
+
+                    ChartmakerLanePlayer lane = Instantiate(LanePlayerSample, desiredParent);
+                    if (lane.gameObject.name != laneManager.Current.Name && lane.gameObject.name != "Lane (Clone)")
+                        lane.gameObject.name = laneManager.Current.Name;
+
+                    if (LanePlayers.Count <= a)
+                        LanePlayers.Add(lane);
+                    else if (LanePlayers[a].transform.parent != desiredParent)
+                        LanePlayers[a].transform.SetParent(desiredParent, worldPositionStays: false);
+
+                    LanePlayers[a].UpdateObjects(laneManager);
                 }
-            
+
                 while (LanePlayers.Count > Manager.Lanes.Count)
                 {
                     Destroy(LanePlayers[Manager.Lanes.Count].gameObject);
@@ -1035,6 +1099,9 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                 Destroy(lane.gameObject);
             }
             LanePlayers.Clear();
+            foreach (var pair in LaneGroupPlayers)
+                Destroy(pair.Value.gameObject);
+            LaneGroupPlayers.Clear();
         }
 
         public void UpdateIconFile() 
