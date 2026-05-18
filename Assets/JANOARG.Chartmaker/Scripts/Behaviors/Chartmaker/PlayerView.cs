@@ -245,8 +245,15 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                     if (!LaneGroupPlayers.TryGetValue(groupName, out ChartmakerLaneGroupPlayer groupPlayer))
                     {
                         groupPlayer = Instantiate(LaneGroupPlayerSample, Holder);
-                        if (groupPlayer.gameObject.name != groupName && groupPlayer.gameObject.name != "Lane Group (Clone)")
-                            groupPlayer.gameObject.name = groupName;
+                        
+                        #if UNITY_EDITOR
+                        if (!string.IsNullOrWhiteSpace(groupPlayer.gameObject.name)   
+                            && groupPlayer.gameObject.name != "Lane Group (Clone)"    
+                            && groupPlayer.gameObject.name != groupName)              
+                        {
+                            groupPlayer.gameObject.name = $"Lane Group ({groupName})";
+                        }
+                        #endif
                         LaneGroupPlayers[groupName] = groupPlayer;
                     }
 
@@ -291,8 +298,16 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                         : Holder;
 
                     ChartmakerLanePlayer lane = Instantiate(LanePlayerSample, desiredParent);
-                    if (lane.gameObject.name != laneManager.Current.Name && lane.gameObject.name != "Lane (Clone)")
-                        lane.gameObject.name = laneManager.Current.Name;
+                    
+                    #if UNITY_EDITOR
+                    if (!string.IsNullOrWhiteSpace(lane.gameObject.name)   // Ensure the name exists and is not whitespace
+                        && lane.gameObject.name != laneManager.Current.Name
+                        && !string.IsNullOrEmpty(laneGroupName) 
+                        && !string.IsNullOrEmpty(laneManager.Current.Group))
+                    {
+                        lane.gameObject.name = lane.gameObject.name == "Lane(Clone)" ? $"Lane ({(BeatPosition)laneManager.Steps[0].Offset} > {(BeatPosition)laneManager.Steps[^1].Offset})" :laneManager.Current.Name;
+                    }
+                    #endif
 
                     if (LanePlayers.Count <= a)
                         LanePlayers.Add(lane);
