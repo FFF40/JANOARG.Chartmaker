@@ -243,12 +243,12 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                 }
                 while (LaneGroupPlayers.Count < chart.Groups.Count)
                 {
-                    ChartmakerLaneGroupPlayer laneGroup = Instantiate(LaneGroupPlayerSample, Holder);
-                    int n = 0;
-                    
-                    while (laneGroup.name == null && LaneGroupPlayers.Any(x => x.CurrentGroup?.CurrentGroup.Name == laneGroup.CurrentGroup?.CurrentGroup.Name))
-                        laneGroup.name = laneGroup.CurrentGroup.CurrentGroup.Name = $"{laneGroup.name} ({n++})";
-                    LaneGroupPlayers.Add(laneGroup);
+                    int a = LaneGroupPlayers.Count;
+                    LaneGroupPlayers.Add(Instantiate(LaneGroupPlayerSample, Holder));
+                    #if UNITY_EDITOR
+                    // Names are already deduplicated by Chartmaker.DeduplicateGroupNames at load time.
+                    LaneGroupPlayers[a].gameObject.name = $"Lane Group ({chart.Groups[a].Name})";
+                    #endif
                 }
 
                 for (int a = 0; a < chart.Groups.Count; a++)
@@ -257,16 +257,6 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                     // Look up the matching LaneGroupManager by name (first match, same as client).
                     Manager.Groups.TryGetValue(groupData.Name, out LaneGroupManager groupManager);
                     LaneGroupPlayers[a].CurrentGroup = groupManager;
-
-                    #if UNITY_EDITOR
-                    // Count how many times this name has appeared before index a to detect duplicates.
-                    int priorCount = 0;
-                    for (int b = 0; b < a; b++)
-                        if (chart.Groups[b].Name == groupData.Name) priorCount++;
-                    LaneGroupPlayers[a].gameObject.name = priorCount == 0
-                        ? $"Lane Group ({groupData.Name})"
-                        : $"Lane Group ({groupData.Name}) ({priorCount + 1})";
-                    #endif
                 }
 
                 // Pass 2: resolve GO parent hierarchy BEFORE applying any local transforms.
