@@ -425,6 +425,24 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             CurrentChart = JACDecoder.Decode(File.ReadAllText(path));
             CurrentChartPath = path;
             CurrentChartMeta = chart;
+            DeduplicateGroupNames(CurrentChart);
+        }
+
+        /// <summary>
+        /// Appends (n) suffixes to duplicate LaneGroup names in-place, so that saving
+        /// the file produces unique names. Charters can salvage a broken chart by loading
+        /// it in this version and saving again.
+        /// </summary>
+        public static void DeduplicateGroupNames(Chart chart)
+        {
+            for (int a = 0; a < chart.Groups.Count; a++)
+            {
+                int priorCount = 0;
+                for (int b = 0; b < a; b++)
+                    if (chart.Groups[b].Name == chart.Groups[a].Name) priorCount++;
+                if (priorCount > 0)
+                    chart.Groups[a].Name = $"{chart.Groups[a].Name} ({priorCount + 1})";
+            }
         }
 
         public Task OpenChartAsync(ExternalChartMeta chart)
