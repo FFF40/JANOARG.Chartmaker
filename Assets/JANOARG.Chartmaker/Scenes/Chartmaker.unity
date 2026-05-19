@@ -34713,11 +34713,12 @@ MonoBehaviour:
   PanoramaButtonHighlight: {fileID: 888429814}
   IconButtonHighlight: {fileID: 1317335136}
   Holder: {fileID: 1197890267}
+  LaneGroupPlayerSample: {fileID: 4521886620476838328, guid: 0cc92be8a2f476cc1ae6aaad629fab7d, type: 3}
   LanePlayerSample: {fileID: 8573064261925464373, guid: c38adea6150dcae4cb10586ae9a9df93, type: 3}
   HitPlayerSample: {fileID: 1984272375101724183, guid: 88f0c083d0ff7a646948dc74bc519fa4, type: 3}
   HoldMeshSample: {fileID: 6151666399633643297, guid: 1e079c78946323f449ed51968d3ad1d7, type: 3}
-  FreeFlickIndicator: {fileID: 0}
-  ArrowFlickIndicator: {fileID: 0}
+  FreeFlickIndicator: {fileID: 4300000, guid: d530a160b5945f776bb87b464583df98, type: 2}
+  ArrowFlickIndicator: {fileID: 4300000, guid: c077fd1c69d447b00a54cc34113f1f97, type: 2}
   PlayOptions: {fileID: 3896195485413425110}
   SoundPlayer: {fileID: 1109089518}
   NormalHitSound: {fileID: 8300000, guid: f90a4d2bd33f55e48bda9625f2ee1601, type: 3}
