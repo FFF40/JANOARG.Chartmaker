@@ -21,7 +21,12 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
         {
             CurrentLane = lane;
         
-            transform.SetLocalPositionAndRotation(lane.FinalPosition, lane.FinalRotation);
+            // Use the lane's own Position/Rotation, not FinalPosition/FinalRotation.
+            // The group's transform is now applied by the parent ChartmakerLaneGroupPlayer GO.
+            transform.SetLocalPositionAndRotation(
+                lane.Current.Position,
+                Quaternion.Euler(lane.Current.Rotation)
+            );
         
             Holder.localPosition = Vector3.back * lane.CurrentDistance;
         

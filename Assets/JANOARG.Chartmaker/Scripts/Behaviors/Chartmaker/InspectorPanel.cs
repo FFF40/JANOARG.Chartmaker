@@ -1027,7 +1027,11 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             ), (RectTransform)ExtraModesButton.transform, ContextMenuDirection.Left); 
         }
 
-        public string GetNewGroupName(string name, LaneGroup exclude = null) 
+        /// <summary>
+        /// Returns a unique name by incrementing a numeric suffix until
+        /// <paramref name="nameExists"/> returns false for the candidate.
+        /// </summary>
+        public static string GetNewUniqueName(string name, Func<string, bool> nameExists)
         {
             int index = 0;
             name = name.Trim();
@@ -1038,14 +1042,27 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                 index = int.Parse(match.Groups[2].Value);
             }
 
-            string newName() => index > 0 ? name + " " + index : name;
-
-            int foundIndex = 0;
-            while (
-                (foundIndex = Chartmaker.main.CurrentChart.Groups.FindIndex(x => x.Name == newName())) >= 0
-                && (foundIndex < 0 || Chartmaker.main.CurrentChart.Groups[foundIndex] != exclude)
-            ) index++;
+            string newName() => index > 0 ? $"{name} {index}" : name;
+            while (nameExists(newName())) index++;
             return newName();
+        }
+
+        public string GetNewGroupName(string name, LaneGroup exclude = null)
+        {
+            return GetNewUniqueName(name, candidate =>
+                Chartmaker.main.CurrentChart.Groups.Any(x => x != exclude && x.Name == candidate));
+        }
+
+        public string GetNewLaneStyleName(string name, LaneStyle exclude = null)
+        {
+            return GetNewUniqueName(name, candidate =>
+                Chartmaker.main.CurrentChart.Palette.LaneStyles.Any(x => x != exclude && x.Name == candidate));
+        }
+
+        public string GetNewHitStyleName(string name, HitStyle exclude = null)
+        {
+            return GetNewUniqueName(name, candidate =>
+                Chartmaker.main.CurrentChart.Palette.HitStyles.Any(x => x != exclude && x.Name == candidate));
         }
     
 

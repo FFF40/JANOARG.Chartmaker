@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
@@ -425,6 +426,26 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             CurrentChart = JACDecoder.Decode(File.ReadAllText(path));
             CurrentChartPath = path;
             CurrentChartMeta = chart;
+            DeduplicateGroupNames(CurrentChart);
+        }
+
+        /// <summary>
+        /// Appends (n) suffixes to duplicate LaneGroup names in-place, so that saving
+        /// the file produces unique names. Charters can salvage a broken chart by loading
+        /// it in this version and saving again.
+        /// </summary>
+        public static void DeduplicateGroupNames(Chart chart)
+        {
+            List<LaneGroup> groups = chart.Groups;
+            for (int i = 0; i < groups.Count; i++)
+            {
+                List<LaneGroup> duplicates = groups.FindAll(x => x.Name == groups[i].Name);
+                if (duplicates.Count < 2) continue;
+
+                int n = 0;
+                foreach (LaneGroup laneGroup in duplicates)
+                    laneGroup.Name = n++ != 0 ? $"{laneGroup.Name} ({n})" : laneGroup.Name;
+            }
         }
 
         public Task OpenChartAsync(ExternalChartMeta chart)
@@ -672,9 +693,73 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
         public void DoAction(IChartmakerAction action)
         {
             action.Redo();
+
+            // After a successful add, check if any added LaneGroups have colliding names
+            // and fold the dedup renames into the same undo entry as a composite.
+            if (action is ChartmakerAddAction addAction)
+            {
+                List<IChartmakerAction> dedupeRenames = BuildDedupeRenames(addAction);
+                if (dedupeRenames.Count > 0)
+                {
+                    ChartmakerCompositeAction composite = new()
+                    {
+                        Name = addAction.GetName(),
+                        Actions = { addAction },
+                    };
+                    foreach (IChartmakerAction rename in dedupeRenames)
+                    {
+                        rename.Redo();
+                        composite.Actions.Add(rename);
+                    }
+                    History.AddAction(composite);
+                    OnHistoryDo();
+                    OnHistoryUpdate();
+                    return;
+                }
+            }
+
             History.AddAction(action);
             OnHistoryDo();
             OnHistoryUpdate();
+        }
+
+        private List<IChartmakerAction> BuildDedupeRenames(ChartmakerAddAction addAction)
+        {
+            List<IChartmakerAction> renames = new();
+
+            IEnumerable<object> added = addAction.Item is System.Collections.IList list
+                ? list.Cast<object>()
+                : new[] { addAction.Item };
+
+            foreach (object item in added)
+            {
+                switch (item)
+                {
+                    case LaneGroup group:
+                    {
+                        string newName = InspectorPanel.main.GetNewGroupName(group.Name, group);
+                        if (newName != group.Name)
+                            renames.Add(new ChartmakerGroupRenameAction { From = group.Name, To = newName });
+                        break;
+                    }
+                    case LaneStyle laneStyle:
+                    {
+                        string newName = InspectorPanel.main.GetNewLaneStyleName(laneStyle.Name, laneStyle);
+                        if (newName != laneStyle.Name)
+                            renames.Add(new ChartmakerModifyAction { Item = laneStyle, Keyword = "Name", From = laneStyle.Name, To = newName });
+                        break;
+                    }
+                    case HitStyle hitStyle:
+                    {
+                        string newName = InspectorPanel.main.GetNewHitStyleName(hitStyle.Name, hitStyle);
+                        if (newName != hitStyle.Name)
+                            renames.Add(new ChartmakerModifyAction { Item = hitStyle, Keyword = "Name", From = hitStyle.Name, To = newName });
+                        break;
+                    }
+                }
+            }
+
+            return renames;
         }
 
         public void SetItem(object target, string field, object value)

@@ -49,7 +49,7 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
         public Image  SearchIcon;
         public Image  SearchClearIcon;
 
-        Dictionary<string, HierarchyItem> GroupItems = new();
+        List<HierarchyItem> GroupItems = new();
 
         public void Awake()
         {
@@ -211,33 +211,45 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                         HierarchyItem worldItem = Items[0].Children[2];
                         worldItem.Children.Clear();
 
-                        // Add lane groups
-                        Dictionary<string, HierarchyItem> newGroupItems = new ();
-                        foreach (LaneGroup group in chart.Groups)
+                        // Add lane groups — parallel list matching chart.Groups indices.
+                        // Duplicates get their own HierarchyItems with (n) suffix, same as PlayerView.
+                        List<HierarchyItem> newGroupItems = new();
+                        for (int gi = 0; gi < chart.Groups.Count; gi++)
                         {
-                            HierarchyItem item = new () 
+                            LaneGroup group = chart.Groups[gi];
+
+                            // Names are already deduplicated in-place by PlayerView on load,
+                            // so group.Name is safe to use directly as the display name.
+                            bool expanded = gi < GroupItems.Count ? GroupItems[gi].Expanded : false;
+
+                            newGroupItems.Add(new HierarchyItem
                             {
                                 Name = group.Name,
                                 Type = HierarchyItemType.LaneGroup,
                                 Target = group,
-                                Expanded = GroupItems.ContainsKey(group.Name) ? GroupItems[group.Name].Expanded : false,
-                            };
-                            newGroupItems[group.Name] = item;
+                                Expanded = expanded,
+                            });
                         }
-                    
+
                         GroupItems = newGroupItems;
-                        Dictionary<string, HierarchyItem>.KeyCollection keys = GroupItems.Keys;
-                        int keyindex = 0;
-                    
-                        foreach (string key in keys)
+
+                        // Resolve parent hierarchy using first-match by name, same as client.
+                        for (int gi = 0; gi < chart.Groups.Count; gi++)
                         {
-                            LaneGroup data = (LaneGroup)GroupItems[key].Target;
-                            if (!string.IsNullOrEmpty(data.Group) && GroupItems.ContainsKey(data.Group)) GroupItems[data.Group].Children.Add(GroupItems[key]);
-                            else worldItem.Children.Add(GroupItems[key]);
-                            keyindex++;
+                            LaneGroup data = chart.Groups[gi];
+                            if (!string.IsNullOrEmpty(data.Group))
+                            {
+                                int parentIdx = chart.Groups.FindIndex(g => g.Name == data.Group);
+                                if (parentIdx >= 0)
+                                {
+                                    GroupItems[parentIdx].Children.Add(GroupItems[gi]);
+                                    continue;
+                                }
+                            }
+                            worldItem.Children.Add(GroupItems[gi]);
                         }
-                    
-                        // Add lanes
+
+                        // Add lanes — first-match by group name, same as client.
                         foreach (Lane lane in chart.Lanes)
                         {
                             HierarchyItem item = new () {
@@ -247,9 +259,10 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                                 Target = lane,
                             };
 
-                            if (!string.IsNullOrEmpty(lane.Group) && GroupItems.ContainsKey(lane.Group))
-                                GroupItems[lane.Group].Children.Add(item);
-                            else 
+                            int groupIdx = string.IsNullOrEmpty(lane.Group) ? -1 : chart.Groups.FindIndex(g => g.Name == lane.Group);
+                            if (groupIdx >= 0)
+                                GroupItems[groupIdx].Children.Add(item);
+                            else
                                 worldItem.Children.Add(item);
                         }
                     }
