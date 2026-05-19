@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
@@ -692,9 +693,54 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
         public void DoAction(IChartmakerAction action)
         {
             action.Redo();
+
+            // After a successful add, check if any added LaneGroups have colliding names
+            // and fold the dedup renames into the same undo entry as a composite.
+            if (action is ChartmakerAddAction addAction)
+            {
+                List<ChartmakerGroupRenameAction> dedupeRenames = BuildGroupDedupeRenames(addAction);
+                if (dedupeRenames.Count > 0)
+                {
+                    ChartmakerCompositeAction composite = new()
+                    {
+                        Name = addAction.GetName(),
+                        // Add action already ran via Redo() above; wrap it so composite Undo works.
+                        Actions = { addAction },
+                    };
+                    foreach (ChartmakerGroupRenameAction rename in dedupeRenames)
+                    {
+                        rename.Redo();
+                        composite.Actions.Add(rename);
+                    }
+                    History.AddAction(composite);
+                    OnHistoryDo();
+                    OnHistoryUpdate();
+                    return;
+                }
+            }
+
             History.AddAction(action);
             OnHistoryDo();
             OnHistoryUpdate();
+        }
+
+        private List<ChartmakerGroupRenameAction> BuildGroupDedupeRenames(ChartmakerAddAction addAction)
+        {
+            List<ChartmakerGroupRenameAction> renames = new();
+
+            IEnumerable<object> added = addAction.Item is System.Collections.IList list
+                ? list.Cast<object>()
+                : new[] { addAction.Item };
+
+            foreach (object item in added)
+            {
+                if (item is not LaneGroup group) continue;
+                string newName = InspectorPanel.main.GetNewGroupName(group.Name, group);
+                if (newName == group.Name) continue;
+                renames.Add(new ChartmakerGroupRenameAction { From = group.Name, To = newName });
+            }
+
+            return renames;
         }
 
         public void SetItem(object target, string field, object value)
