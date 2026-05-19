@@ -436,19 +436,14 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
         public static void DeduplicateGroupNames(Chart chart)
         {
             List<LaneGroup> groups = chart.Groups;
-            for (int i = 0; i < groups.Count;)
+            for (int i = 0; i < groups.Count; i++)
             {
                 List<LaneGroup> duplicates = groups.FindAll(x => x.Name == groups[i].Name);
-                int count = duplicates.Count;
+                if (duplicates.Count < 2) continue;
 
-                if (count > 1)
-                {
-                    int n = 0;
-                    foreach (LaneGroup laneGroup in duplicates)
-                        laneGroup.Name = n++ != 0 ? $"{laneGroup.Name} ({n})" : laneGroup.Name;
-                }
-
-                i += count;
+                int n = 0;
+                foreach (LaneGroup laneGroup in duplicates)
+                    laneGroup.Name = n++ != 0 ? $"{laneGroup.Name} ({n})" : laneGroup.Name;
             }
         }
 
