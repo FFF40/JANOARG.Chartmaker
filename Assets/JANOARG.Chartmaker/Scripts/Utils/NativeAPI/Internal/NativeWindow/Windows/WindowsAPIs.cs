@@ -10,30 +10,37 @@ namespace JANOARG.Chartmaker.Utils.NativeAPI.Internal.NativeWindow.Windows
     internal static class User32
     {
         [DllImport("kernel32.dll")]
-        static extern uint GetCurrentThreadId();
+        public static extern uint GetCurrentThreadId();
+    
+        [DllImport("dwmapi.dll")]
+        public static extern int DwmExtendFrameIntoClientArea(nint hwnd, WinMargin margin);
         
         [DllImport("user32.dll")]
-        static extern bool EnumThreadWindows(uint dwThreadId, EnumWinProc lpEnumFunc, IntPtr lParam);
-        delegate bool EnumWinProc(IntPtr hWnd, IntPtr lParam);
+        public static extern bool EnumThreadWindows(uint dwThreadId, EnumWinProc lpEnumFunc, nint lParam);
+        public delegate bool EnumWinProc(nint hWnd, nint lParam);
         [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
-        static extern int GetClassName(IntPtr hWnd, StringBuilder lpString, int nMaxCount);
+        public static extern int GetClassName(nint hWnd, StringBuilder lpString, int nMaxCount);
     
         [DllImport("user32.dll")]
-        static extern IntPtr GetActiveWindow();
+        public static extern nint GetActiveWindow();
         [DllImport("user32.dll")]
-        static extern IntPtr FindWindowA(string lpClassName, string lpWindowName);
+        public static extern nint FindWindowA(string lpClassName, string lpWindowName);
 
         [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
         public static extern int GetWindowText(nint hWnd, StringBuilder lpString, int nMaxCount);
         [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
         public static extern bool SetWindowText(nint hWnd, string lpString);
         
-        [DllImport("user32.dll")]
-        static extern IntPtr SetWindowLong(IntPtr hWnd, int nIndex, uint dwNewLong);
         [DllImport("user32.dll", EntryPoint = "SetWindowLong", CharSet = CharSet.Auto)]
-        static extern IntPtr SetWindowLong32(IntPtr hWnd, int nIndex, IntPtr dwNewLong);
+        public static extern nint SetWindowLong32(nint hWnd, int nIndex, nint dwNewLong);
         [DllImport("user32.dll", EntryPoint = "SetWindowLongPtr", CharSet = CharSet.Auto)]
-        static extern IntPtr SetWindowLong64(IntPtr hWnd, int nIndex, IntPtr dwNewLong);
+        public static extern nint SetWindowLong64(nint hWnd, int nIndex, nint dwNewLong);
+
+        public static nint SetWindowLong(nint hWnd, WinWindowLong nIndex, nint dwNewLong)
+        {
+            if (IntPtr.Size == 8) return SetWindowLong64(hWnd, (int)nIndex, dwNewLong);
+            else return SetWindowLong32(hWnd, (int)nIndex, dwNewLong);
+        }
 
         [DllImport("user32.dll")]
         public static extern bool GetWindowRect(nint hWnd, out WinRect lpRect);
@@ -51,7 +58,15 @@ namespace JANOARG.Chartmaker.Utils.NativeAPI.Internal.NativeWindow.Windows
         public static extern nint SetCursor(nint hCursor);
         [DllImport("user32.dll")]
         public static extern nint LoadCursor(nint hInstance, nint lpCursorName);
+
+        public delegate nint WinProc(nint hWnd, WinWindowMessage msg, nint wParam, nint lParam);
+        [DllImport("user32.dll")]
+        public static extern IntPtr CallWindowProc(IntPtr lpPrevWndFunc, IntPtr hWnd, WinWindowMessage msg, IntPtr wParam, IntPtr lParam);
+        [DllImport("user32.dll")]
+        public static extern IntPtr DefWindowProc(IntPtr hWnd, WinWindowMessage wMsg, IntPtr wParam, IntPtr lParam);
     }
+
+
 
     internal static class Win32Convert
     {
@@ -152,13 +167,60 @@ namespace JANOARG.Chartmaker.Utils.NativeAPI.Internal.NativeWindow.Windows
         }
     }
 
-    internal struct WinRect { public int left, top, right, bottom; }
+
+
+    internal struct WinRect   { public int left, top,   right, bottom; }
+    internal struct WinMargin { public int left, right, top,   bottom; }
+    internal struct WinPoint  { public int x,    y; }
+
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct WinMinMaxInfo
+    {
+        public WinPoint Reserved, MaxSize, MaxPosition, MinTrackSize, MaxTrackSize;
+    }
+
+
 
     internal enum WinWindowState : int
     {
-        Minimized = 6,
         Maximized = 3,
+        Minimized = 6,
         Floating = 9,
+    }
+
+    internal enum WinWindowLong : int
+    { 
+        WinProc = -4,
+        Style = -16,
+        ExStyle = -20,
+    }
+
+    [Flags]
+    internal enum WinWindowStyle : uint
+    { 
+        Overlapped = 0x00000000,
+        Popup = 0x80000000,
+        Child = 0x40000000,
+        Minimize = 0x20000000,
+        Visible = 0x10000000,
+        Disabled = 0x08000000,
+        ClipSiblings = 0x04000000,
+        ClipChildren = 0x02000000,
+        Maximize = 0x01000000,
+        Caption = 0x00C00000,
+        Border = 0x00800000,
+    }
+
+    internal enum WinWindowMessage : int
+    {
+        Sizing = 0x0214,
+        Size = 0x0005,
+        Moving = 0x0216,
+        Move = 0x0003,
+        GetMinMaxInfo = 0x0024,
+        SetCursor = 0x0020,
+        MouseMove = 0x0200,
+        NcHitTest = 0x0084,
     }
 
     internal static class WinCursorStyle

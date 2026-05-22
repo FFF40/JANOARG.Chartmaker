@@ -2,6 +2,7 @@
 using JANOARG.Chartmaker.UI.Cursor;
 using JANOARG.Chartmaker.UI.NativeUI;
 using JANOARG.Chartmaker.UI.Tooltip;
+using JANOARG.Chartmaker.Utils.NativeAPI;
 using UnityEngine;
 using UnityEngine.EventSystems;
 
@@ -38,23 +39,22 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
         public List<CursorDefinition> CursorDefinitions;
         public Dictionary<CursorType, CursorDefinition> CursorMap;
 
+        NativeWindow targetWindow;
+
         CursorDefinition activeCustomCursor;
         int              currentCursorFrame;
         float            currentCursorFrameTime;
 
-        Vector2 mousePos = Vector2.zero;
         public bool maximized { get; private set; }
         public bool active { get; private set; }
         bool isFullScreen;
 
         bool framed;
 
-        // TODO: Do something with this variable or remove it
-        float clickTime = float.NegativeInfinity;
-
         public void Awake()
         {
             main = this;
+            targetWindow = NativeWindow.MainWindow;
             CursorMap = new();
             for (int a = 0; a < CursorDefinitions.Count; a++)
             {
@@ -64,9 +64,6 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
 
         public void Quit()
         {
-#if !UNITY_EDITOR && UNITY_STANDALONE_WIN 
-            BorderlessWindow.UnhookWindowProc();
-#endif
         }
 
         public void Update() 
@@ -168,7 +165,7 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
 
         public void OnSizeChange() 
         {
-            maximized = BorderlessWindow.IsMaximized;
+            maximized = targetWindow.M;
             ResizeTooltip.Text = maximized ? "Restore" : "Maximize";
             ResizeIconMaximize.SetActive(!maximized);
             ResizeIconRestore.SetActive(maximized);

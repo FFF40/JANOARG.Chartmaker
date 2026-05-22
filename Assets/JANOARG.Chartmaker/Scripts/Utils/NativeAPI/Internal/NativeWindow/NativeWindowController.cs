@@ -8,7 +8,7 @@ namespace JANOARG.Chartmaker.Utils.NativeAPI.Internal.NativeWindow
     {
         public INativeWindowProvider Provider;
 
-        public override bool IsSupported
+        public override bool IsAvailable
         {
             get
             {
@@ -32,99 +32,122 @@ namespace JANOARG.Chartmaker.Utils.NativeAPI.Internal.NativeWindow
 
         public nint GetMainWindowHandle()
         {
-            if (IsSupported) return Provider.GetMainWindowHandle();
+            if (IsAvailable) return Provider.GetMainWindowHandle();
             else throw new System.Exception("API is not supported on this platform.");
         }
 
         public string GetWindowName(nint windowHandle)
         {
-            if (IsSupported) return Provider.GetWindowName(windowHandle);
+            if (IsAvailable) return Provider.GetWindowName(windowHandle);
             else throw new System.Exception("API is not supported on this platform.");
         }
 
         public void SetWindowName(nint windowHandle, string name)
         {
-            if (IsSupported) Provider.SetWindowName(windowHandle, name);
+            if (IsAvailable) Provider.SetWindowName(windowHandle, name);
             else throw new System.Exception("API is not supported on this platform.");
         }
 
         public RectInt GetWindowRect(nint windowHandle)
         {
-            if (IsSupported) return Provider.GetWindowRect(windowHandle);
+            if (IsAvailable) return Provider.GetWindowRect(windowHandle);
             else throw new System.Exception("API is not supported on this platform.");
         }
 
         public WindowState GetWindowState(nint windowHandle)
         {
-            if (IsSupported) return Provider.GetWindowState(windowHandle);
+            if (IsAvailable) return Provider.GetWindowState(windowHandle);
             else throw new System.Exception("API is not supported on this platform.");
         }
 
         public WindowStyle GetWindowStyle(nint windowHandle)
         {
-            if (IsSupported) return Provider.GetWindowStyle(windowHandle);
+            if (IsAvailable) return Provider.GetWindowStyle(windowHandle);
             else throw new System.Exception("API is not supported on this platform.");
         }
 
         public void SetWindowStyle(nint windowHandle, WindowStyle style)
         {
-            if (IsSupported) Provider.SetWindowStyle(windowHandle, style);
+            if (IsAvailable) Provider.SetWindowStyle(windowHandle, style);
             else throw new System.Exception("API is not supported on this platform.");
         }
 
         public void HookWindow(nint windowHandle)
         {
-            if (IsSupported) Provider.HookWindow(windowHandle);
+            if (IsAvailable) Provider.HookWindow(windowHandle);
             else throw new System.Exception("API is not supported on this platform.");
         }
 
         public void MoveWindow(nint windowHandle, Vector2Int position)
         {
-            if (IsSupported) Provider.MoveWindow(windowHandle, position);
+            if (IsAvailable) Provider.MoveWindow(windowHandle, position);
             else throw new System.Exception("API is not supported on this platform.");
         }
 
         public CursorStyle PeekWindowCursor(nint windowHandle)
         {
-            if (IsSupported) return Provider.PeekWindowCursor(windowHandle);
+            if (IsAvailable) return Provider.PeekWindowCursor(windowHandle);
             else throw new System.Exception("API is not supported on this platform.");
         }
 
         public CursorStyle PopWindowCursor(nint windowHandle)
         {
-            if (IsSupported) return Provider.PopWindowCursor(windowHandle);
+            if (IsAvailable) return Provider.PopWindowCursor(windowHandle);
             else throw new System.Exception("API is not supported on this platform.");
         }
 
         public void PushWindowCursor(nint windowHandle, CursorStyle cursor)
         {
-            if (IsSupported) Provider.PushWindowCursor(windowHandle, cursor);
+            if (IsAvailable) Provider.PushWindowCursor(windowHandle, cursor);
             else throw new System.Exception("API is not supported on this platform.");
         }
 
         public void ResizeWindow(nint windowHandle, Vector2Int size)
         {
-            if (IsSupported) Provider.ResizeWindow(windowHandle, size);
+            if (IsAvailable) Provider.ResizeWindow(windowHandle, size);
             else throw new System.Exception("API is not supported on this platform.");
         }
 
         public void SetWindowRect(nint windowHandle, RectInt rect)
         {
-            if (IsSupported) Provider.SetWindowRect(windowHandle, rect);
+            if (IsAvailable) Provider.SetWindowRect(windowHandle, rect);
             else throw new System.Exception("API is not supported on this platform.");
         }
 
         public void SetWindowState(nint windowHandle, WindowState state)
         {
-            if (IsSupported) Provider.SetWindowState(windowHandle, state);
+            if (IsAvailable) Provider.SetWindowState(windowHandle, state);
             else throw new System.Exception("API is not supported on this platform.");
         }
 
         public void UnhookWindow(nint windowHandle)
         {
-            if (IsSupported) Provider.UnhookWindow(windowHandle);
+            if (IsAvailable) Provider.UnhookWindow(windowHandle);
             else throw new System.Exception("API is not supported on this platform.");
         }
         
+        public Vector2Int GetWindowMinSize(nint windowHandle)
+        {
+            if (IsAvailable) return Provider.GetWindowMinSize(windowHandle);
+            else throw new System.Exception("API is not supported on this platform.");
+        }
+        
+        public void SetWindowMinSize(nint windowHandle, RectInt rect)
+        {
+            if (IsAvailable) Provider.SetWindowMinSize(windowHandle, rect);
+            else throw new System.Exception("API is not supported on this platform.");
+        }
+
+        public Vector2Int GetWindowMaxSize(nint windowHandle)
+        {
+            if (IsAvailable) return Provider.GetWindowMaxSize(windowHandle);
+            else throw new System.Exception("API is not supported on this platform.");
+        }
+
+        public void SetWindowMaxSize(nint windowHandle, RectInt rect)
+        {
+            if (IsAvailable) Provider.SetWindowMaxSize(windowHandle, rect);
+            else throw new System.Exception("API is not supported on this platform.");
+        }
     }
 }

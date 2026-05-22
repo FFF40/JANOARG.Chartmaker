@@ -5,7 +5,7 @@ namespace JANOARG.Chartmaker.Utils.NativeAPI.Internal
     {
         protected bool IsInitAttempted;
 
-        public abstract bool IsSupported { get; }
+        public abstract bool IsAvailable { get; }
 
         protected void EnsureInitialized()
         {

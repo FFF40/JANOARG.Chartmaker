@@ -52,13 +52,16 @@ namespace JANOARG.Chartmaker.Utils.NativeAPI.Internal.NativeWindow.Windows
 
         public WindowStyle GetWindowStyle(nint windowHandle)
         {
-            // TODO implement
-            return WindowStyle.Native;
+            throw new NotImplementedException();
         }
 
         public void SetWindowStyle(nint windowHandle, WindowStyle style)
         {
-            // TODO implement
+            User32.SetWindowLong(windowHandle, WinWindowLong.Style, (nint)(WinWindowStyle.Overlapped | WinWindowStyle.Visible));
+            if (style == WindowStyle.Custom)
+            {
+                User32.DwmExtendFrameIntoClientArea(windowHandle, new WinMargin { top = 0, left = 0, bottom = 0, right = 0 });
+            }
         }
 
         public RectInt GetWindowRect(nint windowHandle)
@@ -131,6 +134,26 @@ namespace JANOARG.Chartmaker.Utils.NativeAPI.Internal.NativeWindow.Windows
             }
             st.Push(cursor);
             User32.SetCursor(MapCursor(cursor));
+        }
+
+        public Vector2Int GetWindowMinSize(nint windowHandle)
+        {
+            throw new NotImplementedException();
+        }
+
+        public void SetWindowMinSize(nint windowHandle, Vector2Int rect)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Vector2Int GetWindowMaxSize(nint windowHandle)
+        {
+            throw new NotImplementedException();
+        }
+
+        public void SetWindowMaxSize(nint windowHandle, Vector2Int rect)
+        {
+            throw new NotImplementedException();
         }
     }
 }
