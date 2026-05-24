@@ -11,9 +11,9 @@ namespace JANOARG.Chartmaker.Utils.NativeAPI.Internal.NativeWindow.Windows
 
 
 
-        public void HookWindow(nint windowHandle)
+        public bool HookWindow(nint windowHandle)
         {
-            if (hookData.ContainsKey(windowHandle)) return;
+            if (hookData.ContainsKey(windowHandle)) return false;
 
             var targetHookData = new WindowsNativeWindowHookData();
             hookData[windowHandle] = targetHookData;
@@ -21,15 +21,19 @@ namespace JANOARG.Chartmaker.Utils.NativeAPI.Internal.NativeWindow.Windows
             var newProgDelegate = new User32.WinProc(WindowProc);
             var newProc = Marshal.GetFunctionPointerForDelegate(newProgDelegate);
             targetHookData.OldProc = User32.SetWindowLong(windowHandle, WinWindowLong.WinProc, newProc);
+
+            return true;
         }
 
-        public void UnhookWindow(nint windowHandle)
+        public bool UnhookWindow(nint windowHandle)
         {
-            if (!hookData.ContainsKey(windowHandle)) return;
+            if (!hookData.ContainsKey(windowHandle)) return false;
 
             var targetHookData = hookData[windowHandle];
             User32.SetWindowLong(windowHandle, WinWindowLong.WinProc, targetHookData.OldProc);
             hookData.Remove(windowHandle);
+
+            return true;
         }
 
         public WindowsNativeWindowHookData GetHookData(nint windowHandle)
@@ -68,11 +72,10 @@ namespace JANOARG.Chartmaker.Utils.NativeAPI.Internal.NativeWindow.Windows
                 case WinWindowMessage.SetCursor: case WinWindowMessage.MouseMove:
                 {
                     var proc = User32.CallWindowProc(targetHookData.OldProc, hWnd, msg, wParam, lParam);
-                    if (targetHookData.CursorStack.Count <= 0) return proc;
+                    if (targetHookData.CurrentCursor == 0) return proc;
                     
-                    // TODO implement
-                    // UpdateCursor();
-                    return -1;
+                    User32.SetCursor(User32.LoadCursor(0, targetHookData.CurrentCursor));
+                    return User32.DefWindowProc(hWnd, msg, wParam, lParam);
                 }
 
                 default:
@@ -86,6 +89,6 @@ namespace JANOARG.Chartmaker.Utils.NativeAPI.Internal.NativeWindow.Windows
         public nint OldProc;
         public Vector2Int MinSize;
         public Vector2Int MaxSize;
-        public Stack<CursorStyle> CursorStack = new();
+        public nint CurrentCursor;
     }
 }

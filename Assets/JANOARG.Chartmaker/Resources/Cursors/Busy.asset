@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d25e5ea6433b48ad3b3979135e49c0d2, type: 3}
   m_Name: Busy
   m_EditorClassIdentifier: 
-  CursorType: 32514
+  CursorStyle: 1000
   Pivot: {x: 8, y: 6}
   Frames:
   - Texture: {fileID: 2800000, guid: 9873104e70a6ea9cca7f9fe0136bbb5f, type: 3}

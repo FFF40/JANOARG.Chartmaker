@@ -21,11 +21,11 @@ namespace JANOARG.Chartmaker.Utils.NativeAPI.Internal.NativeWindow
         {
             if (Provider != null) return true;
 
-#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
-            Provider = new Windows.WindowsNativeWindowProvider();
-#elif UNITY_STANDALONE_LINUX && !UNITY_EDITOR
-            Provider = new LinuxX11.LinuxX11NativeWindowProvider();
-#endif
+            #if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+                Provider = new Windows.WindowsNativeWindowProvider();
+            #elif UNITY_STANDALONE_LINUX && !UNITY_EDITOR
+                Provider = new LinuxX11.LinuxX11NativeWindowProvider();
+            #endif
 
             return Provider != null;
         }
@@ -33,121 +33,126 @@ namespace JANOARG.Chartmaker.Utils.NativeAPI.Internal.NativeWindow
         public nint GetMainWindowHandle()
         {
             if (IsAvailable) return Provider.GetMainWindowHandle();
-            else throw new System.Exception("API is not supported on this platform.");
+            UnityEngine.Debug.LogWarning("\"GetMainWindowHandle\" is not supported on this platform.");
+            return 0;
         }
 
         public string GetWindowName(nint windowHandle)
         {
             if (IsAvailable) return Provider.GetWindowName(windowHandle);
-            else throw new System.Exception("API is not supported on this platform.");
+            UnityEngine.Debug.LogWarning("\"GetWindowName\" is not supported on this platform.");
+            return "";
         }
 
-        public void SetWindowName(nint windowHandle, string name)
+        public bool SetWindowName(nint windowHandle, string name)
         {
-            if (IsAvailable) Provider.SetWindowName(windowHandle, name);
-            else throw new System.Exception("API is not supported on this platform.");
+            if (IsAvailable) return Provider.SetWindowName(windowHandle, name);
+            UnityEngine.Debug.LogWarning("\"SetWindowName\" is not supported on this platform.");
+            return false;
         }
 
         public RectInt GetWindowRect(nint windowHandle)
         {
             if (IsAvailable) return Provider.GetWindowRect(windowHandle);
-            else throw new System.Exception("API is not supported on this platform.");
+            UnityEngine.Debug.LogWarning("\"GetWindowRect\" is not supported on this platform.");
+            return new RectInt(0, 0, 0, 0);
         }
 
         public WindowState GetWindowState(nint windowHandle)
         {
             if (IsAvailable) return Provider.GetWindowState(windowHandle);
-            else throw new System.Exception("API is not supported on this platform.");
+            UnityEngine.Debug.LogWarning("\"GetWindowState\" is not supported on this platform.");
+            return WindowState.Floating;
         }
 
         public WindowStyle GetWindowStyle(nint windowHandle)
         {
             if (IsAvailable) return Provider.GetWindowStyle(windowHandle);
-            else throw new System.Exception("API is not supported on this platform.");
+            UnityEngine.Debug.LogWarning("\"GetWindowStyle\" is not supported on this platform.");
+            return WindowStyle.Native;
         }
 
-        public void SetWindowStyle(nint windowHandle, WindowStyle style)
+        public bool SetWindowStyle(nint windowHandle, WindowStyle style)
         {
-            if (IsAvailable) Provider.SetWindowStyle(windowHandle, style);
-            else throw new System.Exception("API is not supported on this platform.");
+            if (IsAvailable) return Provider.SetWindowStyle(windowHandle, style);
+            UnityEngine.Debug.LogWarning("\"SetWindowStyle\" is not supported on this platform.");
+            return false;
         }
 
         public void HookWindow(nint windowHandle)
         {
             if (IsAvailable) Provider.HookWindow(windowHandle);
-            else throw new System.Exception("API is not supported on this platform.");
+            UnityEngine.Debug.LogWarning("\"HookWindow\" is not supported on this platform.");
         }
 
-        public void MoveWindow(nint windowHandle, Vector2Int position)
+        public bool MoveWindow(nint windowHandle, Vector2Int position)
         {
-            if (IsAvailable) Provider.MoveWindow(windowHandle, position);
-            else throw new System.Exception("API is not supported on this platform.");
+            if (IsAvailable) return Provider.MoveWindow(windowHandle, position);
+            UnityEngine.Debug.LogWarning("\"MoveWindow\" is not supported on this platform.");
+            return false;
         }
 
-        public CursorStyle PeekWindowCursor(nint windowHandle)
+        public bool SetWindowCursor(nint windowHandle, CursorStyle cursor, bool bestEffort)
         {
-            if (IsAvailable) return Provider.PeekWindowCursor(windowHandle);
-            else throw new System.Exception("API is not supported on this platform.");
+            if (IsAvailable) return Provider.SetWindowCursor(windowHandle, cursor, bestEffort);
+            UnityEngine.Debug.LogWarning("\"SetWindowCursor\" is not supported on this platform.");
+            return false;
         }
 
-        public CursorStyle PopWindowCursor(nint windowHandle)
+        public bool ResizeWindow(nint windowHandle, Vector2Int size)
         {
-            if (IsAvailable) return Provider.PopWindowCursor(windowHandle);
-            else throw new System.Exception("API is not supported on this platform.");
+            if (IsAvailable) return Provider.ResizeWindow(windowHandle, size);
+            UnityEngine.Debug.LogWarning("\"ResizeWindow\" is not supported on this platform.");
+            return false;
         }
 
-        public void PushWindowCursor(nint windowHandle, CursorStyle cursor)
+        public bool SetWindowRect(nint windowHandle, RectInt rect)
         {
-            if (IsAvailable) Provider.PushWindowCursor(windowHandle, cursor);
-            else throw new System.Exception("API is not supported on this platform.");
+            if (IsAvailable) return Provider.SetWindowRect(windowHandle, rect);
+            UnityEngine.Debug.LogWarning("\"SetWindowRect\" is not supported on this platform.");
+            return false;
         }
 
-        public void ResizeWindow(nint windowHandle, Vector2Int size)
+        public bool SetWindowState(nint windowHandle, WindowState state)
         {
-            if (IsAvailable) Provider.ResizeWindow(windowHandle, size);
-            else throw new System.Exception("API is not supported on this platform.");
+            if (IsAvailable) return Provider.SetWindowState(windowHandle, state);
+            UnityEngine.Debug.LogWarning("\"SetWindowState\" is not supported on this platform.");
+            return false;
         }
 
-        public void SetWindowRect(nint windowHandle, RectInt rect)
+        public bool UnhookWindow(nint windowHandle)
         {
-            if (IsAvailable) Provider.SetWindowRect(windowHandle, rect);
-            else throw new System.Exception("API is not supported on this platform.");
-        }
-
-        public void SetWindowState(nint windowHandle, WindowState state)
-        {
-            if (IsAvailable) Provider.SetWindowState(windowHandle, state);
-            else throw new System.Exception("API is not supported on this platform.");
-        }
-
-        public void UnhookWindow(nint windowHandle)
-        {
-            if (IsAvailable) Provider.UnhookWindow(windowHandle);
-            else throw new System.Exception("API is not supported on this platform.");
+            if (IsAvailable) return Provider.UnhookWindow(windowHandle);
+            UnityEngine.Debug.LogWarning("\"UnhookWindow\" is not supported on this platform.");
+            return false;
         }
         
         public Vector2Int GetWindowMinSize(nint windowHandle)
         {
             if (IsAvailable) return Provider.GetWindowMinSize(windowHandle);
-            else throw new System.Exception("API is not supported on this platform.");
+            UnityEngine.Debug.LogWarning("\"GetWindowMinSize\" is not supported on this platform.");
+            return Vector2Int.zero;
         }
         
-        public void SetWindowMinSize(nint windowHandle, Vector2Int rect)
+        public bool SetWindowMinSize(nint windowHandle, Vector2Int rect)
         {
             if (IsAvailable) Provider.SetWindowMinSize(windowHandle, rect);
-            else throw new System.Exception("API is not supported on this platform.");
+            UnityEngine.Debug.LogWarning("\"SetWindowMinSize\" is not supported on this platform.");
+            return false;
         }
 
         public Vector2Int GetWindowMaxSize(nint windowHandle)
         {
             if (IsAvailable) return Provider.GetWindowMaxSize(windowHandle);
-            else throw new System.Exception("API is not supported on this platform.");
+            UnityEngine.Debug.LogWarning("\"GetWindowMaxSize\" is not supported on this platform.");
+            return Vector2Int.zero;
         }
 
-        public void SetWindowMaxSize(nint windowHandle, Vector2Int rect)
+        public bool SetWindowMaxSize(nint windowHandle, Vector2Int rect)
         {
             if (IsAvailable) Provider.SetWindowMaxSize(windowHandle, rect);
-            else throw new System.Exception("API is not supported on this platform.");
+            UnityEngine.Debug.LogWarning("\"SetWindowMaxSize\" is not supported on this platform.");
+            return false;
         }
     }
 }

@@ -9,31 +9,27 @@ namespace JANOARG.Chartmaker.Utils.NativeAPI.Internal.NativeWindow.Windows
 {
     internal static class User32
     {
-        [DllImport("kernel32.dll")]
-        public static extern uint GetCurrentThreadId();
-    
-        [DllImport("dwmapi.dll")]
-        public static extern int DwmExtendFrameIntoClientArea(nint hwnd, WinMargin margin);
-        
-        [DllImport("user32.dll")]
+        const string USER32_PATH = "user32.dll";
+
+        [DllImport(USER32_PATH)]
         public static extern bool EnumThreadWindows(uint dwThreadId, EnumWinProc lpEnumFunc, nint lParam);
         public delegate bool EnumWinProc(nint hWnd, nint lParam);
-        [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
+        [DllImport(USER32_PATH, CharSet = CharSet.Auto, SetLastError = true)]
         public static extern int GetClassName(nint hWnd, StringBuilder lpString, int nMaxCount);
     
-        [DllImport("user32.dll")]
+        [DllImport(USER32_PATH)]
         public static extern nint GetActiveWindow();
-        [DllImport("user32.dll")]
+        [DllImport(USER32_PATH)]
         public static extern nint FindWindowA(string lpClassName, string lpWindowName);
 
-        [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
+        [DllImport(USER32_PATH, CharSet = CharSet.Auto, SetLastError = true)]
         public static extern int GetWindowText(nint hWnd, StringBuilder lpString, int nMaxCount);
-        [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
+        [DllImport(USER32_PATH, CharSet = CharSet.Auto, SetLastError = true)]
         public static extern bool SetWindowText(nint hWnd, string lpString);
         
-        [DllImport("user32.dll", EntryPoint = "SetWindowLong", CharSet = CharSet.Auto)]
+        [DllImport(USER32_PATH, EntryPoint = "SetWindowLong", CharSet = CharSet.Auto)]
         public static extern nint SetWindowLong32(nint hWnd, int nIndex, nint dwNewLong);
-        [DllImport("user32.dll", EntryPoint = "SetWindowLongPtr", CharSet = CharSet.Auto)]
+        [DllImport(USER32_PATH, EntryPoint = "SetWindowLongPtr", CharSet = CharSet.Auto)]
         public static extern nint SetWindowLong64(nint hWnd, int nIndex, nint dwNewLong);
 
         public static nint SetWindowLong(nint hWnd, WinWindowLong nIndex, nint dwNewLong)
@@ -42,28 +38,44 @@ namespace JANOARG.Chartmaker.Utils.NativeAPI.Internal.NativeWindow.Windows
             else return SetWindowLong32(hWnd, (int)nIndex, dwNewLong);
         }
 
-        [DllImport("user32.dll")]
+        [DllImport(USER32_PATH)]
         public static extern bool GetWindowRect(nint hWnd, out WinRect lpRect);
-        [DllImport("user32.dll")]
+        [DllImport(USER32_PATH)]
         public static extern bool MoveWindow(nint hWnd, int X, int Y, int nWidth, int nHeight, bool bRepaint);
-        [DllImport("user32.dll")]
+        [DllImport(USER32_PATH)]
         public static extern bool ShowWindow(nint hWnd, WinWindowState nCmdShow);
 
-        [DllImport("user32.dll")]
+        [DllImport(USER32_PATH)]
         public static extern bool IsIconic(nint hWnd);
-        [DllImport("user32.dll")]
+        [DllImport(USER32_PATH)]
         public static extern bool IsZoomed(nint hWnd);
 
-        [DllImport("user32.dll")]   
+        [DllImport(USER32_PATH)]   
         public static extern nint SetCursor(nint hCursor);
-        [DllImport("user32.dll")]
+        [DllImport(USER32_PATH)]
         public static extern nint LoadCursor(nint hInstance, nint lpCursorName);
 
         public delegate nint WinProc(nint hWnd, WinWindowMessage msg, nint wParam, nint lParam);
-        [DllImport("user32.dll")]
+        [DllImport(USER32_PATH)]
         public static extern IntPtr CallWindowProc(IntPtr lpPrevWndFunc, IntPtr hWnd, WinWindowMessage msg, IntPtr wParam, IntPtr lParam);
-        [DllImport("user32.dll")]
+        [DllImport(USER32_PATH)]
         public static extern IntPtr DefWindowProc(IntPtr hWnd, WinWindowMessage wMsg, IntPtr wParam, IntPtr lParam);
+    }
+
+    internal static class DwmApi
+    {
+        const string DWMAPI_PATH = "dwmapi.dll";
+
+        [DllImport(DWMAPI_PATH)]
+        public static extern int DwmExtendFrameIntoClientArea(nint hwnd, WinMargin margin);
+    }
+
+    internal static class Kernel32
+    {
+        const string KERNEL32_PATH = "kernel32.dll";
+
+        [DllImport(KERNEL32_PATH)]
+        public static extern uint GetCurrentThreadId();
     }
 
 
@@ -128,15 +140,16 @@ namespace JANOARG.Chartmaker.Utils.NativeAPI.Internal.NativeWindow.Windows
                 CursorStyle.TextVertical => WinCursorStyle.Text,
                 CursorStyle.HandGrabReady => WinCursorStyle.Arrow,
                 CursorStyle.HandGrabbing => WinCursorStyle.Arrow,
+                CursorStyle.HandGrabbingBlocked => WinCursorStyle.Blocked,
 
                 CursorStyle.ResizeLeft => WinCursorStyle.ResizeHorizontal,
                 CursorStyle.ResizeRight => WinCursorStyle.ResizeHorizontal,
                 CursorStyle.ResizeTop => WinCursorStyle.ResizeVertical,
                 CursorStyle.ResizeBottom => WinCursorStyle.ResizeVertical,
                 CursorStyle.ResizeTopLeft => WinCursorStyle.ResizeDiagonalTopLeft,
+                CursorStyle.ResizeBottomRight => WinCursorStyle.ResizeDiagonalTopLeft,
                 CursorStyle.ResizeTopRight => WinCursorStyle.ResizeDiagonalTopRight,
                 CursorStyle.ResizeBottomLeft => WinCursorStyle.ResizeDiagonalTopRight,
-                CursorStyle.ResizeBottomRight => WinCursorStyle.ResizeDiagonalTopLeft,
 
                 _ => ToPlatformCursor(style),
             };

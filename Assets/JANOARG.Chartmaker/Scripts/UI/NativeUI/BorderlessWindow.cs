@@ -171,10 +171,6 @@ namespace JANOARG.Chartmaker.UI.NativeUI
             FindWindow();
             BorderlessWindow.HookWindowProc();
             RenameWindow("JANOARG Chartmaker");
-
-            Nothing = new Texture2D(0, 0);
-            UnityEngine.Cursor.SetCursor(Nothing, Vector2.zero, CursorMode.ForceSoftware);
-            CursorChanger.PushCursor(CursorType.Arrow);
             
             IsFramed = Behaviors.Chartmaker.Chartmaker.Preferences.UseDefaultWindow;
             if (!IsFramed)
@@ -321,7 +317,7 @@ namespace JANOARG.Chartmaker.UI.NativeUI
             else if (msg == WM_SETCURSOR || msg == WM_MOUSEMOVE) 
             {
                 var proc = CallWindowProc(oldWindowsProcess, hWnd, msg, wParam, lParam);
-                if (CursorChanger.Cursors.Count <= 0) return proc;
+                // if (CursorChanger.Cursors.Count <= 0) return proc;
 
                 UpdateCursor();
                 return (IntPtr)(-1);
@@ -329,7 +325,7 @@ namespace JANOARG.Chartmaker.UI.NativeUI
             else if (msg == WM_SETCURSOR || msg == WM_MOUSEMOVE) 
             {
                 var proc = CallWindowProc(oldWindowsProcess, hWnd, msg, wParam, lParam);
-                if (CursorChanger.Cursors.Count <= 0) return proc;
+                // if (CursorChanger.Cursors.Count <= 0) return proc;
 
                 UpdateCursor();
                 return (IntPtr)(-1);
@@ -424,34 +420,49 @@ namespace JANOARG.Chartmaker.UI.NativeUI
 
         public static void UpdateCursor ()
         {
-            IntPtr cursor = CursorChanger.Cursors.Count > 0 ? CursorChanger.Cursors.Peek() : IntPtr.Zero;
-            if (cursor == IntPtr.Zero && WindowHandler.main) 
-            {
-                var cursorMap = WindowHandler.main.CursorMap;
-                if (CursorChanger.CursorTypes.Count > 0)
-                {
-                    CursorType target = CursorChanger.CursorTypes.Peek();
-                    if (WindowHandler.main.CursorMap.ContainsKey(target)) 
-                    {
-                        CursorDefinition cursorDef = WindowHandler.main.CursorMap[target];
-                        WindowHandler.main.SetCustomCursor(cursorDef);
-                    }
-                    else WindowHandler.main.SetCustomCursor(cursorMap[CursorType.Arrow]);
-                }
-                else 
-                {
-                    WindowHandler.main.SetCustomCursor(cursorMap[CursorType.Arrow]);
-                }
-            }
-            else 
-            {
-                UnityEngine.Cursor.SetCursor(Nothing, Vector2.zero, CursorMode.ForceSoftware);
-                if (CursorChanger.Cursors.Count > ((
-                        Input.mousePosition.x >= 0 && Input.mousePosition.x < Screen.width &&
-                        Input.mousePosition.y >= 0 && Input.mousePosition.y < Screen.height
-                    ) ? 0 : 1)) SetCursor(CursorChanger.Cursors.Peek());
-            }
+            // IntPtr cursor = CursorChanger.Cursors.Count > 0 ? CursorChanger.Cursors.Peek() : IntPtr.Zero;
+            // if (cursor == IntPtr.Zero && WindowHandler.main) 
+            // {
+            //     var cursorMap = WindowHandler.main.CursorMap;
+            //     if (CursorChanger.CursorTypes.Count > 0)
+            //     {
+            //         CursorType target = CursorChanger.CursorTypes.Peek();
+            //         if (WindowHandler.main.CursorMap.ContainsKey(target)) 
+            //         {
+            //             CursorDefinition cursorDef = WindowHandler.main.CursorMap[target];
+            //             WindowHandler.main.SetCustomCursor(cursorDef);
+            //         }
+            //         else WindowHandler.main.SetCustomCursor(cursorMap[CursorType.Arrow]);
+            //     }
+            //     else 
+            //     {
+            //         WindowHandler.main.SetCustomCursor(cursorMap[CursorType.Arrow]);
+            //     }
+            // }
+            // else 
+            // {
+            //     UnityEngine.Cursor.SetCursor(Nothing, Vector2.zero, CursorMode.ForceSoftware);
+            //     if (CursorChanger.Cursors.Count > ((
+            //             Input.mousePosition.x >= 0 && Input.mousePosition.x < Screen.width &&
+            //             Input.mousePosition.y >= 0 && Input.mousePosition.y < Screen.height
+            //         ) ? 0 : 1)) SetCursor(CursorChanger.Cursors.Peek());
+            // }
         }
+    }
+
+    public enum CursorType
+    {
+        Arrow          = 32512,
+        Pointer        = 32649,
+        Busy           = 32514,
+        Text           = 32513,
+        SizeHorizontal = 32644,
+        SizeVertical   = 32645,
+        Blocked        = 32648,
+
+        Grab            = -1,
+        Grabbing        = -2,
+        GrabbingBlocked = -3,
     }
 }
 

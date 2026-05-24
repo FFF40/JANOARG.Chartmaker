@@ -56,10 +56,6 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             main = this;
             targetWindow = NativeWindow.MainWindow;
             CursorMap = new();
-            for (int a = 0; a < CursorDefinitions.Count; a++)
-            {
-                CursorMap.Add(CursorDefinitions[a].CursorType, CursorDefinitions[a]);
-            }
         }
 
         public void Quit()
@@ -86,23 +82,6 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             {
                 framed = BorderlessWindow.IsFramed;
                 OnFrameChanged();
-            }
-
-            if (activeCustomCursor && activeCustomCursor.Frames.Count > 1) 
-            {
-                currentCursorFrameTime += Time.unscaledDeltaTime;
-                int lastFrame = currentCursorFrame;
-                int a = 1000;
-            
-                while (currentCursorFrameTime >= activeCustomCursor.Frames[currentCursorFrame].Duration && a > 0)
-                {
-                    currentCursorFrameTime -= activeCustomCursor.Frames[currentCursorFrame].Duration;
-                    currentCursorFrame = (currentCursorFrame + 1) % activeCustomCursor.Frames.Count;
-                    a--;
-                }
-            
-                if (lastFrame != currentCursorFrame)
-                    Cursor.SetCursor(activeCustomCursor.Frames[currentCursorFrame].Texture, activeCustomCursor.Pivot, CursorMode.Auto);
             }
         }
 

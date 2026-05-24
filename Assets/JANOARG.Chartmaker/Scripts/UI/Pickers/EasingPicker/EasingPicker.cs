@@ -13,6 +13,7 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
 using JANOARG.Chartmaker.Utils.Math;
+using JANOARG.Chartmaker.Utils.NativeAPI;
 
 namespace JANOARG.Chartmaker.UI.Pickers.EasingPicker
 {
@@ -58,7 +59,7 @@ namespace JANOARG.Chartmaker.UI.Pickers.EasingPicker
 
         bool                 isDragged;
         EasingPickerDragMode CurrentDragMode;
-        CursorType           CurrentCursor;
+        CursorStyle          CurrentCursor;
 
         BasicEaseDirective       cachedBasicEase  = new(EaseFunction.Linear, EaseMode.In);
         CubicBezierEaseDirective cachedBezierEase = new (.25f, .1f, .25f, 1);
@@ -487,23 +488,22 @@ namespace JANOARG.Chartmaker.UI.Pickers.EasingPicker
         {
             bool contains(RectTransform rt) => rt.gameObject.activeInHierarchy && RectTransformUtility.RectangleContainsScreenPoint(rt, position, eventCamera);
 
-            CursorType Cursor = 0;
+            CursorStyle Cursor = CursorStyle.None;
 
             if (CurrentDragMode != EasingPickerDragMode.None) 
-                Cursor = CursorType.Grabbing;
+                Cursor = CursorStyle.HandGrabbing;
             else if (contains((RectTransform)transform)) 
             {
                 if (contains(GraphBezierHandles[0]) || contains(GraphBezierHandles[1])) 
-                    Cursor = CursorType.Grab;
+                    Cursor = CursorStyle.HandGrabReady;
             }
 
             if (CurrentCursor != Cursor)
             {
                 if (CurrentCursor != 0)
-                    CursorChanger.PopCursor()
-                        ;
+                    CursorManager.main.PopCursor();
                 if (Cursor != 0) 
-                    CursorChanger.PushCursor(Cursor);
+                    CursorManager.main.PushCursor(Cursor);
             
                 CurrentCursor = Cursor;
            

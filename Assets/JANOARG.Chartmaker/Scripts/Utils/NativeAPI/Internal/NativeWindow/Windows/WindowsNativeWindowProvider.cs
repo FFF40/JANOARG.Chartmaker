@@ -9,7 +9,7 @@ namespace JANOARG.Chartmaker.Utils.NativeAPI.Internal.NativeWindow.Windows
 {
     internal class WindowsNativeWindowProvider : INativeWindowProvider
     {
-        readonly Dictionary<nint, Stack<CursorStyle>> cursorStacks = new();
+        readonly WindowsNativeWindowHookManager hookManager = new();
 
         public nint GetMainWindowHandle()
         {
@@ -17,13 +17,13 @@ namespace JANOARG.Chartmaker.Utils.NativeAPI.Internal.NativeWindow.Windows
             return h;
         }
 
-        public void HookWindow(nint windowHandle)
+        public bool HookWindow(nint windowHandle)
         {
-            // TODO implement
+            return hookManager.HookWindow(windowHandle);
         }
-        public void UnhookWindow(nint windowHandle) 
+        public bool UnhookWindow(nint windowHandle) 
         { 
-            // TODO implement
+            return hookManager.UnhookWindow(windowHandle);
         }
 
         public string GetWindowName(nint windowHandle)
@@ -33,9 +33,9 @@ namespace JANOARG.Chartmaker.Utils.NativeAPI.Internal.NativeWindow.Windows
             return sb.ToString();
         }
 
-        public void SetWindowName(nint windowHandle, string name)
+        public bool SetWindowName(nint windowHandle, string name)
         {
-            User32.SetWindowText(windowHandle, name);
+            return User32.SetWindowText(windowHandle, name);
         }
 
         public WindowState GetWindowState(nint windowHandle)
@@ -45,9 +45,9 @@ namespace JANOARG.Chartmaker.Utils.NativeAPI.Internal.NativeWindow.Windows
             return WindowState.Floating;
         }
 
-        public void SetWindowState(nint windowHandle, WindowState state)
+        public bool SetWindowState(nint windowHandle, WindowState state)
         {
-            User32.ShowWindow(windowHandle, Win32Convert.ToPlatformWindowState(state));
+            return User32.ShowWindow(windowHandle, Win32Convert.ToPlatformWindowState(state));
         }
 
         public WindowStyle GetWindowStyle(nint windowHandle)
@@ -55,13 +55,14 @@ namespace JANOARG.Chartmaker.Utils.NativeAPI.Internal.NativeWindow.Windows
             throw new NotImplementedException();
         }
 
-        public void SetWindowStyle(nint windowHandle, WindowStyle style)
+        public bool SetWindowStyle(nint windowHandle, WindowStyle style)
         {
-            User32.SetWindowLong(windowHandle, WinWindowLong.Style, (nint)(WinWindowStyle.Overlapped | WinWindowStyle.Visible));
+            bool succ = User32.SetWindowLong(windowHandle, WinWindowLong.Style, (nint)(WinWindowStyle.Overlapped | WinWindowStyle.Visible)) != 0;
             if (style == WindowStyle.Custom)
             {
-                User32.DwmExtendFrameIntoClientArea(windowHandle, new WinMargin { top = 0, left = 0, bottom = 0, right = 0 });
+                succ &= DwmApi.DwmExtendFrameIntoClientArea(windowHandle, new WinMargin { top = 0, left = 0, bottom = 0, right = 0 }) != 0;
             }
+            return succ;
         }
 
         public RectInt GetWindowRect(nint windowHandle)
@@ -73,87 +74,66 @@ namespace JANOARG.Chartmaker.Utils.NativeAPI.Internal.NativeWindow.Windows
             return new(0, 0, 0, 0);
         }
 
-        public void SetWindowRect(nint windowHandle, RectInt rect)
+        public bool SetWindowRect(nint windowHandle, RectInt rect)
         {
-            User32.MoveWindow(windowHandle, rect.x, rect.y, rect.width, rect.height, true);
+            return User32.MoveWindow(windowHandle, rect.x, rect.y, rect.width, rect.height, true);
         }
 
-        public void MoveWindow(nint windowHandle, Vector2Int position)
+        public bool MoveWindow(nint windowHandle, Vector2Int position)
         {
             if (User32.GetWindowRect(windowHandle, out WinRect r))
             {
-                User32.MoveWindow(windowHandle, position.x, position.y, r.right - r.left, r.bottom - r.top, true);
+                return User32.MoveWindow(windowHandle, position.x, position.y, r.right - r.left, r.bottom - r.top, true);
             }
+            return false;
         }
 
-        public void ResizeWindow(nint windowHandle, Vector2Int size)
+        public bool ResizeWindow(nint windowHandle, Vector2Int size)
         {
             if (User32.GetWindowRect(windowHandle, out WinRect r))
             {
-                User32.MoveWindow(windowHandle, r.left, r.top, size.x, size.y, true);
+                return User32.MoveWindow(windowHandle, r.left, r.top, size.x, size.y, true);
             }
+            return false;
         }
 
-        private IntPtr MapCursor(CursorStyle c)
+        public bool SetWindowCursor(nint windowHandle, CursorStyle style, bool bestEffort)
         {
-            return c switch
-            {
-                CursorStyle.None => IntPtr.Zero,
-                CursorStyle.Arrow => User32.LoadCursor(IntPtr.Zero, WinCursorStyle.Arrow),
-                CursorStyle.Text => User32.LoadCursor(IntPtr.Zero, WinCursorStyle.Text),
-                CursorStyle.Crosshair => User32.LoadCursor(IntPtr.Zero, WinCursorStyle.Crosshair),
-                CursorStyle.HandPointing => User32.LoadCursor(IntPtr.Zero, WinCursorStyle.HandPointing),
-                _ => User32.LoadCursor(IntPtr.Zero, WinCursorStyle.Arrow),
-            };
-        }
-
-        public CursorStyle PeekWindowCursor(nint windowHandle)
-        {
-            if (cursorStacks.TryGetValue(windowHandle, out var st) && st.Count > 0) return st.Peek();
-            return CursorStyle.None;
-        }
-
-        public CursorStyle PopWindowCursor(nint windowHandle)
-        {
-            if (cursorStacks.TryGetValue(windowHandle, out var st) && st.Count > 0)
-            {
-                var popped = st.Pop();
-                var top = st.Count > 0 ? st.Peek() : CursorStyle.None;
-                User32.SetCursor(MapCursor(top));
-                return popped;
-            }
-            return CursorStyle.None;
-        }
-
-        public void PushWindowCursor(nint windowHandle, CursorStyle cursor)
-        {
-            if (!cursorStacks.TryGetValue(windowHandle, out var st))
-            {
-                st = new Stack<CursorStyle>();
-                cursorStacks[windowHandle] = st;
-            }
-            st.Push(cursor);
-            User32.SetCursor(MapCursor(cursor));
+            hookManager.HookWindow(windowHandle);
+            var hookData = hookManager.GetHookData(windowHandle);
+            nint cursor = bestEffort ? Win32Convert.ToPlatformCursorBestEffort(style) : Win32Convert.ToPlatformCursor(style);
+            hookData.CurrentCursor = cursor;
+            return cursor != 0 || style == CursorStyle.None;
         }
 
         public Vector2Int GetWindowMinSize(nint windowHandle)
         {
-            throw new NotImplementedException();
+            var hookData = hookManager.GetHookData(windowHandle);
+            if (hookData == null) return Vector2Int.zero;
+            return hookData.MinSize;
         }
 
-        public void SetWindowMinSize(nint windowHandle, Vector2Int rect)
+        public bool SetWindowMinSize(nint windowHandle, Vector2Int size)
         {
-            throw new NotImplementedException();
+            hookManager.HookWindow(windowHandle);
+            var hookData = hookManager.GetHookData(windowHandle);
+            hookData.MinSize = size;
+            return true;
         }
 
         public Vector2Int GetWindowMaxSize(nint windowHandle)
         {
-            throw new NotImplementedException();
+            var hookData = hookManager.GetHookData(windowHandle);
+            if (hookData == null) return Vector2Int.zero;
+            return hookData.MaxSize;
         }
 
-        public void SetWindowMaxSize(nint windowHandle, Vector2Int rect)
+        public bool SetWindowMaxSize(nint windowHandle, Vector2Int size)
         {
-            throw new NotImplementedException();
+            hookManager.HookWindow(windowHandle);
+            var hookData = hookManager.GetHookData(windowHandle);
+            hookData.MaxSize = size;
+            return true;
         }
     }
 }

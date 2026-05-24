@@ -10,10 +10,10 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: d25e5ea6433b48ad3b3979135e49c0d2, type: 3}
-  m_Name: SizeHorizontal
+  m_Name: ResizeVertical
   m_EditorClassIdentifier: 
-  CursorType: 32644
+  CursorStyle: 3008
   Pivot: {x: 15, y: 15}
   Frames:
-  - Texture: {fileID: 2800000, guid: a6af4aabfe1cdf747b9b7014c7647857, type: 3}
+  - Texture: {fileID: 2800000, guid: 58b61e66913e9d2429edc41c78b8c298, type: 3}
     Duration: 0

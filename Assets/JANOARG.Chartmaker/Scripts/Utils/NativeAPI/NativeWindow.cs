@@ -1,6 +1,5 @@
 using System;
 using JANOARG.Chartmaker.Utils.NativeAPI.Internal.NativeWindow;
-using UnityEditor.PackageManager.UI;
 using UnityEngine;
 
 namespace JANOARG.Chartmaker.Utils.NativeAPI
@@ -20,7 +19,7 @@ namespace JANOARG.Chartmaker.Utils.NativeAPI
         {
             get
             {
-                return CachedMainWindow ??= new NativeWindow(Controller.Provider.GetMainWindowHandle());
+                return CachedMainWindow ??= new NativeWindow(Controller.GetMainWindowHandle());
             }
         }
 
@@ -121,25 +120,11 @@ namespace JANOARG.Chartmaker.Utils.NativeAPI
             }
         }
 
-        public CursorStyle CurrentCursor
+        public bool SetCurrentCursor(CursorStyle style, bool bestEffort)
         {
-            get
-            {
-                return Controller.PeekWindowCursor(WindowHandle);
-            }
-        }
-
-        public void PushWindowCursor(CursorStyle style)
-        {
-            Controller.PushWindowCursor(WindowHandle, style);
-        }
-
-        public CursorStyle PopWindowCursor()
-        {
-            return Controller.PopWindowCursor(WindowHandle);
+            return Controller.SetWindowCursor(WindowHandle, style, bestEffort);
         }
     }
-
 
     /// <summary>
     /// The display state of the window.
@@ -176,57 +161,5 @@ namespace JANOARG.Chartmaker.Utils.NativeAPI
         /// Window features are manually managed by the app.
         /// </summary>
         Custom,
-    }
-
-    public enum CursorStyle
-    {
-        None = -1,
-
-        Arrow,
-        Crosshair,
-        Text,
-        TextVertical,
-
-        Busy,
-        BackgroundBusy,
-        Blocked,
-
-        HandPointing,
-        HandGrabReady,
-        HandGrabbing,
-
-        ResizeLeft,
-        ResizeRight,
-        ResizeTop,
-        ResizeBottom,
-        ResizeTopLeft,
-        ResizeTopRight,
-        ResizeBottomLeft,
-        ResizeBottomRight,
-        ResizeVertical,
-        ResizeHorizontal,
-        ResizeDiagonalTopLeft,
-        ResizeDiagonalTopRight,
-    }
-
-    /// <summary>
-    /// The preferred cursor display style.
-    /// </summary>
-    public enum PreferredCursorMode
-    {
-        /// <summary>
-        /// Prioritizes app-defined cursors, falls back to OS-defined cursors when no best fit is available.
-        /// </summary>
-        PreferCustom,
-
-        /// <summary>
-        /// Prioritizes OS-defined cursors, falls back to app-defined cursors when no best fit is available.
-        /// </summary>
-        PreferNative,
-
-        /// <summary>
-        /// Prioritizes OS-defined cursors, falls back to other OS-defined cursors when no best fit is available.
-        /// </summary>
-        PreferNativeBestEffort,
     }
 }

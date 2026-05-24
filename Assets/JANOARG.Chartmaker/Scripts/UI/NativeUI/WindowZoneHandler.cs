@@ -9,12 +9,12 @@ namespace JANOARG.Chartmaker.UI.NativeUI
 
         public void OnPointerEnter(PointerEventData eventData)
         {
-            BorderlessWindow.CurrentWindowZone = ZoneType;
+            // BorderlessWindow.CurrentWindowZone = ZoneType;
         }
 
         public void OnPointerExit(PointerEventData eventData)
         {
-            BorderlessWindow.CurrentWindowZone = WindowZone.Client;
+            // BorderlessWindow.CurrentWindowZone = WindowZone.Client;
         }
     }
 }

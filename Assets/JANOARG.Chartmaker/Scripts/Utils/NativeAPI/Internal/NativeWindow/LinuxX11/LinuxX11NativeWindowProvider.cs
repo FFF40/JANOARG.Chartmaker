@@ -9,10 +9,9 @@ namespace JANOARG.Chartmaker.Utils.NativeAPI.Internal.NativeWindow.LinuxX11
 {
     internal class LinuxX11NativeWindowProvider : INativeWindowProvider
     {
-        readonly Dictionary<nint, Stack<CursorStyle>> cursorStacks = new();
-
         private nint display;
         private nint currentWindow;
+        private Dictionary<CursorStyle, nint> cursorCache = new ();
 
         public nint GetMainWindowHandle()
         {
@@ -20,7 +19,7 @@ namespace JANOARG.Chartmaker.Utils.NativeAPI.Internal.NativeWindow.LinuxX11
             return h;
         }
 
-        void EnsureDisplay()
+        bool EnsureDisplay()
         {
             if (display == 0)
             {
@@ -30,99 +29,94 @@ namespace JANOARG.Chartmaker.Utils.NativeAPI.Internal.NativeWindow.LinuxX11
             {
                 currentWindow = Process.GetCurrentProcess().MainWindowHandle;
             }
+            return display != 0;
         }
 
-        public void HookWindow(nint windowHandle) { EnsureDisplay(); }
-        public void UnhookWindow(nint windowHandle) { /* no-op */ }
+        public bool HookWindow(nint windowHandle) 
+        { 
+            return EnsureDisplay(); 
+        }
+
+        public bool UnhookWindow(nint windowHandle) 
+        { 
+            return true; 
+        }
 
         public string GetWindowName(nint windowHandle)
         {
-            EnsureDisplay();
+            if (!EnsureDisplay()) return string.Empty;
             nint namePtr = 0;
             LibX11.XFetchName(display, windowHandle, ref namePtr);
             return Marshal.PtrToStringAnsi(namePtr) ?? string.Empty;
         }
 
-        public void SetWindowName(nint windowHandle, string name)
+        public bool SetWindowName(nint windowHandle, string name)
         {
-            EnsureDisplay();
+            if (!EnsureDisplay()) return false;
             LibX11.XStoreName(display, windowHandle, name);
+            return true;
         }
 
         public WindowState GetWindowState(nint windowHandle)
         {
-            // X11 doesn't expose state easily here; return Floating as default
             return WindowState.Floating;
         }
 
-        public void SetWindowState(nint windowHandle, WindowState state)
+        public bool SetWindowState(nint windowHandle, WindowState state)
         {
-            // Best-effort: map minimize/restore via unmap/map
-            EnsureDisplay();
+            if (!EnsureDisplay()) return false;
             var h = windowHandle;
             switch (state)
             {
-                case WindowState.Minimized: LibX11.XDestroyWindow(display, h); break;
-                case WindowState.Maximized: /* no-op */ break;
-                case WindowState.Floating: /* no-op */ break;
+                case WindowState.Minimized: 
+                    LibX11.XDestroyWindow(display, h); 
+                    return true;
+                case WindowState.Maximized: 
+                    return true;
+                case WindowState.Floating: 
+                    return true;
+                default:
+                    return false;
             }
         }
 
-        public WindowStyle GetWindowStyle(nint windowHandle) => WindowStyle.Native;
-        public void SetWindowStyle(nint windowHandle, WindowStyle style) { /* no-op */ }
+        public WindowStyle GetWindowStyle(nint windowHandle)
+        {
+            return WindowStyle.Native;
+        }
+        
+        public bool SetWindowStyle(nint windowHandle, WindowStyle style) 
+        { 
+            return false; 
+        }
 
         public RectInt GetWindowRect(nint windowHandle)
         {
-            // Not implementing a full query here; return zero rect
             return new(0, 0, 0, 0);
         }
 
-        public void SetWindowRect(nint windowHandle, RectInt rect)
+        public bool SetWindowRect(nint windowHandle, RectInt rect)
         {
-            MoveWindow(windowHandle, new Vector2Int(rect.x, rect.y));
-            ResizeWindow(windowHandle, new Vector2Int(rect.width, rect.height));
+            bool moved = MoveWindow(windowHandle, new Vector2Int(rect.x, rect.y));
+            bool resized = ResizeWindow(windowHandle, new Vector2Int(rect.width, rect.height));
+            return moved && resized;
         }
 
-        public void MoveWindow(nint windowHandle, Vector2Int position)
+        public bool MoveWindow(nint windowHandle, Vector2Int position)
         {
-            EnsureDisplay();
-            LibX11.XMoveWindow(display, windowHandle, position.x, position.y);
+            if (!EnsureDisplay()) return false;
+            return LibX11.XMoveWindow(display, windowHandle, position.x, position.y) != 0;
         }
 
-        public void ResizeWindow(nint windowHandle, Vector2Int size)
+        public bool ResizeWindow(nint windowHandle, Vector2Int size)
         {
-            EnsureDisplay();
-            LibX11.XResizeWindow(display, windowHandle, (uint)size.x, (uint)size.y);
-        }
-
-        public CursorStyle PeekWindowCursor(nint windowHandle)
-        {
-            if (cursorStacks.TryGetValue(windowHandle, out var st) && st.Count > 0) return st.Peek();
-            return CursorStyle.None;
-        }
-
-        public CursorStyle PopWindowCursor(nint windowHandle)
-        {
-            if (cursorStacks.TryGetValue(windowHandle, out var st) && st.Count > 0)
-            {
-                return st.Pop();
-            }
-            return CursorStyle.None;
-        }
-
-        public void PushWindowCursor(nint windowHandle, CursorStyle cursor)
-        {
-            if (!cursorStacks.TryGetValue(windowHandle, out var st))
-            {
-                st = new Stack<CursorStyle>();
-                cursorStacks[windowHandle] = st;
-            }
-            st.Push(cursor);
+            if (!EnsureDisplay()) return false;
+            return LibX11.XResizeWindow(display, windowHandle, (uint)size.x, (uint)size.y) != 0;
         }
 
         public Vector2Int GetWindowMinSize(nint windowHandle)
         {
-            EnsureDisplay();
+            if (!EnsureDisplay()) return new Vector2Int(0, 0);
             var hintsPtr = LibX11.XAllocSizeHints(display);
             long supplied = 0;
             if (LibX11.XGetWMSizeHints(display, windowHandle, hintsPtr, ref supplied) != 0)
@@ -136,10 +130,12 @@ namespace JANOARG.Chartmaker.Utils.NativeAPI.Internal.NativeWindow.LinuxX11
             return new Vector2Int(0, 0);
         }
 
-        public void SetWindowMinSize(nint windowHandle, Vector2Int minSize)
+        public bool SetWindowMinSize(nint windowHandle, Vector2Int minSize)
         {
-            EnsureDisplay();
+            if (!EnsureDisplay()) return false;
             var hintsPtr = LibX11.XAllocSizeHints(display);
+            if (hintsPtr == 0) return false;
+            
             var hints = new XSizeHints
             {
                 flags = (long)XSizeHintsFlags.PMinSize,
@@ -148,11 +144,12 @@ namespace JANOARG.Chartmaker.Utils.NativeAPI.Internal.NativeWindow.LinuxX11
             };
             Marshal.StructureToPtr(hints, hintsPtr, false);
             LibX11.XSetWMSizeHints(display, windowHandle, hintsPtr);
+            return true;
         }
 
         public Vector2Int GetWindowMaxSize(nint windowHandle)
         {
-            EnsureDisplay();
+            if (!EnsureDisplay()) return new Vector2Int(0, 0);
             var hintsPtr = LibX11.XAllocSizeHints(display);
             long supplied = 0;
             if (LibX11.XGetWMSizeHints(display, windowHandle, hintsPtr, ref supplied) != 0)
@@ -166,10 +163,12 @@ namespace JANOARG.Chartmaker.Utils.NativeAPI.Internal.NativeWindow.LinuxX11
             return new Vector2Int(0, 0);
         }
 
-        public void SetWindowMaxSize(nint windowHandle, Vector2Int maxSize)
+        public bool SetWindowMaxSize(nint windowHandle, Vector2Int maxSize)
         {
-            EnsureDisplay();
+            if (!EnsureDisplay()) return false;
             var hintsPtr = LibX11.XAllocSizeHints(display);
+            if (hintsPtr == 0) return false;
+
             var hints = new XSizeHints
             {
                 flags = (long)XSizeHintsFlags.PMaxSize,
@@ -178,6 +177,35 @@ namespace JANOARG.Chartmaker.Utils.NativeAPI.Internal.NativeWindow.LinuxX11
             };
             Marshal.StructureToPtr(hints, hintsPtr, false);
             LibX11.XSetWMSizeHints(display, windowHandle, hintsPtr);
+            return true;
+        }
+
+        public bool SetWindowCursor(nint windowHandle, CursorStyle cursor, bool bestEffort)
+        {
+            if (cursorCache.ContainsKey(cursor))
+            {
+                if (LibX11.XDefineCursor(display, windowHandle, cursorCache[cursor]) == 0)
+                {
+                    return true;
+                }
+                else
+                {
+                    cursorCache.Remove(cursor);
+                }
+            }
+
+            string[] cursorNames = X11Convert.CursorNames.GetValueOrDefault(cursor, new string[] {});
+            foreach (string name in cursorNames)
+            {
+                nint cursorPtr = LibXCursor.XcursorLibraryLoadCursor(display, name);
+                if (cursorPtr != 0)
+                {
+                    cursorCache[cursor] = cursorPtr;
+                    return LibX11.XDefineCursor(display, windowHandle, cursorCache[cursor]) == 0;
+                }
+            }
+
+            return false;
         }
     }
 }

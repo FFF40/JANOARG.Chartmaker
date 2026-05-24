@@ -10,10 +10,10 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: d25e5ea6433b48ad3b3979135e49c0d2, type: 3}
-  m_Name: Grabbing
+  m_Name: HandPointing
   m_EditorClassIdentifier: 
-  CursorType: -2
-  Pivot: {x: 14, y: 14}
+  CursorStyle: 2000
+  Pivot: {x: 9, y: 5}
   Frames:
-  - Texture: {fileID: 2800000, guid: c8b29236e8a6e2a48b7da558a040f0fa, type: 3}
+  - Texture: {fileID: 2800000, guid: 03340adb613ce8ef0a6fef62be393fdd, type: 3}
     Duration: 0

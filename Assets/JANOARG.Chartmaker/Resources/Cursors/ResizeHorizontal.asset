@@ -10,10 +10,10 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: d25e5ea6433b48ad3b3979135e49c0d2, type: 3}
-  m_Name: Pointer
+  m_Name: ResizeHorizontal
   m_EditorClassIdentifier: 
-  CursorType: 32649
-  Pivot: {x: 9, y: 5}
+  CursorStyle: 3009
+  Pivot: {x: 15, y: 15}
   Frames:
-  - Texture: {fileID: 2800000, guid: 03340adb613ce8ef0a6fef62be393fdd, type: 3}
+  - Texture: {fileID: 2800000, guid: a6af4aabfe1cdf747b9b7014c7647857, type: 3}
     Duration: 0

@@ -135,59 +135,60 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
                     themeDropdown.ValidValues.Add("Hyperpop", "Hyperpop");
 
                     SpawnForm<FormEntrySpace>("");
+
+                    // TODO update
+// #if UNITY_STANDALONE_WIN
+//                 var cursorDropdown = SpawnForm<FormEntryDropdown, object>("Cursor Mode", () => prefs.CustomCursors, x => {
+//                     storage.Set("AP:CustomCursors", prefs.CustomCursors = (bool)x); IsDirty = true;
+//                     if (CursorChanger.Cursors.Count > 0) CursorChanger.PopCursor(); 
+//                     CursorChanger.PushCursor(CursorType.Arrow); BorderlessWindow.UpdateCursor();
+//                 });
+//                 cursorDropdown.ValidValues.Add(false, "Native");
+//                 cursorDropdown.ValidValues.Add(true, "Custom");
+// #endif
             
-#if UNITY_STANDALONE_WIN
-                var cursorDropdown = SpawnForm<FormEntryDropdown, object>("Cursor Mode", () => prefs.CustomCursors, x => {
-                    storage.Set("AP:CustomCursors", prefs.CustomCursors = (bool)x); IsDirty = true;
-                    if (CursorChanger.Cursors.Count > 0) CursorChanger.PopCursor(); 
-                    CursorChanger.PushCursor(CursorType.Arrow); BorderlessWindow.UpdateCursor();
-                });
-                cursorDropdown.ValidValues.Add(false, "Native");
-                cursorDropdown.ValidValues.Add(true, "Custom");
-#endif
-            
-                    SpawnForm<FormEntryHeader>("Layout");
+//                     SpawnForm<FormEntryHeader>("Layout");
 
-                    FormEntryBool forceNavbar = null;
+//                     FormEntryBool forceNavbar = null;
 
-#if UNITY_STANDALONE_WIN
-                var windowDropdown = SpawnForm<FormEntryDropdown, object>("Window Frame Mode", () => prefs.UseDefaultWindow, x => {
-                    bool y = prefs.UseDefaultWindow;
-                    storage.Set("LA:UseDefaultWindow", prefs.UseDefaultWindow = (bool)x); IsDirty = true;
-                    if (forceNavbar) forceNavbar.gameObject.SetActive(prefs.UseDefaultWindow);
-                    #if !UNITY_EDITOR && UNITY_STANDALONE_WIN 
-                        if ((bool)x != y)
-                        {
-                            if ((bool)x) 
-                            {
-                                BorderlessWindow.SetFramedWindow();
-                                BorderlessWindow.ResizeWindowDelta(2, 1);
-                                BorderlessWindow.MoveWindowDelta(new(-1, 0));
-                            }
-                            else 
-                            {
-                                BorderlessWindow.SetFramelessWindow();
-                                BorderlessWindow.ResizeWindowDelta(-2, -1);
-                                BorderlessWindow.MoveWindowDelta(new(1, 0));
-                            }
-                        }
-                    #else
-                        if ((bool)x != y)
-                        {
-                            BorderlessWindow.IsFramed = (bool)x;
-                        }
-                    #endif
-                });
-                windowDropdown.ValidValues.Add(true, "Native");
-                windowDropdown.ValidValues.Add(false, "Custom");
-#endif
+// #if UNITY_STANDALONE_WIN
+//                 var windowDropdown = SpawnForm<FormEntryDropdown, object>("Window Frame Mode", () => prefs.UseDefaultWindow, x => {
+//                     bool y = prefs.UseDefaultWindow;
+//                     storage.Set("LA:UseDefaultWindow", prefs.UseDefaultWindow = (bool)x); IsDirty = true;
+//                     if (forceNavbar) forceNavbar.gameObject.SetActive(prefs.UseDefaultWindow);
+//                     #if !UNITY_EDITOR && UNITY_STANDALONE_WIN 
+//                         if ((bool)x != y)
+//                         {
+//                             if ((bool)x) 
+//                             {
+//                                 BorderlessWindow.SetFramedWindow();
+//                                 BorderlessWindow.ResizeWindowDelta(2, 1);
+//                                 BorderlessWindow.MoveWindowDelta(new(-1, 0));
+//                             }
+//                             else 
+//                             {
+//                                 BorderlessWindow.SetFramelessWindow();
+//                                 BorderlessWindow.ResizeWindowDelta(-2, -1);
+//                                 BorderlessWindow.MoveWindowDelta(new(1, 0));
+//                             }
+//                         }
+//                     #else
+//                         if ((bool)x != y)
+//                         {
+//                             BorderlessWindow.IsFramed = (bool)x;
+//                         }
+//                     #endif
+//                 });
+//                 windowDropdown.ValidValues.Add(true, "Native");
+//                 windowDropdown.ValidValues.Add(false, "Custom");
+// #endif
 
-                    forceNavbar = SpawnForm<FormEntryBool, bool>("Navigation Bar", () => prefs.ForceNavigationBar, x => 
-                    {
-                        storage.Set("LA:ForceNavigationBar", prefs.ForceNavigationBar = x); IsDirty = true;
-                        WindowHandler.main.OnFrameChanged();
-                    });
-                    forceNavbar.gameObject.SetActive(prefs.UseDefaultWindow || BorderlessWindow.IsFramed);
+                    // forceNavbar = SpawnForm<FormEntryBool, bool>("Navigation Bar", () => prefs.ForceNavigationBar, x => 
+                    // {
+                    //     storage.Set("LA:ForceNavigationBar", prefs.ForceNavigationBar = x); IsDirty = true;
+                    //     WindowHandler.main.OnFrameChanged();
+                    // });
+                    // forceNavbar.gameObject.SetActive(prefs.UseDefaultWindow || BorderlessWindow.IsFramed);
 
                     FormEntryRange interfaceScaling = null;
                     interfaceScaling = SpawnForm<FormEntryRange, float>("UI Scaling", () => prefs.InterfaceScaling, x =>

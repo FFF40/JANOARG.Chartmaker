@@ -12,6 +12,7 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
 using JANOARG.Chartmaker.Behaviors.Chartmaker.PickHandler;
+using JANOARG.Chartmaker.Utils.NativeAPI;
 
 namespace JANOARG.Chartmaker.Behaviors.Chartmaker
 {
@@ -876,30 +877,32 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             }
         }
 
-        CursorType CurrentCursor = 0;
+        CursorStyle CurrentCursor = 0;
 
         public void UpdateCursor(Vector2 position, Camera eventCamera)
         {
             bool contains(RectTransform rt) => rt.gameObject.activeInHierarchy && RectTransformUtility.RectangleContainsScreenPoint(rt, position, eventCamera);
 
-            CursorType Cursor = 0;
+            CursorStyle Cursor = CursorStyle.None;
 
             if (CurrentDragMode != HandleDragMode.None) 
             {
-                Cursor = CursorType.Grabbing;
+                Cursor = CursorStyle.HandGrabbing;
             }
             else if (contains((RectTransform)transform)) 
             {
                 if (
                     (!contains((RectTransform)CoverToolbar.transform)) &&
                     (contains(StartHandle) || contains(CenterHandle) || contains(EndHandle))
-                ) Cursor = CursorType.Grab;
+                ) Cursor = CursorStyle.HandGrabReady;
             }
 
             if (CurrentCursor != Cursor)
             {
-                if (CurrentCursor != 0) CursorChanger.PopCursor();
-                if (Cursor != 0) CursorChanger.PushCursor(Cursor);
+                if (CurrentCursor != 0) 
+                    CursorManager.main.PopCursor();
+                if (Cursor != 0) 
+                    CursorManager.main.PushCursor(Cursor);
                 CurrentCursor = Cursor;
                 BorderlessWindow.UpdateCursor();
             }
