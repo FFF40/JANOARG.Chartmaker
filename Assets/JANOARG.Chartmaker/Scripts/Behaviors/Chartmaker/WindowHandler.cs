@@ -33,17 +33,8 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
         public CanvasGroup RightGroup;
         [Header("Window")]
         public Vector2Int defaultWindowSize;
-        public Vector2Int borderSize;
-        public Vector2Int windowMargin;
-        [Header("Window")]
-        public List<CursorDefinition> CursorDefinitions;
-        public Dictionary<CursorType, CursorDefinition> CursorMap;
 
         NativeWindow targetWindow;
-
-        CursorDefinition activeCustomCursor;
-        int              currentCursorFrame;
-        float            currentCursorFrameTime;
 
         public bool maximized { get; private set; }
         public bool active { get; private set; }
@@ -51,11 +42,25 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
 
         bool framed;
 
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSplashScreen)]
+        public static void InitializeWindow()
+        {
+            Chartmaker.PreferencesStorage = new("cm_prefs");
+            Chartmaker.Preferences.Load(Chartmaker.PreferencesStorage);
+
+            if (!NativeWindow.IsApiAvailable) return;
+
+            NativeWindow window = NativeWindow.MainWindow;
+            window.Hook();
+            window.Title = "JANOARG Chartmaker";
+            window.MinSize = new Vector2Int(974, 607);
+            window.Style = Chartmaker.Preferences.UseDefaultWindow ? WindowStyle.Native : WindowStyle.Custom;
+        }
+
         public void Awake()
         {
             main = this;
             targetWindow = NativeWindow.MainWindow;
-            CursorMap = new();
         }
 
         public void Quit()
@@ -68,14 +73,14 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             {
                 isFullScreen = Screen.fullScreen;
                 WindowControls.SetActive(!isFullScreen);
-                if (!isFullScreen) BorderlessWindow.InitializeWindow();
+                if (!isFullScreen) InitializeWindow();
             }
 
-            BorderlessWindow.RefreshState();
-
-            bool nativeMaximized = NativeWindow.IsApiAvailable ? targetWindow.State == WindowState.Maximized : BorderlessWindow.IsMaximized;
-            bool nativeActive = NativeWindow.IsApiAvailable ? targetWindow.IsActive : BorderlessWindow.IsActive;
-            bool nativeFramed = NativeWindow.IsApiAvailable ? targetWindow.Style == WindowStyle.Native : BorderlessWindow.IsFramed;
+            bool nativeMaximized = NativeWindow.IsApiAvailable && targetWindow.State == WindowState.Maximized;
+            bool nativeActive = NativeWindow.IsApiAvailable ? targetWindow.IsActive : Application.isFocused;
+            bool nativeFramed = NativeWindow.IsApiAvailable
+                ? targetWindow.Style == WindowStyle.Native
+                : Chartmaker.Preferences.UseDefaultWindow;
 
             if (maximized != nativeMaximized)
                 OnSizeChange(); 
@@ -152,7 +157,7 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
 
         public void OnSizeChange() 
         {
-            maximized = NativeWindow.IsApiAvailable ? targetWindow.State == WindowState.Maximized : BorderlessWindow.IsMaximized;
+            maximized = NativeWindow.IsApiAvailable && targetWindow.State == WindowState.Maximized;
             ResizeTooltip.Text = maximized ? "Restore" : "Maximize";
             ResizeIconMaximize.SetActive(!maximized);
             ResizeIconRestore.SetActive(maximized);
@@ -161,7 +166,7 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
 
         private void OnActiveChange() 
         {
-            active = NativeWindow.IsApiAvailable ? targetWindow.IsActive : BorderlessWindow.IsActive;
+            active = NativeWindow.IsApiAvailable ? targetWindow.IsActive : Application.isFocused;
             InactiveBackground.SetActive(!active);
             LeftGroup.alpha = CenterGroup.alpha = RightGroup.alpha = active ? 1 : 0.5f;
         }
@@ -170,22 +175,13 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
         {
             if (!framed)
             {
-                BorderlessWindow.CurrentWindowZone = WindowZone.TitleBar;
                 if (NativeWindow.IsApiAvailable) targetWindow.SetHitTestZone((int)WindowZone.TitleBar);
             }
         }
 
         public void OnPointerExit(PointerEventData data)
         {
-            BorderlessWindow.CurrentWindowZone = WindowZone.Client;
             if (NativeWindow.IsApiAvailable) targetWindow.SetHitTestZone((int)WindowZone.Client);
-        }
-
-        public void SetCustomCursor(CursorDefinition cursor) 
-        {
-            activeCustomCursor = cursor;
-            currentCursorFrame = 0;
-            Cursor.SetCursor(cursor.Frames[0].Texture, cursor.Pivot, CursorMode.Auto);
         }
     }
 }

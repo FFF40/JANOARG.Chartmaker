@@ -91,7 +91,7 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
 
             int infoCount = 0, warnCount = 0, errCount = 0;
      
-            var logger = BorderlessWindow.Logger.FindAll(x => 
+            var logger = RuntimeLogManager.Logger.FindAll(x =>
             {
                 // ???????????????
                 bool a(int x, bool y) => y;
@@ -105,7 +105,7 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
             });
      
             float listHeight = logger.Count * itemHeight;
-            int activeIndex = BorderlessWindow.Logger.IndexOf(activeEntry);
+            int activeIndex = RuntimeLogManager.Logger.IndexOf(activeEntry);
        
             if (activeIndex >= 0) 
             {
@@ -125,7 +125,7 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
        
             while (offset < offsetMax && index < logger.Count) 
             {
-                AddItem(BorderlessWindow.Logger[index]);
+                AddItem(RuntimeLogManager.Logger[index]);
                 index++;
             }
       
@@ -156,7 +156,7 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
 
         public void Clear() 
         {
-            BorderlessWindow.Logger.Clear();
+            RuntimeLogManager.Logger.Clear();
       
             UpdateLogger();
         }

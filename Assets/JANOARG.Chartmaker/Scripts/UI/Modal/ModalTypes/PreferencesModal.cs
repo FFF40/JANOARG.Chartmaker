@@ -156,8 +156,7 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
                         IsDirty = true;
                         if (NativeWindow.IsApiAvailable)
                             NativeWindow.MainWindow.Style = useDefaultWindow ? WindowStyle.Native : WindowStyle.Custom;
-                        BorderlessWindow.RefreshState();
-                        if (forceNavbar) forceNavbar.gameObject.SetActive(useDefaultWindow || BorderlessWindow.IsFramed);
+                        if (forceNavbar) forceNavbar.gameObject.SetActive(useDefaultWindow || IsNativeFrame());
                         if (WindowHandler.main) WindowHandler.main.OnFrameChanged();
                     });
                     windowDropdown.ValidValues.Add(true, "Native");
@@ -169,7 +168,7 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
                         IsDirty = true;
                         if (WindowHandler.main) WindowHandler.main.OnFrameChanged();
                     });
-                    forceNavbar.gameObject.SetActive(prefs.UseDefaultWindow || BorderlessWindow.IsFramed);
+                    forceNavbar.gameObject.SetActive(prefs.UseDefaultWindow || IsNativeFrame());
 
                     FormEntryRange interfaceScaling = null;
                     interfaceScaling = SpawnForm<FormEntryRange, float>("UI Scaling", () => prefs.InterfaceScaling, x =>
@@ -315,6 +314,13 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
 
         T SpawnForm<T, U>(string title, Func<U> get, Action<U> set) where T : FormEntry<U>
             => Formmaker.main.Spawn<T, U>(FormHolder, title, get, set);
+
+        bool IsNativeFrame()
+        {
+            return NativeWindow.IsApiAvailable
+                ? NativeWindow.MainWindow.Style == WindowStyle.Native
+                : Behaviors.Chartmaker.Chartmaker.Preferences.UseDefaultWindow;
+        }
 
         void Tooltipify(FormEntry entry, string text) 
         {
