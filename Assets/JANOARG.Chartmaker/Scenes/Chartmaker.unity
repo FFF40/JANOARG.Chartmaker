@@ -77920,19 +77920,6 @@ MonoBehaviour:
   CenterGroup: {fileID: 1036588235}
   RightGroup: {fileID: 679655762}
   defaultWindowSize: {x: 960, y: 600}
-  borderSize: {x: 0, y: 0}
-  windowMargin: {x: 14, y: 14}
-  CursorDefinitions:
-  - {fileID: 11400000, guid: ed4a6d56f09a4bdf79137c4bfcae2be0, type: 2}
-  - {fileID: 11400000, guid: 2ab51131e47a62410be146bc17409fe1, type: 2}
-  - {fileID: 11400000, guid: 99a2fca7fb1571f1ebd9df788313f0e0, type: 2}
-  - {fileID: 11400000, guid: 7719e2463ab4bd2e69ee46de9a3a517c, type: 2}
-  - {fileID: 11400000, guid: f8dc26eb22fb6fc90a75424527f398e5, type: 2}
-  - {fileID: 11400000, guid: cc60edbd7f0d86336b67b625c68efd6a, type: 2}
-  - {fileID: 11400000, guid: 388d1d7b02c2691fb9a1b64282b62532, type: 2}
-  - {fileID: 11400000, guid: 979ebcbca9e14cdaba422b9978797ead, type: 2}
-  - {fileID: 11400000, guid: 0cdb0d4260b427f0294bf1bfcff4e9f3, type: 2}
-  - {fileID: 11400000, guid: 2917f9d1790f9620eaee01ae3879811b, type: 2}
 --- !u!114 &1769234555
 MonoBehaviour:
   m_ObjectHideFlags: 0

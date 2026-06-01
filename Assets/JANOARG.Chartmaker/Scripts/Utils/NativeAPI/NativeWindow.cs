@@ -150,6 +150,16 @@ namespace JANOARG.Chartmaker.Utils.NativeAPI
             return Controller.SetWindowHitTestZone(WindowHandle, zone);
         }
 
+        public bool StartDrag(Vector2Int pointerPosition)
+        {
+            return Controller.StartWindowDrag(WindowHandle, pointerPosition);
+        }
+
+        public Vector2Int GetPointerPosition()
+        {
+            return Controller.GetPointerPosition();
+        }
+
         public bool Hook()
         {
             return Controller.HookWindow(WindowHandle);

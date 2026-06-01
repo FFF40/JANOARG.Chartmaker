@@ -17,10 +17,16 @@ namespace JANOARG.Chartmaker.Utils.NativeAPI.Internal.NativeWindow.LinuxX11
         public static extern nint XDefaultRootWindow(nint display);
 
         [DllImport(LIBX11_PATH)]
+        public static extern int XQueryTree(nint display, nint window, out nint root_return, out nint parent_return, out nint children_return, out nint nchildren_return);
+
+        [DllImport(LIBX11_PATH)]
         public static extern int XDefaultScreen(nint display);
 
         [DllImport(LIBX11_PATH)]
         public static extern int XMapWindow(nint display, nint window);
+
+        [DllImport(LIBX11_PATH)]
+        public static extern int XUnmapWindow(nint display, nint window);
 
         [DllImport(LIBX11_PATH)]
         public static extern int XMoveWindow(nint display, nint window, int x, int y);
@@ -78,6 +84,15 @@ namespace JANOARG.Chartmaker.Utils.NativeAPI.Internal.NativeWindow.LinuxX11
 
         [DllImport(LIBX11_PATH)]
         public static extern int XGetWindowProperty(nint display, nint window, nint property, nint longOffset, nint longLength, bool delete, nint reqType, out nint actualTypeReturn, out int actualFormatReturn, out nint nitemsReturn, out nint bytesAfterReturn, out nint propReturn);
+
+        [DllImport(LIBX11_PATH)]
+        public static extern bool XQueryPointer(nint display, nint window, out nint root_return, out nint child_return, out int root_x_return, out int root_y_return, out int win_x_return, out int win_y_return, out nint mask_return);
+
+        [DllImport(LIBX11_PATH)]
+        public static extern int XSync(nint display, bool discard);
+
+        [DllImport(LIBX11_PATH)]
+        public static extern int XChangeWindowAttributes(nint display, nint window, nuint valuemask, ref XSetWindowAttributes attributes);
     }
 
     internal static class LibXCursor
@@ -150,6 +165,31 @@ namespace JANOARG.Chartmaker.Utils.NativeAPI.Internal.NativeWindow.LinuxX11
         public nint do_not_propagate_mask;
         public bool override_redirect;
         public nint screen;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct XSetWindowAttributes
+    {
+        public nint background_pixmap;
+        public nint background_pixel;
+        public nint border_pixmap;
+        public nint border_pixel;
+        public int bit_gravity;
+        public int win_gravity;
+        public int backing_store;
+        public nint backing_planes;
+        public nint backing_pixel;
+        public bool save_under;
+        public nint event_mask;
+        public nint do_not_propagate_mask;
+        public bool override_redirect;
+        public nint colormap;
+        public nint cursor;
+    }
+
+    internal static class XConstants
+    {
+        public const nuint CWOverrideRedirect = 1 << 9;
     }
 
     [StructLayout(LayoutKind.Sequential)]

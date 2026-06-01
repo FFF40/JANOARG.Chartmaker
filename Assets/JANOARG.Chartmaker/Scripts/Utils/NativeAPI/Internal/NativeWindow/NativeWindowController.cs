@@ -113,6 +113,18 @@ namespace JANOARG.Chartmaker.Utils.NativeAPI.Internal.NativeWindow
             return false;
         }
 
+        public bool StartWindowDrag(nint windowHandle, Vector2Int pointerPosition)
+        {
+            if (IsAvailable) return Provider.StartWindowDrag(windowHandle, pointerPosition);
+            return false;
+        }
+
+        public Vector2Int GetPointerPosition()
+        {
+            if (IsAvailable) return Provider.GetPointerPosition();
+            return new Vector2Int(0, 0);
+        }
+
         public bool ResizeWindow(nint windowHandle, Vector2Int size)
         {
             if (IsAvailable) return Provider.ResizeWindow(windowHandle, size);

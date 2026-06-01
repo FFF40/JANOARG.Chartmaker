@@ -16,8 +16,79 @@ namespace JANOARG.Chartmaker.Utils.NativeAPI.Internal.NativeWindow.LinuxX11
 
         public nint GetMainWindowHandle()
         {
-            var h = Process.GetCurrentProcess().MainWindowHandle;
-            return h;
+            if (display == 0)
+            {
+                display = LibX11.XOpenDisplay(0);
+            }
+            if (display == 0) return 0;
+
+            int myPid = Process.GetCurrentProcess().Id;
+            nint root = LibX11.XDefaultRootWindow(display);
+
+            // Try _NET_WM_PID first
+            nint pidAtom = LibX11.XInternAtom(display, "_NET_WM_PID", true);
+            if (pidAtom != 0)
+            {
+                nint handle = FindWindowByPid(root, pidAtom, myPid);
+                if (handle != 0) return handle;
+            }
+
+            // Fallback: search by window name
+            return FindWindowByName(root, "JANOARG Chartmaker");
+        }
+
+        nint FindWindowByPid(nint window, nint pidAtom, int targetPid)
+        {
+            int result = LibX11.XGetWindowProperty(display, window, pidAtom, 0, 1, false,
+                (nint)6 /* XA_CARDINAL */, out _, out int format, out nint itemCount, out _, out nint prop);
+            if (result == 0 && prop != 0 && format == 32 && itemCount == 1)
+            {
+                int pid = Marshal.ReadInt32(prop);
+                LibX11.XFree(prop);
+                if (pid == targetPid) return window;
+            }
+            else if (prop != 0) LibX11.XFree(prop);
+
+            if (LibX11.XQueryTree(display, window, out _, out _, out nint children, out nint count) != 0 && children != 0)
+            {
+                try
+                {
+                    for (int i = 0; i < (int)count; i++)
+                    {
+                        nint child = Marshal.ReadIntPtr(children, i * IntPtr.Size);
+                        nint found = FindWindowByPid(child, pidAtom, targetPid);
+                        if (found != 0) return found;
+                    }
+                }
+                finally { LibX11.XFree(children); }
+            }
+            return 0;
+        }
+
+        nint FindWindowByName(nint window, string targetName)
+        {
+            nint namePtr = 0;
+            if (LibX11.XFetchName(display, window, ref namePtr) != 0 && namePtr != 0)
+            {
+                string name = Marshal.PtrToStringAnsi(namePtr) ?? "";
+                LibX11.XFree(namePtr);
+                if (name == targetName) return window;
+            }
+
+            if (LibX11.XQueryTree(display, window, out _, out _, out nint children, out nint count) != 0 && children != 0)
+            {
+                try
+                {
+                    for (int i = 0; i < (int)count; i++)
+                    {
+                        nint child = Marshal.ReadIntPtr(children, i * IntPtr.Size);
+                        nint found = FindWindowByName(child, targetName);
+                        if (found != 0) return found;
+                    }
+                }
+                finally { LibX11.XFree(children); }
+            }
+            return 0;
         }
 
         bool EnsureDisplay()
@@ -28,7 +99,7 @@ namespace JANOARG.Chartmaker.Utils.NativeAPI.Internal.NativeWindow.LinuxX11
             }
             if (currentWindow == 0) 
             {
-                currentWindow = Process.GetCurrentProcess().MainWindowHandle;
+                currentWindow = GetMainWindowHandle();
             }
             return display != 0 && currentWindow != 0;
         }
@@ -105,24 +176,53 @@ namespace JANOARG.Chartmaker.Utils.NativeAPI.Internal.NativeWindow.LinuxX11
 
         public WindowStyle GetWindowStyle(nint windowHandle)
         {
-            return windowStyles.GetValueOrDefault(windowHandle, WindowStyle.Native);
+            if (windowStyles.TryGetValue(windowHandle, out WindowStyle cached))
+                return cached;
+
+            if (!CanUseWindow(windowHandle)) return WindowStyle.Native;
+
+            nint motifHints = Atom("_MOTIF_WM_HINTS", true);
+            if (motifHints != 0)
+            {
+                int result = LibX11.XGetWindowProperty(display, windowHandle, motifHints, 0, 5, false,
+                    motifHints, out _, out int format, out nint itemCount, out _, out nint prop);
+                if (result == 0 && prop != 0 && format == 32 && itemCount >= 3)
+                {
+                    nuint decorations = (nuint)(long)Marshal.ReadIntPtr(prop, IntPtr.Size * 2);
+                    LibX11.XFree(prop);
+                    windowStyles[windowHandle] = decorations != 0 ? WindowStyle.Native : WindowStyle.Custom;
+                    return windowStyles[windowHandle];
+                }
+                if (prop != 0) LibX11.XFree(prop);
+            }
+
+            return WindowStyle.Native;
         }
         
-        public bool SetWindowStyle(nint windowHandle, WindowStyle style) 
-        { 
+        public bool SetWindowStyle(nint windowHandle, WindowStyle style)
+        {
             if (!CanUseWindow(windowHandle)) return false;
+
+            // Update cache first so GetWindowStyle returns the right value immediately
+            windowStyles[windowHandle] = style;
 
             nint motifHints = Atom("_MOTIF_WM_HINTS");
             if (motifHints == 0) return false;
 
             var hints = new MotifWmHints
             {
-                flags = 2,
+                flags = 2, // MWM_HINTS_DECORATIONS
                 decorations = style == WindowStyle.Native ? 1u : 0u,
             };
             LibX11.XChangeProperty(display, windowHandle, motifHints, motifHints, 32, 0, ref hints, 5);
             LibX11.XFlush(display);
-            windowStyles[windowHandle] = style;
+
+            // Unmap/remap to force WindowMaker to re-read the Motif hints.
+            // The window briefly disappears but the process keeps running.
+            LibX11.XUnmapWindow(display, windowHandle);
+            LibX11.XMapWindow(display, windowHandle);
+            LibX11.XFlush(display);
+
             return true;
         }
 
@@ -280,6 +380,48 @@ namespace JANOARG.Chartmaker.Utils.NativeAPI.Internal.NativeWindow.LinuxX11
         public bool SetWindowHitTestZone(nint windowHandle, int zone)
         {
             return false;
+        }
+
+        public Vector2Int GetPointerPosition()
+        {
+            if (display == 0) display = LibX11.XOpenDisplay(0);
+            if (display == 0) return new Vector2Int(0, 0);
+
+            nint root = LibX11.XDefaultRootWindow(display);
+            if (LibX11.XQueryPointer(display, root, out _, out _, out int rootX, out int rootY, out _, out _, out _))
+                return new Vector2Int(rootX, rootY);
+            return new Vector2Int(0, 0);
+        }
+
+        public bool StartWindowDrag(nint windowHandle, Vector2Int pointerPosition)
+        {
+            if (!CanUseWindow(windowHandle)) return false;
+
+            nint moveResize = Atom("_NET_WM_MOVERESIZE");
+            if (moveResize == 0) return false;
+
+            var ev = new XEvent
+            {
+                type = 33,
+                clientMessage = new XClientMessageEvent
+                {
+                    type = 33,
+                    display = display,
+                    window = windowHandle,
+                    message_type = moveResize,
+                    format = 32,
+                    data0 = pointerPosition.x,
+                    data1 = pointerPosition.y,
+                    data2 = 8, // _NET_WM_MOVERESIZE_MOVE
+                    data3 = 1, // button 1 (left mouse)
+                    data4 = 1, // source = normal application
+                }
+            };
+
+            int result = LibX11.XSendEvent(display, LibX11.XDefaultRootWindow(display), false,
+                (nint)(0x00080000 | 0x00100000), ref ev);
+            LibX11.XFlush(display);
+            return result != 0;
         }
 
         bool SendNetWmState(nint windowHandle, nint action, string firstState, string secondState)

@@ -8,7 +8,7 @@ using UnityEngine.EventSystems;
 
 namespace JANOARG.Chartmaker.Behaviors.Chartmaker
 {
-    public class WindowHandler : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
+    public class WindowHandler : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, IBeginDragHandler, IDragHandler, IEndDragHandler
     {
         public static WindowHandler main;
 
@@ -67,9 +67,9 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
         {
         }
 
-        public void Update() 
+        public void Update()
         {
-            if (Screen.fullScreen != isFullScreen) 
+            if (Screen.fullScreen != isFullScreen)
             {
                 isFullScreen = Screen.fullScreen;
                 WindowControls.SetActive(!isFullScreen);
@@ -83,23 +83,33 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                 : Chartmaker.Preferences.UseDefaultWindow;
 
             if (maximized != nativeMaximized)
-                OnSizeChange(); 
-        
+                OnSizeChange();
+
             if (active != nativeActive)
                 OnActiveChange();
-        
+
             if (framed != nativeFramed)
             {
                 framed = nativeFramed;
                 OnFrameChanged();
+            }
+
+            if (isDragging && !framed && NativeWindow.IsApiAvailable)
+            {
+                Vector2Int currentPointer = targetWindow.GetPointerPosition();
+                Vector2Int delta = currentPointer - dragStartPointer;
+                Vector2Int newPos = dragStartWindowPos + delta;
+                UnityEngine.Debug.Log($"[WindowHandler] Drag: isDragging={isDragging}, cur={currentPointer}, start={dragStartPointer}, winStart={dragStartWindowPos}, newPos={newPos}, curWin={targetWindow.Position}");
+                if (newPos != targetWindow.Position)
+                    targetWindow.Position = newPos;
             }
         }
 
         public void OnFrameChanged()
         {
             bool isNavbar = !framed || Chartmaker.Preferences.ForceNavigationBar;
-            ContentHolder.sizeDelta = ContextMenuHolder.sizeDelta = ModalHolder.sizeDelta 
-                = LoaderHolder.sizeDelta = NavBar.anchoredPosition 
+            ContentHolder.sizeDelta = ContextMenuHolder.sizeDelta = ModalHolder.sizeDelta
+                = LoaderHolder.sizeDelta = NavBar.anchoredPosition
                     = Vector2.up * (isNavbar ? -28 : 0);
             MenuButton.SetActive(!isNavbar);
 
@@ -132,9 +142,10 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             EventSystem.current.SetSelectedGameObject(null);
 
             maximized = !maximized;
+            UnityEngine.Debug.Log($"[WindowHandler] ResizeWindow: maximized={maximized}, IsApiAvailable={NativeWindow.IsApiAvailable}");
 
             if (NativeWindow.IsApiAvailable) targetWindow.State = maximized ? WindowState.Maximized : WindowState.Floating;
-        
+
             if (NativeWindow.IsApiAvailable)
             {
                 var rect = targetWindow.Rect;
@@ -182,6 +193,30 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
         public void OnPointerExit(PointerEventData data)
         {
             if (NativeWindow.IsApiAvailable) targetWindow.SetHitTestZone((int)WindowZone.Client);
+        }
+
+        Vector2Int dragStartWindowPos;
+        Vector2Int dragStartPointer;
+        bool isDragging;
+
+        public void OnBeginDrag(PointerEventData data)
+        {
+            UnityEngine.Debug.Log($"[WindowHandler] OnBeginDrag: framed={framed}, IsApiAvailable={NativeWindow.IsApiAvailable}");
+            if (framed || !NativeWindow.IsApiAvailable) return;
+            dragStartPointer = targetWindow.GetPointerPosition();
+            dragStartWindowPos = targetWindow.Position;
+            isDragging = true;
+            UnityEngine.Debug.Log($"[WindowHandler] OnBeginDrag: start={dragStartPointer}, winStart={dragStartWindowPos}");
+        }
+
+        public void OnDrag(PointerEventData data) { }
+
+        public void OnEndDrag(PointerEventData data)
+        {
+            UnityEngine.Debug.Log($"[WindowHandler] OnEndDrag: isDragging was {isDragging}");
+            isDragging = false;
+            if (!NativeWindow.IsApiAvailable) return;
+            FinalizeDrag();
         }
     }
 }

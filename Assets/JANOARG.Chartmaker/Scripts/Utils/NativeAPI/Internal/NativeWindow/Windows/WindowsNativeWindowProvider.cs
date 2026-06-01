@@ -145,6 +145,16 @@ namespace JANOARG.Chartmaker.Utils.NativeAPI.Internal.NativeWindow.Windows
             return true;
         }
 
+        public bool StartWindowDrag(nint windowHandle, Vector2Int pointerPosition)
+        {
+            return false;
+        }
+
+        public Vector2Int GetPointerPosition()
+        {
+            return new Vector2Int(0, 0);
+        }
+
         public Vector2Int GetWindowMinSize(nint windowHandle)
         {
             var hookData = hookManager.GetHookData(windowHandle);
