@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
-using System.Text;
 using UnityEngine;
 
 namespace JANOARG.Chartmaker.Utils.NativeAPI.Internal.NativeWindow.LinuxX11
@@ -16,8 +15,6 @@ namespace JANOARG.Chartmaker.Utils.NativeAPI.Internal.NativeWindow.LinuxX11
         private Dictionary<nint, bool> maximizedFlags = new();
         private Dictionary<nint, XSizeHints> savedSizeHints = new();
         private bool eventMaskSubscribed;
-        private RectInt cachedRect;
-        private bool cachedRectValid;
 
         public nint GetMainWindowHandle()
         {
@@ -789,17 +786,11 @@ namespace JANOARG.Chartmaker.Utils.NativeAPI.Internal.NativeWindow.LinuxX11
         public void PumpEvents()
         {
             if (!EnsureDisplay()) return;
-            if (currentWindow == 0) return;
 
             while (LibX11.XPending(display) > 0)
             {
                 var ev = new XEvent();
                 LibX11.XNextEvent(display, ref ev);
-                if (ev.type == 22)
-                {
-                    var cfg = ev.configureEvent;
-                    if (cfg.eventWindow != currentWindow) continue;
-                }
             }
         }
     }

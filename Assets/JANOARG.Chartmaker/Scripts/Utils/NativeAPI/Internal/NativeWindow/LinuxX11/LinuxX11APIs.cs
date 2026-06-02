@@ -2,7 +2,6 @@
 using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
-using Unity.Mathematics;
 
 namespace JANOARG.Chartmaker.Utils.NativeAPI.Internal.NativeWindow.LinuxX11
 {
@@ -107,9 +106,6 @@ namespace JANOARG.Chartmaker.Utils.NativeAPI.Internal.NativeWindow.LinuxX11
         public static extern int XSync(nint display, bool discard);
 
         [DllImport(LIBX11_PATH)]
-        public static extern int XChangeWindowAttributes(nint display, nint window, nuint valuemask, ref XSetWindowAttributes attributes);
-
-        [DllImport(LIBX11_PATH)]
         public static extern int XUngrabPointer(nint display, nint time);
 
         [DllImport(LIBX11_PATH)]
@@ -120,12 +116,6 @@ namespace JANOARG.Chartmaker.Utils.NativeAPI.Internal.NativeWindow.LinuxX11
 
         [DllImport(LIBX11_PATH)]
         public static extern int XNextEvent(nint display, ref XEvent eventReturn);
-
-        [DllImport(LIBX11_PATH)]
-        public static extern int XSetInputFocus(nint display, nint window, int revertTo, nint time);
-
-        [DllImport(LIBX11_PATH)]
-        public static extern int XGetInputFocus(nint display, out nint focusReturn, out int revertToReturn);
     }
 
     internal static class LibXCursor
@@ -208,26 +198,6 @@ namespace JANOARG.Chartmaker.Utils.NativeAPI.Internal.NativeWindow.LinuxX11
         public int border_width;
         public nint sibling;
         public int stack_mode;
-    }
-
-    [StructLayout(LayoutKind.Sequential)]
-    internal struct XSetWindowAttributes
-    {
-        public nint background_pixmap;
-        public nint background_pixel;
-        public nint border_pixmap;
-        public nint border_pixel;
-        public int bit_gravity;
-        public int win_gravity;
-        public int backing_store;
-        public nint backing_planes;
-        public nint backing_pixel;
-        public bool save_under;
-        public nint event_mask;
-        public nint do_not_propagate_mask;
-        public bool override_redirect;
-        public nint colormap;
-        public nint cursor;
     }
 
     internal static class XConstants
