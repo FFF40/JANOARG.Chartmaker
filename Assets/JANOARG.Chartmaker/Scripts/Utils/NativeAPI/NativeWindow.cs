@@ -165,6 +165,11 @@ namespace JANOARG.Chartmaker.Utils.NativeAPI
             return Controller.GetPointerPosition();
         }
 
+        public int GetPointerButtonMask()
+        {
+            return Controller.GetPointerButtonMask();
+        }
+
         public bool SetType(string typeName)
         {
             return Controller.SetWindowType(WindowHandle, typeName);
@@ -178,6 +183,11 @@ namespace JANOARG.Chartmaker.Utils.NativeAPI
         public bool Unhook()
         {
             return Controller.UnhookWindow(WindowHandle);
+        }
+
+        public void PumpEvents()
+        {
+            Controller.PumpEvents();
         }
     }
 

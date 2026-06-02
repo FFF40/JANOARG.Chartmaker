@@ -160,6 +160,11 @@ namespace JANOARG.Chartmaker.Utils.NativeAPI.Internal.NativeWindow.Windows
             return new Vector2Int(0, 0);
         }
 
+        public int GetPointerButtonMask()
+        {
+            return 0;
+        }
+
         public bool SetWindowType(nint windowHandle, string typeName)
         {
             return true;
@@ -194,5 +199,7 @@ namespace JANOARG.Chartmaker.Utils.NativeAPI.Internal.NativeWindow.Windows
             hookData.MaxSize = size;
             return true;
         }
+
+        public void PumpEvents() { }
     }
 }

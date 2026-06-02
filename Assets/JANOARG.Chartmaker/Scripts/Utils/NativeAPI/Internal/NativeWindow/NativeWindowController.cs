@@ -131,6 +131,12 @@ namespace JANOARG.Chartmaker.Utils.NativeAPI.Internal.NativeWindow
             return new Vector2Int(0, 0);
         }
 
+        public int GetPointerButtonMask()
+        {
+            if (IsAvailable) return Provider.GetPointerButtonMask();
+            return 0;
+        }
+
         public bool SetWindowType(nint windowHandle, string typeName)
         {
             if (IsAvailable) return Provider.SetWindowType(windowHandle, typeName);
@@ -191,6 +197,11 @@ namespace JANOARG.Chartmaker.Utils.NativeAPI.Internal.NativeWindow
             if (IsAvailable) return Provider.SetWindowMaxSize(windowHandle, rect);
             UnityEngine.Debug.LogWarning("\"SetWindowMaxSize\" is not supported on this platform.");
             return false;
+        }
+
+        public void PumpEvents()
+        {
+            if (IsAvailable) Provider.PumpEvents();
         }
     }
 }

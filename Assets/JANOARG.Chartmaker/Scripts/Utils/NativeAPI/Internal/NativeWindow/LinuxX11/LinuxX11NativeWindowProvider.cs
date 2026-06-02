@@ -15,6 +15,9 @@ namespace JANOARG.Chartmaker.Utils.NativeAPI.Internal.NativeWindow.LinuxX11
         private Dictionary<nint, WindowStyle> windowStyles = new();
         private Dictionary<nint, bool> maximizedFlags = new();
         private Dictionary<nint, XSizeHints> savedSizeHints = new();
+        private bool eventMaskSubscribed;
+        private RectInt cachedRect;
+        private bool cachedRectValid;
 
         public nint GetMainWindowHandle()
         {
@@ -99,9 +102,44 @@ namespace JANOARG.Chartmaker.Utils.NativeAPI.Internal.NativeWindow.LinuxX11
             {
                 display = LibX11.XOpenDisplay(0);
             }
-            if (currentWindow == 0) 
+            if (currentWindow == 0)
             {
                 currentWindow = GetMainWindowHandle();
+            }
+            if (display != 0 && currentWindow != 0 && !eventMaskSubscribed)
+            {
+                LibX11.XSelectInput(display, currentWindow, (nint)0x20000);
+                eventMaskSubscribed = true;
+
+                nint allowedActionsAtom = LibX11.XInternAtom(display, "_NET_WM_ALLOWED_ACTIONS", false);
+                nint atomType = LibX11.XInternAtom(display, "ATOM", false);
+                if (allowedActionsAtom != 0 && atomType != 0)
+                {
+                    nint[] actions = {
+                        LibX11.XInternAtom(display, "_NET_WM_ACTION_MOVE", false),
+                        LibX11.XInternAtom(display, "_NET_WM_ACTION_RESIZE", false),
+                        LibX11.XInternAtom(display, "_NET_WM_ACTION_MINIMIZE", false),
+                        LibX11.XInternAtom(display, "_NET_WM_ACTION_MAXIMIZE", false),
+                        LibX11.XInternAtom(display, "_NET_WM_ACTION_FULLSCREEN", false),
+                        LibX11.XInternAtom(display, "_NET_WM_ACTION_CHANGE_DESKTOP", false),
+                        LibX11.XInternAtom(display, "_NET_WM_ACTION_CLOSE", false),
+                        LibX11.XInternAtom(display, "_NET_WM_ACTION_ABOVE", false),
+                        LibX11.XInternAtom(display, "_NET_WM_ACTION_BELOW", false),
+                    };
+                    LibX11.XChangeProperty(display, currentWindow, allowedActionsAtom, atomType, 32, 0, actions, actions.Length);
+                    LibX11.XFlush(display);
+                }
+
+                if (TryGetSizeHints(currentWindow, out var sizeHints))
+                {
+                    if ((sizeHints.flags & (long)XSizeHintsFlags.PMaxSize) == 0 || sizeHints.max_width == 0 || sizeHints.max_height == 0)
+                    {
+                        sizeHints.flags |= (long)XSizeHintsFlags.PMaxSize;
+                        sizeHints.max_width = 65535;
+                        sizeHints.max_height = 65535;
+                        SetSizeHints(currentWindow, sizeHints);
+                    }
+                }
             }
             return display != 0 && currentWindow != 0;
         }
@@ -353,42 +391,82 @@ namespace JANOARG.Chartmaker.Utils.NativeAPI.Internal.NativeWindow.LinuxX11
             return true;
         }
 
+        private nint GetToplevelParent(nint window)
+        {
+            if (window == 0) return 0;
+            nint current = window;
+            nint root = LibX11.XDefaultRootWindow(display);
+            while (current != 0 && current != root)
+            {
+                nint parent;
+                if (LibX11.XQueryTree(display, current, out nint rootReturn, out parent, out _, out _) == 0)
+                    break;
+                if (parent == 0 || parent == rootReturn)
+                    return current;
+                current = parent;
+            }
+            return window;
+        }
+
         public RectInt GetWindowRect(nint windowHandle)
         {
             if (!CanUseWindow(windowHandle)) return new(0, 0, 0, 0);
 
-            if (LibX11.XGetWindowAttributes(display, windowHandle, out var attrs) == 0)
+            nint toplevel = GetToplevelParent(windowHandle);
+            if (LibX11.XGetWindowAttributes(display, toplevel, out var attrs) == 0)
                 return new(0, 0, 0, 0);
 
             nint child;
             int rootX = attrs.x;
             int rootY = attrs.y;
             nint root = attrs.root != 0 ? attrs.root : LibX11.XDefaultRootWindow(display);
-            LibX11.XTranslateCoordinates(display, windowHandle, root, 0, 0, out rootX, out rootY, out child);
+            LibX11.XTranslateCoordinates(display, toplevel, root, 0, 0, out rootX, out rootY, out child);
             return new RectInt(rootX, rootY, attrs.width, attrs.height);
         }
 
         public bool SetWindowRect(nint windowHandle, RectInt rect)
         {
-            bool moved = MoveWindow(windowHandle, new Vector2Int(rect.x, rect.y));
-            bool resized = ResizeWindow(windowHandle, new Vector2Int(rect.width, rect.height));
-            return moved && resized;
+            if (!CanUseWindow(windowHandle)) return false;
+            nint toplevel = GetToplevelParent(windowHandle);
+
+            var changes = new XWindowChanges
+            {
+                x = rect.x,
+                y = rect.y,
+                width = System.Math.Max(rect.width, 1),
+                height = System.Math.Max(rect.height, 1)
+            };
+            // CWX(1) | CWY(2) | CWWidth(4) | CWHeight(8) = 15
+            LibX11.XConfigureWindow(display, toplevel, 15, ref changes);
+            LibX11.XFlush(display);
+            return true;
         }
 
         public bool MoveWindow(nint windowHandle, Vector2Int position)
         {
             if (!CanUseWindow(windowHandle)) return false;
-            int result = LibX11.XMoveWindow(display, windowHandle, position.x, position.y);
+            nint toplevel = GetToplevelParent(windowHandle);
+            int result = LibX11.XMoveWindow(display, toplevel, position.x, position.y);
             LibX11.XFlush(display);
-            return result != 0;
+            return result == 0; // Xlib returns 0 on success
         }
 
         public bool ResizeWindow(nint windowHandle, Vector2Int size)
         {
             if (!CanUseWindow(windowHandle)) return false;
-            int result = LibX11.XResizeWindow(display, windowHandle, (uint)System.Math.Max(size.x, 1), (uint)System.Math.Max(size.y, 1));
+            nint toplevel = GetToplevelParent(windowHandle);
+            
+            uint w = (uint)System.Math.Max(size.x, 1);
+            uint h = (uint)System.Math.Max(size.y, 1);
+            
+            LibX11.XResizeWindow(display, windowHandle, w, h);
+            if (toplevel != windowHandle)
+            {
+                LibX11.XResizeWindow(display, toplevel, w, h);
+            }
+            
             LibX11.XFlush(display);
-            return result != 0;
+            return true;
         }
 
         public Vector2Int GetWindowMinSize(nint windowHandle)
@@ -488,6 +566,16 @@ namespace JANOARG.Chartmaker.Utils.NativeAPI.Internal.NativeWindow.LinuxX11
             return new Vector2Int(0, 0);
         }
 
+        public int GetPointerButtonMask()
+        {
+            if (display == 0) display = LibX11.XOpenDisplay(0);
+            if (display == 0) return 0;
+
+            nint root = LibX11.XDefaultRootWindow(display);
+            LibX11.XQueryPointer(display, root, out _, out _, out _, out _, out _, out _, out nint mask);
+            return (int)mask;
+        }
+
         public bool StartWindowDrag(nint windowHandle, Vector2Int pointerPosition)
         {
             return SendMoveResize(windowHandle, pointerPosition, 8);
@@ -495,7 +583,7 @@ namespace JANOARG.Chartmaker.Utils.NativeAPI.Internal.NativeWindow.LinuxX11
 
         public bool StartWindowResize(nint windowHandle, Vector2Int pointerPosition, WindowResizeEdge edge)
         {
-            return SendMoveResize(windowHandle, pointerPosition, (int)edge);
+            return false;
         }
 
         bool SendMoveResize(nint windowHandle, Vector2Int pointerPosition, int direction)
@@ -505,6 +593,8 @@ namespace JANOARG.Chartmaker.Utils.NativeAPI.Internal.NativeWindow.LinuxX11
             nint moveResize = Atom("_NET_WM_MOVERESIZE");
             if (moveResize == 0) return false;
 
+            nint toplevel = GetToplevelParent(windowHandle);
+
             var ev = new XEvent
             {
                 type = 33,
@@ -513,7 +603,7 @@ namespace JANOARG.Chartmaker.Utils.NativeAPI.Internal.NativeWindow.LinuxX11
                     type = 33,
                     send_event = 1,
                     display = display,
-                    window = windowHandle,
+                    window = toplevel,
                     message_type = moveResize,
                     format = 32,
                     data0 = pointerPosition.x,
@@ -528,6 +618,8 @@ namespace JANOARG.Chartmaker.Utils.NativeAPI.Internal.NativeWindow.LinuxX11
             int result = LibX11.XSendEvent(display, LibX11.XDefaultRootWindow(display), false,
                 (nint)(0x00080000 | 0x00100000), ref ev);
             LibX11.XFlush(display);
+            LibX11.XSync(display, false);
+
             return result != 0;
         }
 
@@ -692,6 +784,23 @@ namespace JANOARG.Chartmaker.Utils.NativeAPI.Internal.NativeWindow.LinuxX11
             return IntPtr.Size == 8
                 ? (int)Marshal.ReadInt64(prop, byteOffset)
                 : Marshal.ReadInt32(prop, byteOffset);
+        }
+
+        public void PumpEvents()
+        {
+            if (!EnsureDisplay()) return;
+            if (currentWindow == 0) return;
+
+            while (LibX11.XPending(display) > 0)
+            {
+                var ev = new XEvent();
+                LibX11.XNextEvent(display, ref ev);
+                if (ev.type == 22)
+                {
+                    var cfg = ev.configureEvent;
+                    if (cfg.eventWindow != currentWindow) continue;
+                }
+            }
         }
     }
 }

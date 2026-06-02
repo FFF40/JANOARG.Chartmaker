@@ -111,6 +111,21 @@ namespace JANOARG.Chartmaker.Utils.NativeAPI.Internal.NativeWindow.LinuxX11
 
         [DllImport(LIBX11_PATH)]
         public static extern int XUngrabPointer(nint display, nint time);
+
+        [DllImport(LIBX11_PATH)]
+        public static extern int XSelectInput(nint display, nint window, nint eventMask);
+
+        [DllImport(LIBX11_PATH)]
+        public static extern int XPending(nint display);
+
+        [DllImport(LIBX11_PATH)]
+        public static extern int XNextEvent(nint display, ref XEvent eventReturn);
+
+        [DllImport(LIBX11_PATH)]
+        public static extern int XSetInputFocus(nint display, nint window, int revertTo, nint time);
+
+        [DllImport(LIBX11_PATH)]
+        public static extern int XGetInputFocus(nint display, out nint focusReturn, out int revertToReturn);
     }
 
     internal static class LibXCursor
@@ -242,11 +257,30 @@ namespace JANOARG.Chartmaker.Utils.NativeAPI.Internal.NativeWindow.LinuxX11
         public nint data4;
     }
 
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct XConfigureEvent
+    {
+        public int type;
+        public nint serial;
+        public bool send_event;
+        public nint display;
+        public nint eventWindow;
+        public nint window;
+        public int x;
+        public int y;
+        public int width;
+        public int height;
+        public int border_width;
+        public nint above;
+        public bool override_redirect;
+    }
+
     [StructLayout(LayoutKind.Explicit, Size = 192)]
     internal struct XEvent
     {
         [FieldOffset(0)] public int type;
         [FieldOffset(0)] public XClientMessageEvent clientMessage;
+        [FieldOffset(0)] public XConfigureEvent configureEvent;
     }
 
     internal static class X11Convert

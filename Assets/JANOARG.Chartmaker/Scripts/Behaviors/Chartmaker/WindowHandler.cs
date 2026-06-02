@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using JANOARG.Chartmaker.UI.Cursor;
 using JANOARG.Chartmaker.UI.NativeUI;
 using JANOARG.Chartmaker.UI.Tooltip;
@@ -79,6 +79,8 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
 
         public void Update()
         {
+            targetWindow.PumpEvents();
+
             if (Screen.fullScreen != isFullScreen)
             {
                 isFullScreen = Screen.fullScreen;
@@ -204,8 +206,16 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
         {
             if (isNativeResizing)
             {
-                if (Input.GetMouseButton(0)) UpdateManualResize();
-                else isNativeResizing = false;
+                if ((targetWindow.GetPointerButtonMask() & 0x100) != 0)
+                {
+                    UpdateManualResize(false);
+                    return;
+                }
+                else
+                {
+                    UpdateManualResize(true); // Force final sync on release
+                    isNativeResizing = false;
+                }
             }
 
             if (!NativeWindow.IsApiAvailable || framed || maximized || isFullScreen || isDragging)
@@ -225,6 +235,7 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
 
             if (Input.GetMouseButtonDown(0))
             {
+                targetWindow.StartResize(targetWindow.GetPointerPosition(), edge);
                 resizeStartPointer = targetWindow.GetPointerPosition();
                 resizeStartRect = targetWindow.Rect;
                 resizeEdge = edge;
@@ -233,8 +244,14 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             }
         }
 
-        void UpdateManualResize()
+        float lastResizeTime;
+        const float ResizeThrottleInterval = 0.05f; // 50ms
+
+        void UpdateManualResize(bool force)
         {
+            if (!force && Time.realtimeSinceStartup - lastResizeTime < ResizeThrottleInterval)
+                return;
+
             Vector2Int delta = targetWindow.GetPointerPosition() - resizeStartPointer;
             RectInt rect = resizeStartRect;
             Vector2Int minSize = targetWindow.MinSize;
@@ -273,8 +290,19 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
 
             rect = ApplyResizeMinSize(rect, minSize, resizeEdge);
             RectInt currentRect = targetWindow.Rect;
-            if (rect.x != currentRect.x || rect.y != currentRect.y || rect.width != currentRect.width || rect.height != currentRect.height)
+
+            bool sizeChanged = rect.width != Screen.width || rect.height != Screen.height;
+            bool posChanged = rect.x != currentRect.x || rect.y != currentRect.y;
+
+            if (sizeChanged || posChanged || force)
+            {
+                lastResizeTime = Time.realtimeSinceStartup;
                 targetWindow.Rect = rect;
+                if (force)
+                {
+                    Screen.SetResolution(rect.width, rect.height, FullScreenMode.Windowed);
+                }
+            }
         }
 
         RectInt ApplyResizeMinSize(RectInt rect, Vector2Int minSize, WindowResizeEdge edge)
