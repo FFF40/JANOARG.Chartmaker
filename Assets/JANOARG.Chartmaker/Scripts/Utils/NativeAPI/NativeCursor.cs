@@ -30,8 +30,6 @@ namespace JANOARG.Chartmaker.Utils.NativeAPI
         ResizeBottomRight      = 3007,
         ResizeVertical         = 3008,
         ResizeHorizontal       = 3009,
-        ResizeDiagonalTopLeft  = 3010,
-        ResizeDiagonalTopRight = 3011,
         ResizeDiagonalBottomLeftTopRight = 3012,
         ResizeDiagonalTopLeftBottomRight = 3013,
     }
