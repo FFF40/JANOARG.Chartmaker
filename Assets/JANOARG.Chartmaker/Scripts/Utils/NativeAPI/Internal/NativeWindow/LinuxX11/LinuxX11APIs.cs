@@ -389,14 +389,14 @@ namespace JANOARG.Chartmaker.Utils.NativeAPI.Internal.NativeWindow.LinuxX11
                 "028006030e0e7ebffc7f7070c0600140",
                 "split_h",
             } },
-            { CursorStyle.ResizeDiagonalTopLeft, new [] {
+            { CursorStyle.ResizeDiagonalTopLeftBottomRight, new [] {
                 "fd_double_arrow",
                 "size_bdiag",
                 "size-bdiag",
                 "50585d75b494802d0151028115016902",
                 "fcf1c3c7cd4491d801f1e1c78f100000",
             } },
-            { CursorStyle.ResizeDiagonalTopRight, new [] {
+            { CursorStyle.ResizeDiagonalBottomLeftTopRight, new [] {
                 "bd_double_arrow",
                 "size_fdiag",
                 "size-fdiag",

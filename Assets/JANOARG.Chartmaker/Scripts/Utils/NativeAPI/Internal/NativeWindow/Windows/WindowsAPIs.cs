@@ -112,8 +112,8 @@ namespace JANOARG.Chartmaker.Utils.NativeAPI.Internal.NativeWindow.Windows
 
                 WinCursorStyle.ResizeHorizontal => CursorStyle.ResizeHorizontal,
                 WinCursorStyle.ResizeVertical => CursorStyle.ResizeVertical,
-                WinCursorStyle.ResizeDiagonalTopLeft => CursorStyle.ResizeDiagonalTopLeft,
-                WinCursorStyle.ResizeDiagonalTopRight => CursorStyle.ResizeDiagonalTopRight,
+                WinCursorStyle.ResizeDiagonalTopLeft => CursorStyle.ResizeDiagonalTopLeftBottomRight,
+                WinCursorStyle.ResizeDiagonalTopRight => CursorStyle.ResizeDiagonalBottomLeftTopRight,
 
                 _ => CursorStyle.Arrow,
             };
@@ -138,8 +138,8 @@ namespace JANOARG.Chartmaker.Utils.NativeAPI.Internal.NativeWindow.Windows
 
                 CursorStyle.ResizeHorizontal => WinCursorStyle.ResizeHorizontal,
                 CursorStyle.ResizeVertical => WinCursorStyle.ResizeVertical,
-                CursorStyle.ResizeDiagonalTopLeft => WinCursorStyle.ResizeDiagonalTopLeft,
-                CursorStyle.ResizeDiagonalTopRight => WinCursorStyle.ResizeDiagonalTopRight,
+                CursorStyle.ResizeDiagonalTopLeftBottomRight => WinCursorStyle.ResizeDiagonalTopLeft,
+                CursorStyle.ResizeDiagonalBottomLeftTopRight => WinCursorStyle.ResizeDiagonalTopRight,
 
                 _ => WinCursorStyle.Unknown,
             };
