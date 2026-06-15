@@ -182,9 +182,11 @@ namespace JANOARG.Chartmaker.Utils.NativeAPI.Internal.NativeWindow.LinuxX11
 
         public bool SetWindowCursor(nint windowHandle, CursorStyle cursor, bool bestEffort)
         {
+            if (!EnsureDisplay()) return false;
+
             if (cursorCache.ContainsKey(cursor))
             {
-                if (LibX11.XDefineCursor(display, windowHandle, cursorCache[cursor]) == 0)
+                if (LibX11.XDefineCursor(display, windowHandle, cursorCache[cursor]) != 0)
                 {
                     return true;
                 }
@@ -201,11 +203,22 @@ namespace JANOARG.Chartmaker.Utils.NativeAPI.Internal.NativeWindow.LinuxX11
                 if (cursorPtr != 0)
                 {
                     cursorCache[cursor] = cursorPtr;
-                    return LibX11.XDefineCursor(display, windowHandle, cursorCache[cursor]) == 0;
+                    UnityEngine.Debug.Log($"Using cursur {name} (pointer {cursorPtr}) for CursorStyle {cursor}");
+                    return ProcesssX11Error(LibX11.XDefineCursor(display, windowHandle, cursorCache[cursor])) != 0;
                 }
             }
+            UnityEngine.Debug.Log($"Can not find a cursor for the CursorStyle {cursor}");
 
             return false;
+        }
+
+        public static int ProcesssX11Error(int returnValue)
+        {
+            if (returnValue == 0)
+            {
+                UnityEngine.Debug.LogWarning($"X11 API returned error {returnValue}");
+            }
+            return returnValue;
         }
     }
 }

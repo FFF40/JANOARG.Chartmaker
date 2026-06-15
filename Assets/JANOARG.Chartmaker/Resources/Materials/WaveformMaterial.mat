@@ -33,7 +33,7 @@ Material:
     - _DarkAlpha: 0.5
     - _Scale: 0.9
     - _StereoSplit: 0
-    - _Thickness: 0.005319149
+    - _Thickness: 0.004464286
     m_Colors:
     - _Color: {r: 1, g: 1, b: 1, a: 1}
   m_BuildTextureStacks: []

@@ -35,7 +35,6 @@ namespace JANOARG.Chartmaker.UI.Cursor
 
         public void Update()
         {
-            UnityEngine.Debug.Log(activeCustomCursor);
             if (activeCustomCursor && activeCustomCursor.Frames.Count > 1) 
             {
                 currentCursorFrameTime += Time.unscaledDeltaTime;
