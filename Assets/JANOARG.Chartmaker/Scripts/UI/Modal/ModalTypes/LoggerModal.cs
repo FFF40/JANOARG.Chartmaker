@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using JANOARG.Chartmaker.Behaviors.Runtime;
 using JANOARG.Chartmaker.UI.NativeUI;
 using TMPro;
 using UnityEngine;
@@ -26,7 +27,7 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
         public Sprite   ErrorIcon;
         public TMP_Text ErrorCountLabel; 
 
-        BorderlessWindow.LoggerEntry activeEntry;
+        RuntimeLogManager.LoggerEntry activeEntry;
         float                        activeEntryHeight;
 
         public void Awake()
@@ -62,7 +63,7 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
             float offsetMax = EntryViewport.rect.height + EntryHolder.anchoredPosition.y;
 
             int count = 0;
-            void AddItem(BorderlessWindow.LoggerEntry entry)
+            void AddItem(RuntimeLogManager.LoggerEntry entry)
             {
                 LoggerEntry item;
           
@@ -90,7 +91,7 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
 
             int infoCount = 0, warnCount = 0, errCount = 0;
      
-            var logger = BorderlessWindow.Logger.FindAll(x => 
+            var logger = RuntimeLogManager.Logger.FindAll(x =>
             {
                 // ???????????????
                 bool a(int x, bool y) => y;
@@ -104,7 +105,7 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
             });
      
             float listHeight = logger.Count * itemHeight;
-            int activeIndex = BorderlessWindow.Logger.IndexOf(activeEntry);
+            int activeIndex = RuntimeLogManager.Logger.IndexOf(activeEntry);
        
             if (activeIndex >= 0) 
             {
@@ -124,7 +125,7 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
        
             while (offset < offsetMax && index < logger.Count) 
             {
-                AddItem(BorderlessWindow.Logger[index]);
+                AddItem(RuntimeLogManager.Logger[index]);
                 index++;
             }
       
@@ -139,7 +140,7 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
             }
         }
     
-        public void LoadEntry(BorderlessWindow.LoggerEntry entry, LoggerEntry item)
+        public void LoadEntry(RuntimeLogManager.LoggerEntry entry, LoggerEntry item)
         {
             activeEntry = entry;
        
@@ -155,7 +156,7 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
 
         public void Clear() 
         {
-            BorderlessWindow.Logger.Clear();
+            RuntimeLogManager.Logger.Clear();
       
             UpdateLogger();
         }

@@ -506,8 +506,6 @@ namespace JANOARG.Chartmaker.UI.Pickers.EasingPicker
                     CursorManager.main.PushCursor(Cursor);
             
                 CurrentCursor = Cursor;
-           
-                BorderlessWindow.UpdateCursor();
             }
         }
 

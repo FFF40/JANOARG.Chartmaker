@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.EventSystems;
+using JANOARG.Chartmaker.Utils.NativeAPI;
 
 namespace JANOARG.Chartmaker.UI.NativeUI
 {
@@ -9,12 +10,12 @@ namespace JANOARG.Chartmaker.UI.NativeUI
 
         public void OnPointerEnter(PointerEventData eventData)
         {
-            // BorderlessWindow.CurrentWindowZone = ZoneType;
+            if (NativeWindow.IsApiAvailable) NativeWindow.MainWindow.SetHitTestZone((int)ZoneType);
         }
 
         public void OnPointerExit(PointerEventData eventData)
         {
-            // BorderlessWindow.CurrentWindowZone = WindowZone.Client;
+            if (NativeWindow.IsApiAvailable) NativeWindow.MainWindow.SetHitTestZone((int)WindowZone.Client);
         }
     }
 }

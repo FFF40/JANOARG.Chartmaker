@@ -1,6 +1,7 @@
 using JANOARG.Chartmaker.Behaviors.Chartmaker;
 using JANOARG.Chartmaker.Data;
 using JANOARG.Chartmaker.Utils;
+using JANOARG.Chartmaker.Utils.NativeAPI;
 using JANOARG.Shared.Data.ChartInfo;
 using UnityEngine;
 using FFTWindow = JANOARG.Chartmaker.Utils.FFTWindow;
@@ -18,6 +19,7 @@ namespace JANOARG.Chartmaker.Constants
         public string Theme            = "Prototype";
         public bool   CustomCursors    = true;
         public bool   UseDefaultWindow = false;
+        public PreferredCursorMode PreferredCursorMode = PreferredCursorMode.PreferCustom;
 
         public FileSizeBase   FileSizeBase   = Application.platform == RuntimePlatform.WindowsPlayer ? FileSizeBase.Binary : FileSizeBase.Decimal;
         public FFTWindow      FFTWindow      = FFTWindow.Hann;
@@ -39,6 +41,7 @@ namespace JANOARG.Chartmaker.Constants
 
             Theme = storage.Get("AP:Theme", Theme);
             CustomCursors = storage.Get("AP:CustomCursors", CustomCursors);
+            PreferredCursorMode = storage.Get("AP:PreferredCursorMode", CustomCursors ? PreferredCursorMode.PreferCustom : PreferredCursorMode.PreferNative);
             UseDefaultWindow = storage.Get("LA:UseDefaultWindow", UseDefaultWindow);
             ForceNavigationBar = storage.Get("LA:ForceNavigationBar", true);
             

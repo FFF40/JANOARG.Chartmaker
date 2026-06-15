@@ -82,7 +82,10 @@ namespace JANOARG.Chartmaker.Utils
         private static extern int XStoreName(IntPtr display, IntPtr window, string windowName);
 
         [DllImport(X11Lib)]
-        private static extern int XDestroyWindow(IntPtr display, IntPtr window);
+        private static extern int XIconifyWindow(IntPtr display, IntPtr window, int screenNumber);
+
+        [DllImport(X11Lib)]
+        private static extern int XDefaultScreen(IntPtr display);
 
         [DllImport(X11Lib)]
         static extern int XMoveResizeWindow(IntPtr display, IntPtr w, int x, int y, uint width, uint height);
@@ -153,7 +156,7 @@ namespace JANOARG.Chartmaker.Utils
 
         public static void DestroyWindow()
         {
-            XDestroyWindow(display, currentWindow);
+            XIconifyWindow(display, currentWindow, XDefaultScreen(display));
         }
 
         public static string GetWindowTitle()

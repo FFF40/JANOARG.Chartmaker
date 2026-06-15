@@ -904,7 +904,6 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                 if (Cursor != 0) 
                     CursorManager.main.PushCursor(Cursor);
                 CurrentCursor = Cursor;
-                BorderlessWindow.UpdateCursor();
             }
         }
 

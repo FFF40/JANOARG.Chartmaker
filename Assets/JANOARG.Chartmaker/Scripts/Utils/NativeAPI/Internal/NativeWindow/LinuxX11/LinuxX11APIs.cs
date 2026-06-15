@@ -2,7 +2,6 @@
 using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
-using Unity.Mathematics;
 
 namespace JANOARG.Chartmaker.Utils.NativeAPI.Internal.NativeWindow.LinuxX11
 {
@@ -17,7 +16,25 @@ namespace JANOARG.Chartmaker.Utils.NativeAPI.Internal.NativeWindow.LinuxX11
         public static extern nint XDefaultRootWindow(nint display);
 
         [DllImport(LIBX11_PATH)]
+        public static extern int XQueryTree(nint display, nint window, out nint root_return, out nint parent_return, out nint children_return, out nint nchildren_return);
+
+        [DllImport(LIBX11_PATH)]
+        public static extern int XConfigureWindow(nint display, nint window, nuint value_mask, ref XWindowChanges changes);
+
+        [DllImport(LIBX11_PATH)]
+        public static extern int XDefaultScreen(nint display);
+
+        [DllImport(LIBX11_PATH)]
+        public static extern int XDisplayWidth(nint display, int screenNumber);
+
+        [DllImport(LIBX11_PATH)]
+        public static extern int XDisplayHeight(nint display, int screenNumber);
+
+        [DllImport(LIBX11_PATH)]
         public static extern int XMapWindow(nint display, nint window);
+
+        [DllImport(LIBX11_PATH)]
+        public static extern int XUnmapWindow(nint display, nint window);
 
         [DllImport(LIBX11_PATH)]
         public static extern int XMoveWindow(nint display, nint window, int x, int y);
@@ -32,22 +49,73 @@ namespace JANOARG.Chartmaker.Utils.NativeAPI.Internal.NativeWindow.LinuxX11
         public static extern int XStoreName(nint display, nint window, string window_name);
 
         [DllImport(LIBX11_PATH)]
-        public static extern int XDestroyWindow(nint display, nint window);
+        public static extern int XIconifyWindow(nint display, nint window, int screenNumber);
 
         [DllImport(LIBX11_PATH)]
         public static extern int XCloseDisplay(nint display);
 
         [DllImport(LIBX11_PATH)]
-        public static extern nint XAllocSizeHints(nint display);
+        public static extern nint XAllocSizeHints();
 
         [DllImport(LIBX11_PATH)]
-        public static extern int XGetWMSizeHints(nint display, nint window, nint hints_return, ref long supplied_return);
+        public static extern int XGetWMNormalHints(nint display, nint window, nint hints_return, ref long supplied_return);
 
         [DllImport(LIBX11_PATH)]
-        public static extern int XSetWMSizeHints(nint display, nint window, nint hints);
+        public static extern void XSetWMNormalHints(nint display, nint window, nint hints);
 
         [DllImport(LIBX11_PATH)]
         public static extern int XDefineCursor(nint display, nint window, nint cursor);
+
+        [DllImport(LIBX11_PATH)]
+        public static extern int XUndefineCursor(nint display, nint window);
+
+        [DllImport(LIBX11_PATH)]
+        public static extern int XFree(nint data);
+
+        [DllImport(LIBX11_PATH)]
+        public static extern int XFlush(nint display);
+
+        [DllImport(LIBX11_PATH)]
+        public static extern nint XInternAtom(nint display, string atomName, bool onlyIfExists);
+
+        [DllImport(LIBX11_PATH)]
+        public static extern void XChangeProperty(nint display, nint window, nint property, nint type, int format, int mode, ref MotifWmHints data, int nelements);
+
+        [DllImport(LIBX11_PATH)]
+        public static extern void XChangeProperty(nint display, nint window, nint property, nint type, int format, int mode, nint[] data, int nelements);
+
+        [DllImport(LIBX11_PATH)]
+        public static extern int XDeleteProperty(nint display, nint window, nint property);
+
+        [DllImport(LIBX11_PATH)]
+        public static extern int XSendEvent(nint display, nint window, bool propagate, nint eventMask, ref XEvent eventSend);
+
+        [DllImport(LIBX11_PATH)]
+        public static extern int XGetWindowAttributes(nint display, nint window, out XWindowAttributes windowAttributes);
+
+        [DllImport(LIBX11_PATH)]
+        public static extern int XTranslateCoordinates(nint display, nint srcWindow, nint destWindow, int srcX, int srcY, out int destX, out int destY, out nint child);
+
+        [DllImport(LIBX11_PATH)]
+        public static extern int XGetWindowProperty(nint display, nint window, nint property, nint longOffset, nint longLength, bool delete, nint reqType, out nint actualTypeReturn, out int actualFormatReturn, out nint nitemsReturn, out nint bytesAfterReturn, out nint propReturn);
+
+        [DllImport(LIBX11_PATH)]
+        public static extern bool XQueryPointer(nint display, nint window, out nint root_return, out nint child_return, out int root_x_return, out int root_y_return, out int win_x_return, out int win_y_return, out nint mask_return);
+
+        [DllImport(LIBX11_PATH)]
+        public static extern int XSync(nint display, bool discard);
+
+        [DllImport(LIBX11_PATH)]
+        public static extern int XUngrabPointer(nint display, nint time);
+
+        [DllImport(LIBX11_PATH)]
+        public static extern int XSelectInput(nint display, nint window, nint eventMask);
+
+        [DllImport(LIBX11_PATH)]
+        public static extern int XPending(nint display);
+
+        [DllImport(LIBX11_PATH)]
+        public static extern int XNextEvent(nint display, ref XEvent eventReturn);
     }
 
     internal static class LibXCursor
@@ -84,6 +152,105 @@ namespace JANOARG.Chartmaker.Utils.NativeAPI.Internal.NativeWindow.LinuxX11
         public int max_aspect_x, max_aspect_y;
         public int base_width, base_height;
         public int win_gravity;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct MotifWmHints
+    {
+        public nuint flags;
+        public nuint functions;
+        public nuint decorations;
+        public nint inputMode;
+        public nuint status;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct XWindowAttributes
+    {
+        public int x, y;
+        public int width, height;
+        public int border_width;
+        public int depth;
+        public nint visual;
+        public nint root;
+        public int c_class;
+        public int bit_gravity;
+        public int win_gravity;
+        public int backing_store;
+        public nint backing_planes;
+        public nint backing_pixel;
+        public bool save_under;
+        public nint colormap;
+        public bool map_installed;
+        public int map_state;
+        public nint all_event_masks;
+        public nint your_event_mask;
+        public nint do_not_propagate_mask;
+        public bool override_redirect;
+        public nint screen;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct XWindowChanges
+    {
+        public int x, y;
+        public int width, height;
+        public int border_width;
+        public nint sibling;
+        public int stack_mode;
+    }
+
+    internal static class XConstants
+    {
+        public const nuint CWX = 1 << 0;
+        public const nuint CWY = 1 << 1;
+        public const nuint CWWidth = 1 << 2;
+        public const nuint CWHeight = 1 << 3;
+        public const nuint CWBorderWidth = 1 << 4;
+        public const nuint CWOverrideRedirect = 1 << 9;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct XClientMessageEvent
+    {
+        public int type;
+        public nuint serial;
+        public int send_event;
+        public nint display;
+        public nint window;
+        public nint message_type;
+        public int format;
+        public nint data0;
+        public nint data1;
+        public nint data2;
+        public nint data3;
+        public nint data4;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct XConfigureEvent
+    {
+        public int type;
+        public nint serial;
+        public bool send_event;
+        public nint display;
+        public nint eventWindow;
+        public nint window;
+        public int x;
+        public int y;
+        public int width;
+        public int height;
+        public int border_width;
+        public nint above;
+        public bool override_redirect;
+    }
+
+    [StructLayout(LayoutKind.Explicit, Size = 192)]
+    internal struct XEvent
+    {
+        [FieldOffset(0)] public int type;
+        [FieldOffset(0)] public XClientMessageEvent clientMessage;
+        [FieldOffset(0)] public XConfigureEvent configureEvent;
     }
 
     internal static class X11Convert
@@ -222,14 +389,14 @@ namespace JANOARG.Chartmaker.Utils.NativeAPI.Internal.NativeWindow.LinuxX11
                 "028006030e0e7ebffc7f7070c0600140",
                 "split_h",
             } },
-            { CursorStyle.ResizeDiagonalTopLeft, new [] {
+            { CursorStyle.ResizeDiagonalTopLeftBottomRight, new [] {
                 "fd_double_arrow",
                 "size_bdiag",
                 "size-bdiag",
                 "50585d75b494802d0151028115016902",
                 "fcf1c3c7cd4491d801f1e1c78f100000",
             } },
-            { CursorStyle.ResizeDiagonalTopRight, new [] {
+            { CursorStyle.ResizeDiagonalBottomLeftTopRight, new [] {
                 "bd_double_arrow",
                 "size_fdiag",
                 "size-fdiag",

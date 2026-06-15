@@ -13,14 +13,17 @@ namespace JANOARG.Chartmaker.Utils.NativeAPI.Internal.NativeWindow.Windows
 
         public bool HookWindow(nint windowHandle)
         {
-            if (hookData.ContainsKey(windowHandle)) return false;
+            if (windowHandle == 0) return false;
+            if (hookData.ContainsKey(windowHandle)) return true;
 
             var targetHookData = new WindowsNativeWindowHookData();
             hookData[windowHandle] = targetHookData;
 
             var newProgDelegate = new User32.WinProc(WindowProc);
             var newProc = Marshal.GetFunctionPointerForDelegate(newProgDelegate);
+            targetHookData.NewProc = newProgDelegate;
             targetHookData.OldProc = User32.SetWindowLong(windowHandle, WinWindowLong.WinProc, newProc);
+            targetHookData.IsActive = User32.GetActiveWindow() == windowHandle;
 
             return true;
         }
@@ -46,10 +49,21 @@ namespace JANOARG.Chartmaker.Utils.NativeAPI.Internal.NativeWindow.Windows
 
         nint WindowProc(nint hWnd, WinWindowMessage msg, nint wParam, nint lParam)
         {
-            var targetHookData = hookData[hWnd];
+            if (!hookData.TryGetValue(hWnd, out var targetHookData))
+                return User32.DefWindowProc(hWnd, msg, wParam, lParam);
 
             switch (msg)
             {
+                case WinWindowMessage.Size:
+                {
+                    targetHookData.State = (int)wParam switch
+                    {
+                        2 => WindowState.Maximized,
+                        1 => WindowState.Minimized,
+                        _ => WindowState.Floating,
+                    };
+                    return User32.CallWindowProc(targetHookData.OldProc, hWnd, msg, wParam, lParam);
+                }
                 case WinWindowMessage.GetMinMaxInfo:
                 {
                     var minMaxInfo = Marshal.PtrToStructure<WinMinMaxInfo>(lParam);
@@ -69,13 +83,61 @@ namespace JANOARG.Chartmaker.Utils.NativeAPI.Internal.NativeWindow.Windows
                     Marshal.StructureToPtr(minMaxInfo, lParam, false);
                     return User32.DefWindowProc(hWnd, msg, wParam, lParam);
                 }
+                case WinWindowMessage.NcCalcSize:
+                {
+                    if (targetHookData.Style == WindowStyle.Native)
+                        return User32.CallWindowProc(targetHookData.OldProc, hWnd, msg, wParam, lParam);
+
+                    bool isMaximized = targetHookData.State == WindowState.Maximized || User32.IsZoomed(hWnd);
+                    if (wParam != 0)
+                    {
+                        var size = Marshal.PtrToStructure<WinNcCalcSizeParams>(lParam);
+                        size.rect0.top += isMaximized ? 7 : 0;
+                        size.rect0.bottom -= 7;
+                        size.rect0.left += 7;
+                        size.rect0.right -= 7;
+                        Marshal.StructureToPtr(size, lParam, true);
+                    }
+                    else
+                    {
+                        var size = Marshal.PtrToStructure<WinRect>(lParam);
+                        size.top += isMaximized ? 7 : 0;
+                        size.bottom -= 7;
+                        size.left += 7;
+                        size.right -= 7;
+                        Marshal.StructureToPtr(size, lParam, true);
+                    }
+                    return 0;
+                }
+                case WinWindowMessage.StyleChanged:
+                {
+                    if ((int)wParam == (int)WinWindowLong.Style)
+                    {
+                        var styleStruct = Marshal.PtrToStructure<WinStyleStruct>(lParam);
+                        targetHookData.Style = (styleStruct.newStyle & (uint)WinWindowStyle.Caption) != 0
+                            ? targetHookData.Style
+                            : WindowStyle.Custom;
+                    }
+                    return User32.CallWindowProc(targetHookData.OldProc, hWnd, msg, wParam, lParam);
+                }
                 case WinWindowMessage.SetCursor: case WinWindowMessage.MouseMove:
                 {
                     var proc = User32.CallWindowProc(targetHookData.OldProc, hWnd, msg, wParam, lParam);
                     if (targetHookData.CurrentCursor == 0) return proc;
                     
                     User32.SetCursor(User32.LoadCursor(0, targetHookData.CurrentCursor));
-                    return User32.DefWindowProc(hWnd, msg, wParam, lParam);
+                    return -1;
+                }
+                case WinWindowMessage.NcHitTest:
+                {
+                    var proc = User32.CallWindowProc(targetHookData.OldProc, hWnd, msg, wParam, lParam);
+                    if (targetHookData.Style == WindowStyle.Native || targetHookData.HitTestZone <= 1) return proc;
+                    return targetHookData.HitTestZone;
+                }
+                case WinWindowMessage.Activate:
+                {
+                    targetHookData.IsActive = wParam != 0;
+                    return User32.CallWindowProc(targetHookData.OldProc, hWnd, msg, wParam, lParam);
                 }
 
                 default:
@@ -87,8 +149,13 @@ namespace JANOARG.Chartmaker.Utils.NativeAPI.Internal.NativeWindow.Windows
     internal class WindowsNativeWindowHookData
     {
         public nint OldProc;
+        public User32.WinProc NewProc;
         public Vector2Int MinSize;
         public Vector2Int MaxSize;
         public nint CurrentCursor;
+        public int HitTestZone = 1;
+        public bool IsActive = true;
+        public WindowStyle Style = WindowStyle.Native;
+        public WindowState State = WindowState.Floating;
     }
 }

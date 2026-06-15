@@ -31,11 +31,21 @@ namespace JANOARG.Chartmaker.Utils.NativeAPI.Internal.NativeWindow.Windows
         public static extern nint SetWindowLong32(nint hWnd, int nIndex, nint dwNewLong);
         [DllImport(USER32_PATH, EntryPoint = "SetWindowLongPtr", CharSet = CharSet.Auto)]
         public static extern nint SetWindowLong64(nint hWnd, int nIndex, nint dwNewLong);
+        [DllImport(USER32_PATH, EntryPoint = "GetWindowLong", CharSet = CharSet.Auto)]
+        public static extern nint GetWindowLong32(nint hWnd, int nIndex);
+        [DllImport(USER32_PATH, EntryPoint = "GetWindowLongPtr", CharSet = CharSet.Auto)]
+        public static extern nint GetWindowLong64(nint hWnd, int nIndex);
 
         public static nint SetWindowLong(nint hWnd, WinWindowLong nIndex, nint dwNewLong)
         {
             if (IntPtr.Size == 8) return SetWindowLong64(hWnd, (int)nIndex, dwNewLong);
             else return SetWindowLong32(hWnd, (int)nIndex, dwNewLong);
+        }
+
+        public static nint GetWindowLong(nint hWnd, WinWindowLong nIndex)
+        {
+            if (IntPtr.Size == 8) return GetWindowLong64(hWnd, (int)nIndex);
+            else return GetWindowLong32(hWnd, (int)nIndex);
         }
 
         [DllImport(USER32_PATH)]
@@ -44,6 +54,8 @@ namespace JANOARG.Chartmaker.Utils.NativeAPI.Internal.NativeWindow.Windows
         public static extern bool MoveWindow(nint hWnd, int X, int Y, int nWidth, int nHeight, bool bRepaint);
         [DllImport(USER32_PATH)]
         public static extern bool ShowWindow(nint hWnd, WinWindowState nCmdShow);
+        [DllImport(USER32_PATH)]
+        public static extern bool SetWindowPos(nint hWnd, nint hWndInsertAfter, int x, int y, int cx, int cy, WinSetWindowPosFlags flags);
 
         [DllImport(USER32_PATH)]
         public static extern bool IsIconic(nint hWnd);
@@ -100,8 +112,8 @@ namespace JANOARG.Chartmaker.Utils.NativeAPI.Internal.NativeWindow.Windows
 
                 WinCursorStyle.ResizeHorizontal => CursorStyle.ResizeHorizontal,
                 WinCursorStyle.ResizeVertical => CursorStyle.ResizeVertical,
-                WinCursorStyle.ResizeDiagonalTopLeft => CursorStyle.ResizeDiagonalTopLeft,
-                WinCursorStyle.ResizeDiagonalTopRight => CursorStyle.ResizeDiagonalTopRight,
+                WinCursorStyle.ResizeDiagonalTopLeft => CursorStyle.ResizeDiagonalTopLeftBottomRight,
+                WinCursorStyle.ResizeDiagonalTopRight => CursorStyle.ResizeDiagonalBottomLeftTopRight,
 
                 _ => CursorStyle.Arrow,
             };
@@ -126,8 +138,8 @@ namespace JANOARG.Chartmaker.Utils.NativeAPI.Internal.NativeWindow.Windows
 
                 CursorStyle.ResizeHorizontal => WinCursorStyle.ResizeHorizontal,
                 CursorStyle.ResizeVertical => WinCursorStyle.ResizeVertical,
-                CursorStyle.ResizeDiagonalTopLeft => WinCursorStyle.ResizeDiagonalTopLeft,
-                CursorStyle.ResizeDiagonalTopRight => WinCursorStyle.ResizeDiagonalTopRight,
+                CursorStyle.ResizeDiagonalTopLeftBottomRight => WinCursorStyle.ResizeDiagonalTopLeft,
+                CursorStyle.ResizeDiagonalBottomLeftTopRight => WinCursorStyle.ResizeDiagonalTopRight,
 
                 _ => WinCursorStyle.Unknown,
             };
@@ -222,6 +234,11 @@ namespace JANOARG.Chartmaker.Utils.NativeAPI.Internal.NativeWindow.Windows
         Maximize = 0x01000000,
         Caption = 0x00C00000,
         Border = 0x00800000,
+        DlgFrame = 0x00400000,
+        SysMenu = 0x00080000,
+        ThickFrame = 0x00040000,
+        MinimizeBox = 0x00020000,
+        MaximizeBox = 0x00010000,
     }
 
     internal enum WinWindowMessage : int
@@ -231,9 +248,41 @@ namespace JANOARG.Chartmaker.Utils.NativeAPI.Internal.NativeWindow.Windows
         Moving = 0x0216,
         Move = 0x0003,
         GetMinMaxInfo = 0x0024,
+        NcCalcSize = 0x0083,
+        StyleChanged = 0x007D,
         SetCursor = 0x0020,
         MouseMove = 0x0200,
         NcHitTest = 0x0084,
+        Activate = 0x0006,
+    }
+
+    [Flags]
+    internal enum WinSetWindowPosFlags : uint
+    {
+        NoSize = 0x0001,
+        NoMove = 0x0002,
+        NoZOrder = 0x0004,
+        FrameChanged = 0x0020,
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct WinWindowPos
+    {
+        public nint hWnd, hWndInsertAfter;
+        public int x, y, cx, cy, flags;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct WinNcCalcSizeParams
+    {
+        public WinRect rect0, rect1, rect2;
+        public WinWindowPos pos;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct WinStyleStruct
+    {
+        public uint oldStyle, newStyle;
     }
 
     internal static class WinCursorStyle

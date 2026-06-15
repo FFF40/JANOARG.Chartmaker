@@ -139,8 +139,6 @@ namespace JANOARG.Chartmaker.UI.ContextMenu
             bool oopsItGotClipped = false;
             funny:
 
-            if (oopsItGotClipped) UnityEngine.Debug.Log($"Oops! Context menu clipped off the canvas, redirecting.");
-            else UnityEngine.Debug.Log($"Attempting normal render direction {direction}");
             switch (direction)
             {
                 case ContextMenuDirection.Cursor:
@@ -153,7 +151,6 @@ namespace JANOARG.Chartmaker.UI.ContextMenu
                     if (rt.anchoredPosition.x + rt.sizeDelta.x > Screen.width)
                     {
                         rt.anchoredPosition += Vector2.left * rt.rect.width;
-                        UnityEngine.Debug.Log(rt.rect.width - rect.width);
                     }
                     if (rt.anchoredPosition.y - rt.sizeDelta.y < 0)
                     {
@@ -172,7 +169,6 @@ namespace JANOARG.Chartmaker.UI.ContextMenu
                     if (rt.anchoredPosition.x + rt.sizeDelta.x > screenSize.x) 
                     {
                         rt.anchoredPosition += Vector2.left * (rt.rect.width - rect.width);
-                        UnityEngine.Debug.Log(rt.rect.width - rect.width);
                     }
                     if (rt.anchoredPosition.y - rt.sizeDelta.y < 0 && !oopsItGotClipped) 
                     {
@@ -193,7 +189,6 @@ namespace JANOARG.Chartmaker.UI.ContextMenu
                     if (rt.anchoredPosition.x + rt.sizeDelta.x > screenSize.x)
                     {
                         rt.anchoredPosition += Vector2.left * (rt.rect.width - rect.width);
-                        UnityEngine.Debug.Log(rt.rect.width - rect.width);
                     }
                     if (rt.anchoredPosition.y > screenSize.y && !oopsItGotClipped)
                     {
@@ -234,8 +229,6 @@ namespace JANOARG.Chartmaker.UI.ContextMenu
                 }
             }
 
-            UnityEngine.Debug.Log("Pos before clamp: " + rt.anchoredPosition);
-
             // Clamp to screen bounds based on current anchor
             float titleBarOffset = 
                 (
@@ -244,27 +237,21 @@ namespace JANOARG.Chartmaker.UI.ContextMenu
                 ) ? 28 : 0;
             if (rt.anchorMin.x == 0) // Left-anchored
             {
-                UnityEngine.Debug.Log("Left-anchored");
                 rt.anchoredPosition *= new Vector2Frag(x: Mathf.Max(rt.anchoredPosition.x, 0));
             }
             else // Right-anchored (1)
             {
-                UnityEngine.Debug.Log("Right-anchored");
                 rt.anchoredPosition *= new Vector2Frag(x: Mathf.Min(rt.anchoredPosition.x, 0));
             }
 
             if (rt.anchorMin.y == 0) // Bottom-anchored
             {
-                UnityEngine.Debug.Log("Bottom-anchored");
                 rt.anchoredPosition *= new Vector2Frag(y: Mathf.Max(rt.anchoredPosition.y, 0));
             }
             else // Top-anchored (1)
             {
-                UnityEngine.Debug.Log("Top-anchored");
                 rt.anchoredPosition *= new Vector2Frag(y: Mathf.Min(rt.anchoredPosition.y - Screen.height / scale + titleBarOffset, 0));
             }
-
-            UnityEngine.Debug.Log("Pos after clamp: " + rt.anchoredPosition);
 
             isOpen = true;
             StopCoroutine(Intro());

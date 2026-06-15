@@ -12,6 +12,7 @@ using JANOARG.Chartmaker.UI;
 using JANOARG.Chartmaker.UI.Modal;
 using JANOARG.Chartmaker.UI.Modal.ModalTypes;
 using JANOARG.Chartmaker.UI.NativeUI;
+using JANOARG.Chartmaker.Utils.NativeAPI;
 using JANOARG.Chartmaker.UI.Themeable;
 using JANOARG.Shared.Data.ChartInfo;
 using JANOARG.Chartmaker.Utils;
@@ -413,7 +414,8 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             ClipboardItem = null;
             OnClipboardUpdate();
 
-            BorderlessWindow.RenameWindow(CurrentSong.SongArtist + " - " + CurrentSong.SongName + " // JANOARG Chartmaker");
+            if (NativeWindow.IsApiAvailable)
+                NativeWindow.MainWindow.Title = CurrentSong.SongArtist + " - " + CurrentSong.SongName + " // JANOARG Chartmaker";
         
             SetEditorActive(true);
         }
@@ -576,7 +578,8 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
 
             PlayerView.main.ClearObjects();
         
-            BorderlessWindow.RenameWindow("JANOARG Chartmaker");
+            if (NativeWindow.IsApiAvailable)
+                NativeWindow.MainWindow.Title = "JANOARG Chartmaker";
 
             IsDirty = false;
         }

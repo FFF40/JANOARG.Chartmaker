@@ -1,5 +1,3 @@
-
-using Unity.VisualScripting;
 using UnityEngine;
 
 namespace JANOARG.Chartmaker.Utils.NativeAPI.Internal.NativeWindow
@@ -44,6 +42,12 @@ namespace JANOARG.Chartmaker.Utils.NativeAPI.Internal.NativeWindow
             return "";
         }
 
+        public bool GetWindowActive(nint windowHandle)
+        {
+            if (IsAvailable) return Provider.GetWindowActive(windowHandle);
+            return Application.isFocused;
+        }
+
         public bool SetWindowName(nint windowHandle, string name)
         {
             if (IsAvailable) return Provider.SetWindowName(windowHandle, name);
@@ -79,10 +83,14 @@ namespace JANOARG.Chartmaker.Utils.NativeAPI.Internal.NativeWindow
             return false;
         }
 
-        public void HookWindow(nint windowHandle)
+        public bool HookWindow(nint windowHandle)
         {
-            if (IsAvailable) Provider.HookWindow(windowHandle);
+            if (IsAvailable)
+            {
+                return Provider.HookWindow(windowHandle);
+            }
             UnityEngine.Debug.LogWarning("\"HookWindow\" is not supported on this platform.");
+            return false;
         }
 
         public bool MoveWindow(nint windowHandle, Vector2Int position)
@@ -96,6 +104,42 @@ namespace JANOARG.Chartmaker.Utils.NativeAPI.Internal.NativeWindow
         {
             if (IsAvailable) return Provider.SetWindowCursor(windowHandle, cursor, bestEffort);
             UnityEngine.Debug.LogWarning("\"SetWindowCursor\" is not supported on this platform.");
+            return false;
+        }
+
+        public bool SetWindowHitTestZone(nint windowHandle, int zone)
+        {
+            if (IsAvailable) return Provider.SetWindowHitTestZone(windowHandle, zone);
+            return false;
+        }
+
+        public bool StartWindowDrag(nint windowHandle, Vector2Int pointerPosition)
+        {
+            if (IsAvailable) return Provider.StartWindowDrag(windowHandle, pointerPosition);
+            return false;
+        }
+
+        public bool StartWindowResize(nint windowHandle, Vector2Int pointerPosition, WindowResizeEdge edge)
+        {
+            if (IsAvailable) return Provider.StartWindowResize(windowHandle, pointerPosition, edge);
+            return false;
+        }
+
+        public Vector2Int GetPointerPosition()
+        {
+            if (IsAvailable) return Provider.GetPointerPosition();
+            return new Vector2Int(0, 0);
+        }
+
+        public int GetPointerButtonMask()
+        {
+            if (IsAvailable) return Provider.GetPointerButtonMask();
+            return 0;
+        }
+
+        public bool SetWindowType(nint windowHandle, string typeName)
+        {
+            if (IsAvailable) return Provider.SetWindowType(windowHandle, typeName);
             return false;
         }
 
@@ -136,7 +180,7 @@ namespace JANOARG.Chartmaker.Utils.NativeAPI.Internal.NativeWindow
         
         public bool SetWindowMinSize(nint windowHandle, Vector2Int rect)
         {
-            if (IsAvailable) Provider.SetWindowMinSize(windowHandle, rect);
+            if (IsAvailable) return Provider.SetWindowMinSize(windowHandle, rect);
             UnityEngine.Debug.LogWarning("\"SetWindowMinSize\" is not supported on this platform.");
             return false;
         }
@@ -150,9 +194,14 @@ namespace JANOARG.Chartmaker.Utils.NativeAPI.Internal.NativeWindow
 
         public bool SetWindowMaxSize(nint windowHandle, Vector2Int rect)
         {
-            if (IsAvailable) Provider.SetWindowMaxSize(windowHandle, rect);
+            if (IsAvailable) return Provider.SetWindowMaxSize(windowHandle, rect);
             UnityEngine.Debug.LogWarning("\"SetWindowMaxSize\" is not supported on this platform.");
             return false;
+        }
+
+        public void PumpEvents()
+        {
+            if (IsAvailable) Provider.PumpEvents();
         }
     }
 }

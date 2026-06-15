@@ -1,6 +1,6 @@
 using System.Text.RegularExpressions;
+using JANOARG.Chartmaker.Behaviors.Runtime;
 using JANOARG.Chartmaker.UI.Modal.ModalTypes;
-using JANOARG.Chartmaker.UI.NativeUI;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -17,7 +17,7 @@ namespace JANOARG.Chartmaker.UI
 
         public RectTransform rectTransform;
 
-        BorderlessWindow.LoggerEntry Target;
+        RuntimeLogManager.LoggerEntry Target;
 
         public LoggerModal Parent;
 
@@ -26,7 +26,7 @@ namespace JANOARG.Chartmaker.UI
             Parent.LoadEntry(Target, this);
         }
 
-        public void SetItem(BorderlessWindow.LoggerEntry target, float offset, bool active, LoggerModal parent)
+        public void SetItem(RuntimeLogManager.LoggerEntry target, float offset, bool active, LoggerModal parent)
         {
             Parent = parent;
             Target = target;

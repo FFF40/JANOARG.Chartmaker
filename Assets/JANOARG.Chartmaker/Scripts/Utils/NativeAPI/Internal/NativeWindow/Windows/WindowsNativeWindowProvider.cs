@@ -38,6 +38,12 @@ namespace JANOARG.Chartmaker.Utils.NativeAPI.Internal.NativeWindow.Windows
             return User32.SetWindowText(windowHandle, name);
         }
 
+        public bool GetWindowActive(nint windowHandle)
+        {
+            var hookData = hookManager.GetHookData(windowHandle);
+            return hookData?.IsActive ?? (User32.GetActiveWindow() == windowHandle);
+        }
+
         public WindowState GetWindowState(nint windowHandle)
         {
             if (User32.IsIconic(windowHandle)) return WindowState.Minimized;
@@ -52,16 +58,40 @@ namespace JANOARG.Chartmaker.Utils.NativeAPI.Internal.NativeWindow.Windows
 
         public WindowStyle GetWindowStyle(nint windowHandle)
         {
-            throw new NotImplementedException();
+            var hookData = hookManager.GetHookData(windowHandle);
+            if (hookData != null) return hookData.Style;
+
+            var style = (WinWindowStyle)(uint)User32.GetWindowLong(windowHandle, WinWindowLong.Style);
+            return (style & WinWindowStyle.Caption) != 0 ? WindowStyle.Native : WindowStyle.Custom;
         }
 
         public bool SetWindowStyle(nint windowHandle, WindowStyle style)
         {
-            bool succ = User32.SetWindowLong(windowHandle, WinWindowLong.Style, (nint)(WinWindowStyle.Overlapped | WinWindowStyle.Visible)) != 0;
+            hookManager.HookWindow(windowHandle);
+            var hookData = hookManager.GetHookData(windowHandle);
+            hookData.Style = style;
+
+            var overlappedWindow = WinWindowStyle.Overlapped
+                | WinWindowStyle.Caption
+                | WinWindowStyle.SysMenu
+                | WinWindowStyle.ThickFrame
+                | WinWindowStyle.MinimizeBox
+                | WinWindowStyle.MaximizeBox;
+            User32.SetWindowLong(windowHandle, WinWindowLong.Style, (nint)(overlappedWindow | WinWindowStyle.Visible));
+            bool succ = true;
             if (style == WindowStyle.Custom)
             {
-                succ &= DwmApi.DwmExtendFrameIntoClientArea(windowHandle, new WinMargin { top = 0, left = 0, bottom = 0, right = 0 }) != 0;
+                DwmApi.DwmExtendFrameIntoClientArea(windowHandle, new WinMargin { top = 0, left = 0, bottom = 0, right = 0 });
             }
+            succ &= User32.SetWindowPos(
+                windowHandle,
+                0,
+                0,
+                0,
+                0,
+                0,
+                WinSetWindowPosFlags.NoMove | WinSetWindowPosFlags.NoSize | WinSetWindowPosFlags.NoZOrder | WinSetWindowPosFlags.FrameChanged
+            );
             return succ;
         }
 
@@ -102,8 +132,42 @@ namespace JANOARG.Chartmaker.Utils.NativeAPI.Internal.NativeWindow.Windows
             hookManager.HookWindow(windowHandle);
             var hookData = hookManager.GetHookData(windowHandle);
             nint cursor = bestEffort ? Win32Convert.ToPlatformCursorBestEffort(style) : Win32Convert.ToPlatformCursor(style);
+            if (cursor == WinCursorStyle.Unknown) return false;
             hookData.CurrentCursor = cursor;
             return cursor != 0 || style == CursorStyle.None;
+        }
+
+        public bool SetWindowHitTestZone(nint windowHandle, int zone)
+        {
+            hookManager.HookWindow(windowHandle);
+            var hookData = hookManager.GetHookData(windowHandle);
+            hookData.HitTestZone = zone;
+            return true;
+        }
+
+        public bool StartWindowDrag(nint windowHandle, Vector2Int pointerPosition)
+        {
+            return false;
+        }
+
+        public bool StartWindowResize(nint windowHandle, Vector2Int pointerPosition, WindowResizeEdge edge)
+        {
+            return false;
+        }
+
+        public Vector2Int GetPointerPosition()
+        {
+            return new Vector2Int(0, 0);
+        }
+
+        public int GetPointerButtonMask()
+        {
+            return 0;
+        }
+
+        public bool SetWindowType(nint windowHandle, string typeName)
+        {
+            return true;
         }
 
         public Vector2Int GetWindowMinSize(nint windowHandle)
@@ -135,5 +199,7 @@ namespace JANOARG.Chartmaker.Utils.NativeAPI.Internal.NativeWindow.Windows
             hookData.MaxSize = size;
             return true;
         }
+
+        public void PumpEvents() { }
     }
 }

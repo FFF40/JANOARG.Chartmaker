@@ -48,6 +48,26 @@ namespace JANOARG.Chartmaker.Utils.NativeAPI
             }
         }
 
+        public string Title
+        {
+            get
+            {
+                return Controller.GetWindowName(WindowHandle);
+            }
+            set
+            {
+                Controller.SetWindowName(WindowHandle, value);
+            }
+        }
+
+        public bool IsActive
+        {
+            get
+            {
+                return Controller.GetWindowActive(WindowHandle);
+            }
+        }
+
         public Vector2Int Size
         {
             get
@@ -124,6 +144,51 @@ namespace JANOARG.Chartmaker.Utils.NativeAPI
         {
             return Controller.SetWindowCursor(WindowHandle, style, bestEffort);
         }
+
+        public bool SetHitTestZone(int zone)
+        {
+            return Controller.SetWindowHitTestZone(WindowHandle, zone);
+        }
+
+        public bool StartDrag(Vector2Int pointerPosition)
+        {
+            return Controller.StartWindowDrag(WindowHandle, pointerPosition);
+        }
+
+        public bool StartResize(Vector2Int pointerPosition, WindowResizeEdge edge)
+        {
+            return Controller.StartWindowResize(WindowHandle, pointerPosition, edge);
+        }
+
+        public Vector2Int GetPointerPosition()
+        {
+            return Controller.GetPointerPosition();
+        }
+
+        public int GetPointerButtonMask()
+        {
+            return Controller.GetPointerButtonMask();
+        }
+
+        public bool SetType(string typeName)
+        {
+            return Controller.SetWindowType(WindowHandle, typeName);
+        }
+
+        public bool Hook()
+        {
+            return Controller.HookWindow(WindowHandle);
+        }
+
+        public bool Unhook()
+        {
+            return Controller.UnhookWindow(WindowHandle);
+        }
+
+        public void PumpEvents()
+        {
+            Controller.PumpEvents();
+        }
     }
 
     /// <summary>
@@ -161,5 +226,17 @@ namespace JANOARG.Chartmaker.Utils.NativeAPI
         /// Window features are manually managed by the app.
         /// </summary>
         Custom,
+    }
+
+    public enum WindowResizeEdge
+    {
+        TopLeft,
+        Top,
+        TopRight,
+        Right,
+        BottomRight,
+        Bottom,
+        BottomLeft,
+        Left,
     }
 }
