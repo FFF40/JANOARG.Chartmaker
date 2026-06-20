@@ -48,6 +48,12 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
         bool resizeCursorActive;
         CursorStyle activeResizeCursor;
 
+        // Last known floating (non-maximized) geometry, tracked each frame so it can be
+        // persisted on quit and restored next launch — Unity/engine init otherwise wipes it.
+        Vector2Int lastFloatingPos;
+        Vector2Int lastFloatingSize;
+        bool hasFloatingRect;
+
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSplashScreen)]
         public static void InitializeWindow()
         {
@@ -67,6 +73,50 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
         {
             main = this;
             targetWindow = NativeWindow.MainWindow;
+        }
+
+        public void Start()
+        {
+            RestoreWindowGeometry();
+        }
+
+        // Re-applies the window size/position saved last session. Runs in Start (not the
+        // BeforeSplashScreen init) so engine/Unity window setup has settled and won't wipe it.
+        void RestoreWindowGeometry()
+        {
+            if (!NativeWindow.IsApiAvailable) return;
+
+            var prefs = Chartmaker.Preferences;
+            if (prefs.WindowWidth <= 0 || prefs.WindowHeight <= 0) return; // nothing saved yet
+
+            Screen.SetResolution(prefs.WindowWidth, prefs.WindowHeight, FullScreenMode.Windowed);
+
+            // Position is compositor-owned under XWayland; only meaningful on native X11.
+            if (targetWindow.SupportsClientPositioning)
+                targetWindow.Position = new Vector2Int(prefs.WindowX, prefs.WindowY);
+
+            lastFloatingPos = new Vector2Int(prefs.WindowX, prefs.WindowY);
+            lastFloatingSize = new Vector2Int(prefs.WindowWidth, prefs.WindowHeight);
+            hasFloatingRect = true;
+
+            if (prefs.WindowMaximized)
+                targetWindow.State = WindowState.Maximized;
+        }
+
+        public void OnApplicationQuit()
+        {
+            if (!NativeWindow.IsApiAvailable || Chartmaker.PreferencesStorage == null) return;
+
+            var storage = Chartmaker.PreferencesStorage;
+            if (hasFloatingRect)
+            {
+                storage.Set("LA:WindowX", lastFloatingPos.x);
+                storage.Set("LA:WindowY", lastFloatingPos.y);
+                storage.Set("LA:WindowWidth", lastFloatingSize.x);
+                storage.Set("LA:WindowHeight", lastFloatingSize.y);
+            }
+            storage.Set("LA:WindowMaximized", maximized);
+            storage.Save();
         }
 
         public void Quit()
@@ -103,6 +153,16 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             }
 
             UpdateResizeEdges();
+
+            // Remember the latest floating geometry so a maximized-at-close still saves a
+            // sane restore size, and so position survives across launches (native X11).
+            if (NativeWindow.IsApiAvailable && !maximized && !isFullScreen
+                && Screen.width > 0 && Screen.height > 0)
+            {
+                lastFloatingPos = targetWindow.Position;
+                lastFloatingSize = new Vector2Int(Screen.width, Screen.height);
+                hasFloatingRect = true;
+            }
         }
 
         // Convert Unity's window-local cursor position (bottom-left origin) to the

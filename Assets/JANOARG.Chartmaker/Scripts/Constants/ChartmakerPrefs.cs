@@ -31,6 +31,12 @@ namespace JANOARG.Chartmaker.Constants
         public bool  ForceNavigationBar;
         public float InterfaceScaling = 1;
 
+        public int  WindowX;
+        public int  WindowY;
+        public int  WindowWidth;
+        public int  WindowHeight;
+        public bool WindowMaximized;
+
         public void Load(Storage storage)
         {
             MaximizeOnPlay = storage.Get("PL:MaximizeOnPlay", MaximizeOnPlay);
@@ -46,7 +52,13 @@ namespace JANOARG.Chartmaker.Constants
             ForceNavigationBar = storage.Get("LA:ForceNavigationBar", true);
             
             InterfaceScaling = storage.Get("LA:UIScalingFactor", InterfaceScaling);
-        
+
+            WindowX = storage.Get("LA:WindowX", WindowX);
+            WindowY = storage.Get("LA:WindowY", WindowY);
+            WindowWidth = storage.Get("LA:WindowWidth", WindowWidth);
+            WindowHeight = storage.Get("LA:WindowHeight", WindowHeight);
+            WindowMaximized = storage.Get("LA:WindowMaximized", WindowMaximized);
+
             QualitySettings.vSyncCount = storage.Get("GS:VSync", 1);
             QualitySettings.antiAliasing = storage.Get("GS:AntiAliasing", 0);
 
