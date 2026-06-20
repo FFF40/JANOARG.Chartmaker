@@ -4,6 +4,13 @@ namespace JANOARG.Chartmaker.Utils.NativeAPI.Internal.NativeWindow
 {
     internal interface INativeWindowProvider : INativeAPIProvider<NativeWindowController>
     {
+        /// <summary>
+        /// Whether the app can position/size its own top-level window directly.
+        /// True on native X11 (and Windows); false under XWayland, where the
+        /// compositor owns window placement and client positioning is ignored.
+        /// </summary>
+        public bool SupportsClientPositioning { get; }
+
         public nint GetMainWindowHandle();
 
         public bool HookWindow(nint windowHandle);

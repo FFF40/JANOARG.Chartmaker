@@ -16,6 +16,26 @@ namespace JANOARG.Chartmaker.Utils.NativeAPI.Internal.NativeWindow.LinuxX11
         private Dictionary<nint, XSizeHints> savedSizeHints = new();
         private bool eventMaskSubscribed;
 
+        private bool? isXWayland;
+
+        /// <summary>
+        /// True when running under XWayland (a Wayland compositor), where the
+        /// compositor owns window placement and client positioning is ignored.
+        /// </summary>
+        private bool IsXWayland
+        {
+            get
+            {
+                isXWayland ??=
+                    !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("WAYLAND_DISPLAY"))
+                    || string.Equals(Environment.GetEnvironmentVariable("XDG_SESSION_TYPE"),
+                        "wayland", StringComparison.OrdinalIgnoreCase);
+                return isXWayland.Value;
+            }
+        }
+
+        public bool SupportsClientPositioning => !IsXWayland;
+
         public nint GetMainWindowHandle()
         {
             if (display == 0)
@@ -238,19 +258,24 @@ namespace JANOARG.Chartmaker.Utils.NativeAPI.Internal.NativeWindow.LinuxX11
                     SendNetWmState(windowHandle, 1, "_NET_WM_STATE_MAXIMIZED_VERT", "_NET_WM_STATE_MAXIMIZED_HORZ");
 
                     // Manual resize as a belt-and-braces fallback in case Mutter
-                    // doesn't do it on its own before our poll expires.
-                    if (waForHints.width > 0 && waForHints.height > 0)
-                        SetWindowRect(windowHandle, waForHints);
-
-                    var preSize = new Vector2Int(
-                        preMaximizeRects[windowHandle].width,
-                        preMaximizeRects[windowHandle].height);
-                    for (int i = 0; i < 25; i++) // up to ~500ms
+                    // doesn't do it on its own before our poll expires. Skipped under
+                    // XWayland, where client positioning/sizing is ignored and would
+                    // only fight the compositor.
+                    if (SupportsClientPositioning)
                     {
-                        var r = GetWindowRect(windowHandle);
-                        if (r.width != preSize.x || r.height != preSize.y)
-                            break;
-                        System.Threading.Thread.Sleep(20);
+                        if (waForHints.width > 0 && waForHints.height > 0)
+                            SetWindowRect(windowHandle, waForHints);
+
+                        var preSize = new Vector2Int(
+                            preMaximizeRects[windowHandle].width,
+                            preMaximizeRects[windowHandle].height);
+                        for (int i = 0; i < 25; i++) // up to ~500ms
+                        {
+                            var r = GetWindowRect(windowHandle);
+                            if (r.width != preSize.x || r.height != preSize.y)
+                                break;
+                            System.Threading.Thread.Sleep(20);
+                        }
                     }
 
                     maximizedFlags[windowHandle] = true;
@@ -260,7 +285,11 @@ namespace JANOARG.Chartmaker.Utils.NativeAPI.Internal.NativeWindow.LinuxX11
 
                     if (preMaximizeRects.TryGetValue(windowHandle, out var prev))
                     {
-                        SetWindowRect(windowHandle, prev);
+                        // Restoring an explicit rect only works where the client may
+                        // position itself; under XWayland the compositor restores the
+                        // pre-maximize geometry on its own.
+                        if (SupportsClientPositioning)
+                            SetWindowRect(windowHandle, prev);
                         preMaximizeRects.Remove(windowHandle);
                     }
 
@@ -378,12 +407,18 @@ namespace JANOARG.Chartmaker.Utils.NativeAPI.Internal.NativeWindow.LinuxX11
             LibX11.XChangeProperty(display, windowHandle, motifHints, motifHints, 32, 0, ref hints, 5);
             LibX11.XFlush(display);
 
-            // Unmap/remap to force WM to re-read the Motif hints.
-            // XSync between unmap and remap is required so the WM processes the unmap first.
-            LibX11.XUnmapWindow(display, windowHandle);
-            LibX11.XSync(display, false);
-            LibX11.XMapWindow(display, windowHandle);
-            LibX11.XFlush(display);
+            // Unmap/remap to force the WM to re-read the Motif hints. Done only on
+            // native X11: under XWayland (notably wlroots: Sway/Hyprland) a remap can
+            // cause focus loss, flashes, or be treated as a brand-new window (re-tiling).
+            // Mutter/KWin pick up the change from the property write above instead.
+            if (SupportsClientPositioning)
+            {
+                // XSync between unmap and remap is required so the WM processes the unmap first.
+                LibX11.XUnmapWindow(display, windowHandle);
+                LibX11.XSync(display, false);
+                LibX11.XMapWindow(display, windowHandle);
+                LibX11.XFlush(display);
+            }
 
             return true;
         }
@@ -581,7 +616,22 @@ namespace JANOARG.Chartmaker.Utils.NativeAPI.Internal.NativeWindow.LinuxX11
 
         public bool StartWindowResize(nint windowHandle, Vector2Int pointerPosition, WindowResizeEdge edge)
         {
-            return false;
+            // EWMH _NET_WM_MOVERESIZE direction constants. Delegates the resize to the
+            // window manager / compositor, which works on native X11 and XWayland alike.
+            int direction = edge switch
+            {
+                WindowResizeEdge.TopLeft => 0,
+                WindowResizeEdge.Top => 1,
+                WindowResizeEdge.TopRight => 2,
+                WindowResizeEdge.Right => 3,
+                WindowResizeEdge.BottomRight => 4,
+                WindowResizeEdge.Bottom => 5,
+                WindowResizeEdge.BottomLeft => 6,
+                WindowResizeEdge.Left => 7,
+                _ => -1,
+            };
+            if (direction < 0) return false;
+            return SendMoveResize(windowHandle, pointerPosition, direction);
         }
 
         bool SendMoveResize(nint windowHandle, Vector2Int pointerPosition, int direction)

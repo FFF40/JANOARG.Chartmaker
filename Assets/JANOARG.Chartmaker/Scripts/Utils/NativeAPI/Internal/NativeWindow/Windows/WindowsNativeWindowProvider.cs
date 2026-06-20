@@ -11,6 +11,8 @@ namespace JANOARG.Chartmaker.Utils.NativeAPI.Internal.NativeWindow.Windows
     {
         readonly WindowsNativeWindowHookManager hookManager = new();
 
+        public bool SupportsClientPositioning => true;
+
         public nint GetMainWindowHandle()
         {
             var h = Process.GetCurrentProcess().MainWindowHandle;
