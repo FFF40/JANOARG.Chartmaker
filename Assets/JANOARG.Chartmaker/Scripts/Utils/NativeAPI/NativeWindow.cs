@@ -23,13 +23,21 @@ namespace JANOARG.Chartmaker.Utils.NativeAPI
             }
         }
 
-        public static bool IsApiAvailable 
+        public static bool IsApiAvailable
         {
-            get 
+            get
             {
                 return Controller.IsAvailable;
             }
         }
+
+        /// <summary>
+        /// Whether the app can position/size its own top-level window directly.
+        /// True on native X11 (and Windows); false under XWayland, where the
+        /// compositor owns window placement. Used to gate client-positioning
+        /// fallbacks that are no-ops under XWayland.
+        /// </summary>
+        public bool SupportsClientPositioning => Controller.SupportsClientPositioning;
 
         private NativeWindow(nint handle)
         {

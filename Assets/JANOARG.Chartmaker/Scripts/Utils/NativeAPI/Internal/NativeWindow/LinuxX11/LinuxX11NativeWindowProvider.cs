@@ -16,6 +16,26 @@ namespace JANOARG.Chartmaker.Utils.NativeAPI.Internal.NativeWindow.LinuxX11
         private Dictionary<nint, XSizeHints> savedSizeHints = new();
         private bool eventMaskSubscribed;
 
+        private bool? isXWayland;
+
+        /// <summary>
+        /// True when running under XWayland (a Wayland compositor), where the
+        /// compositor owns window placement and client positioning is ignored.
+        /// </summary>
+        private bool IsXWayland
+        {
+            get
+            {
+                isXWayland ??=
+                    !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("WAYLAND_DISPLAY"))
+                    || string.Equals(Environment.GetEnvironmentVariable("XDG_SESSION_TYPE"),
+                        "wayland", StringComparison.OrdinalIgnoreCase);
+                return isXWayland.Value;
+            }
+        }
+
+        public bool SupportsClientPositioning => !IsXWayland;
+
         public nint GetMainWindowHandle()
         {
             if (display == 0)
@@ -238,19 +258,24 @@ namespace JANOARG.Chartmaker.Utils.NativeAPI.Internal.NativeWindow.LinuxX11
                     SendNetWmState(windowHandle, 1, "_NET_WM_STATE_MAXIMIZED_VERT", "_NET_WM_STATE_MAXIMIZED_HORZ");
 
                     // Manual resize as a belt-and-braces fallback in case Mutter
-                    // doesn't do it on its own before our poll expires.
-                    if (waForHints.width > 0 && waForHints.height > 0)
-                        SetWindowRect(windowHandle, waForHints);
-
-                    var preSize = new Vector2Int(
-                        preMaximizeRects[windowHandle].width,
-                        preMaximizeRects[windowHandle].height);
-                    for (int i = 0; i < 25; i++) // up to ~500ms
+                    // doesn't do it on its own before our poll expires. Skipped under
+                    // XWayland, where client positioning/sizing is ignored and would
+                    // only fight the compositor.
+                    if (SupportsClientPositioning)
                     {
-                        var r = GetWindowRect(windowHandle);
-                        if (r.width != preSize.x || r.height != preSize.y)
-                            break;
-                        System.Threading.Thread.Sleep(20);
+                        if (waForHints.width > 0 && waForHints.height > 0)
+                            SetWindowRect(windowHandle, waForHints);
+
+                        var preSize = new Vector2Int(
+                            preMaximizeRects[windowHandle].width,
+                            preMaximizeRects[windowHandle].height);
+                        for (int i = 0; i < 25; i++) // up to ~500ms
+                        {
+                            var r = GetWindowRect(windowHandle);
+                            if (r.width != preSize.x || r.height != preSize.y)
+                                break;
+                            System.Threading.Thread.Sleep(20);
+                        }
                     }
 
                     maximizedFlags[windowHandle] = true;
@@ -260,7 +285,11 @@ namespace JANOARG.Chartmaker.Utils.NativeAPI.Internal.NativeWindow.LinuxX11
 
                     if (preMaximizeRects.TryGetValue(windowHandle, out var prev))
                     {
-                        SetWindowRect(windowHandle, prev);
+                        // Restoring an explicit rect only works where the client may
+                        // position itself; under XWayland the compositor restores the
+                        // pre-maximize geometry on its own.
+                        if (SupportsClientPositioning)
+                            SetWindowRect(windowHandle, prev);
                         preMaximizeRects.Remove(windowHandle);
                     }
 
@@ -361,6 +390,20 @@ namespace JANOARG.Chartmaker.Utils.NativeAPI.Internal.NativeWindow.LinuxX11
         {
             if (!CanUseWindow(windowHandle)) return false;
 
+            // Capture the content (client) rect before toggling decorations so the
+            // content size/position can be kept constant across the change. Skipped when
+            // the style isn't actually changing or while maximized (that state owns the
+            // geometry).
+            WindowStyle previousStyle = GetWindowStyle(windowHandle);
+            bool preserveGeometry = previousStyle != style
+                && GetWindowState(windowHandle) != WindowState.Maximized;
+            RectInt contentRect = default;
+            if (preserveGeometry)
+            {
+                contentRect = InsetByExtents(GetWindowRect(windowHandle), GetFrameExtents(windowHandle));
+                if (contentRect.width < 1 || contentRect.height < 1) preserveGeometry = false;
+            }
+
             // Update cache first so GetWindowStyle returns the right value immediately
             windowStyles[windowHandle] = style;
 
@@ -378,14 +421,112 @@ namespace JANOARG.Chartmaker.Utils.NativeAPI.Internal.NativeWindow.LinuxX11
             LibX11.XChangeProperty(display, windowHandle, motifHints, motifHints, 32, 0, ref hints, 5);
             LibX11.XFlush(display);
 
-            // Unmap/remap to force WM to re-read the Motif hints.
-            // XSync between unmap and remap is required so the WM processes the unmap first.
-            LibX11.XUnmapWindow(display, windowHandle);
-            LibX11.XSync(display, false);
-            LibX11.XMapWindow(display, windowHandle);
-            LibX11.XFlush(display);
+            // Unmap/remap to force the WM to re-read the Motif hints. Done only on
+            // native X11: under XWayland (notably wlroots: Sway/Hyprland) a remap can
+            // cause focus loss, flashes, or be treated as a brand-new window (re-tiling).
+            // Mutter/KWin pick up the change from the property write above instead.
+            if (SupportsClientPositioning)
+            {
+                // XSync between unmap and remap is required so the WM processes the unmap first.
+                LibX11.XUnmapWindow(display, windowHandle);
+                LibX11.XSync(display, false);
+                LibX11.XMapWindow(display, windowHandle);
+                LibX11.XFlush(display);
+            }
+
+            // Toggling decorations makes the WM re-place/re-size the window (Mutter
+            // reverts it to a default geometry). Re-assert the captured content rect so
+            // size stays put — and, where the client may position itself (native X11),
+            // position too. Under XWayland the compositor honors the resize and ignores
+            // the move, which is exactly the achievable split.
+            if (preserveGeometry)
+                RestoreContentRect(windowHandle, contentRect, style == WindowStyle.Native);
 
             return true;
+        }
+
+        // Shrinks an outer (frame) rect by the window manager's decoration extents to
+        // get the content/client rect.
+        RectInt InsetByExtents(RectInt outer, (int left, int right, int top, int bottom) e)
+        {
+            return new RectInt(
+                outer.x + e.left,
+                outer.y + e.top,
+                System.Math.Max(outer.width - e.left - e.right, 1),
+                System.Math.Max(outer.height - e.top - e.bottom, 1));
+        }
+
+        // Re-applies a target content rect after a decoration change, expanding it to the
+        // outer frame via the new decoration extents. If keeping the content fixed would
+        // push the decorated frame outside the work area (title bar above the top panel
+        // being the common case), falls back to keeping the frame inside the old content
+        // box and letting the content shrink instead.
+        void RestoreContentRect(nint windowHandle, RectInt content, bool expectDecorations)
+        {
+            var e = WaitForFrameExtents(windowHandle, expectDecorations);
+
+            RectInt outer = new RectInt(
+                content.x - e.left,
+                content.y - e.top,
+                content.width + e.left + e.right,
+                content.height + e.top + e.bottom);
+
+            RectInt wa = GetWorkareaFor(windowHandle);
+            bool outOfBounds =
+                outer.x < wa.x ||
+                outer.y < wa.y ||
+                outer.x + outer.width > wa.x + wa.width ||
+                outer.y + outer.height > wa.y + wa.height;
+            if (outOfBounds)
+                outer = content; // outer-window preservation
+
+            // SetWindowRect configures the toplevel frame; under XWayland the compositor
+            // honors the size and ignores the position (the desired split).
+            SetWindowRect(windowHandle, outer);
+        }
+
+        // Reads _NET_FRAME_EXTENTS (left, right, top, bottom). Returns zeros when the WM
+        // publishes no extents (undecorated window, or compositors like wlroots that
+        // don't draw server-side decorations for X11 windows).
+        (int left, int right, int top, int bottom) GetFrameExtents(nint windowHandle)
+        {
+            nint atom = Atom("_NET_FRAME_EXTENTS", true);
+            if (atom == 0) return (0, 0, 0, 0);
+
+            int result = LibX11.XGetWindowProperty(display, windowHandle, atom, 0, 4, false,
+                (nint)6 /* XA_CARDINAL */, out _, out int format, out nint itemCount, out _, out nint prop);
+            if (result != 0 || prop == 0 || format != 32 || (int)itemCount < 4)
+            {
+                if (prop != 0) LibX11.XFree(prop);
+                return (0, 0, 0, 0);
+            }
+            try
+            {
+                return (
+                    ReadXPropertyInt32(prop, 0),
+                    ReadXPropertyInt32(prop, 1),
+                    ReadXPropertyInt32(prop, 2),
+                    ReadXPropertyInt32(prop, 3));
+            }
+            finally
+            {
+                LibX11.XFree(prop);
+            }
+        }
+
+        // Polls until the frame extents match the expected decoration state (or a
+        // timeout), since the WM applies decorations asynchronously after the hint write.
+        (int left, int right, int top, int bottom) WaitForFrameExtents(nint windowHandle, bool expectDecorations)
+        {
+            var e = GetFrameExtents(windowHandle);
+            for (int i = 0; i < 20; i++) // up to ~400ms
+            {
+                bool hasDecorations = e.left != 0 || e.right != 0 || e.top != 0 || e.bottom != 0;
+                if (hasDecorations == expectDecorations) break;
+                System.Threading.Thread.Sleep(20);
+                e = GetFrameExtents(windowHandle);
+            }
+            return e;
         }
 
         private nint GetToplevelParent(nint window)
@@ -581,7 +722,22 @@ namespace JANOARG.Chartmaker.Utils.NativeAPI.Internal.NativeWindow.LinuxX11
 
         public bool StartWindowResize(nint windowHandle, Vector2Int pointerPosition, WindowResizeEdge edge)
         {
-            return false;
+            // EWMH _NET_WM_MOVERESIZE direction constants. Delegates the resize to the
+            // window manager / compositor, which works on native X11 and XWayland alike.
+            int direction = edge switch
+            {
+                WindowResizeEdge.TopLeft => 0,
+                WindowResizeEdge.Top => 1,
+                WindowResizeEdge.TopRight => 2,
+                WindowResizeEdge.Right => 3,
+                WindowResizeEdge.BottomRight => 4,
+                WindowResizeEdge.Bottom => 5,
+                WindowResizeEdge.BottomLeft => 6,
+                WindowResizeEdge.Left => 7,
+                _ => -1,
+            };
+            if (direction < 0) return false;
+            return SendMoveResize(windowHandle, pointerPosition, direction);
         }
 
         bool SendMoveResize(nint windowHandle, Vector2Int pointerPosition, int direction)

@@ -28,6 +28,15 @@ namespace JANOARG.Chartmaker.Utils.NativeAPI.Internal.NativeWindow
             return Provider != null;
         }
 
+        public bool SupportsClientPositioning
+        {
+            get
+            {
+                EnsureInitialized();
+                return Provider?.SupportsClientPositioning ?? true;
+            }
+        }
+
         public nint GetMainWindowHandle()
         {
             if (IsAvailable) return Provider.GetMainWindowHandle();

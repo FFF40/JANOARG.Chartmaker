@@ -47,10 +47,12 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
         static Texture2D resizeBorderTexture;
         bool resizeCursorActive;
         CursorStyle activeResizeCursor;
-        bool isNativeResizing;
-        Vector2Int resizeStartPointer;
-        RectInt resizeStartRect;
-        WindowResizeEdge resizeEdge;
+
+        // Last known floating (non-maximized) geometry, tracked each frame so it can be
+        // persisted on quit and restored next launch — Unity/engine init otherwise wipes it.
+        Vector2Int lastFloatingPos;
+        Vector2Int lastFloatingSize;
+        bool hasFloatingRect;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSplashScreen)]
         public static void InitializeWindow()
@@ -71,6 +73,50 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
         {
             main = this;
             targetWindow = NativeWindow.MainWindow;
+        }
+
+        public void Start()
+        {
+            RestoreWindowGeometry();
+        }
+
+        // Re-applies the window size/position saved last session. Runs in Start (not the
+        // BeforeSplashScreen init) so engine/Unity window setup has settled and won't wipe it.
+        void RestoreWindowGeometry()
+        {
+            if (!NativeWindow.IsApiAvailable) return;
+
+            var prefs = Chartmaker.Preferences;
+            if (prefs.WindowWidth <= 0 || prefs.WindowHeight <= 0) return; // nothing saved yet
+
+            Screen.SetResolution(prefs.WindowWidth, prefs.WindowHeight, FullScreenMode.Windowed);
+
+            // Position is compositor-owned under XWayland; only meaningful on native X11.
+            if (targetWindow.SupportsClientPositioning)
+                targetWindow.Position = new Vector2Int(prefs.WindowX, prefs.WindowY);
+
+            lastFloatingPos = new Vector2Int(prefs.WindowX, prefs.WindowY);
+            lastFloatingSize = new Vector2Int(prefs.WindowWidth, prefs.WindowHeight);
+            hasFloatingRect = true;
+
+            if (prefs.WindowMaximized)
+                targetWindow.State = WindowState.Maximized;
+        }
+
+        public void OnApplicationQuit()
+        {
+            if (!NativeWindow.IsApiAvailable || Chartmaker.PreferencesStorage == null) return;
+
+            var storage = Chartmaker.PreferencesStorage;
+            if (hasFloatingRect)
+            {
+                storage.Set("LA:WindowX", lastFloatingPos.x);
+                storage.Set("LA:WindowY", lastFloatingPos.y);
+                storage.Set("LA:WindowWidth", lastFloatingSize.x);
+                storage.Set("LA:WindowHeight", lastFloatingSize.y);
+            }
+            storage.Set("LA:WindowMaximized", maximized);
+            storage.Save();
         }
 
         public void Quit()
@@ -108,14 +154,26 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
 
             UpdateResizeEdges();
 
-            if (isDragging && !framed && NativeWindow.IsApiAvailable)
+            // Remember the latest floating geometry so a maximized-at-close still saves a
+            // sane restore size, and so position survives across launches (native X11).
+            if (NativeWindow.IsApiAvailable && !maximized && !isFullScreen
+                && Screen.width > 0 && Screen.height > 0)
             {
-                Vector2Int currentPointer = targetWindow.GetPointerPosition();
-                Vector2Int delta = currentPointer - dragStartPointer;
-                Vector2Int newPos = dragStartWindowPos + delta;
-                if (newPos != targetWindow.Position)
-                    targetWindow.Position = newPos;
+                lastFloatingPos = targetWindow.Position;
+                lastFloatingSize = new Vector2Int(Screen.width, Screen.height);
+                hasFloatingRect = true;
             }
+        }
+
+        // Convert Unity's window-local cursor position (bottom-left origin) to the
+        // root-relative coordinates EWMH _NET_WM_MOVERESIZE expects (top-left origin).
+        Vector2Int GetRootPointer()
+        {
+            RectInt rect = targetWindow.Rect;
+            Vector2 mouse = Input.mousePosition;
+            return new Vector2Int(
+                rect.x + Mathf.RoundToInt(mouse.x),
+                rect.y + Mathf.RoundToInt(Screen.height - mouse.y));
         }
 
         public void OnFrameChanged()
@@ -158,7 +216,9 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
 
             if (NativeWindow.IsApiAvailable) targetWindow.State = maximized ? WindowState.Maximized : WindowState.Floating;
 
-            if (NativeWindow.IsApiAvailable)
+            // Nudge the window back on-screen after restoring. No-op (and unnecessary)
+            // under XWayland, where the compositor owns placement.
+            if (NativeWindow.IsApiAvailable && targetWindow.SupportsClientPositioning)
             {
                 var rect = targetWindow.Rect;
                 if (!maximized && rect.yMin < 0) targetWindow.Position += Vector2Int.up * rect.yMin;
@@ -167,11 +227,15 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             OnSizeChange();
         }
 
-        public void FinalizeDrag() 
+        public void FinalizeDrag()
         {
-            if (!maximized) 
+            // The custom "drag to top edge = maximize" gesture and the on-screen nudge
+            // both rely on client-controlled positioning, so they only run on native X11.
+            // Under XWayland the compositor handles its own drag, top-edge snap, and
+            // placement during the compositor-mediated move.
+            if (!maximized)
             {
-                if (!NativeWindow.IsApiAvailable) return;
+                if (!NativeWindow.IsApiAvailable || !targetWindow.SupportsClientPositioning) return;
                 var rect = targetWindow.Rect;
                 if (rect.yMin - Input.mousePosition.y + Screen.height < 1 && !maximized) ResizeWindow();
                 else if (rect.yMin < 0) targetWindow.Position += Vector2Int.up * rect.yMin;
@@ -204,21 +268,7 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
 
         void UpdateResizeEdges()
         {
-            if (isNativeResizing)
-            {
-                if ((targetWindow.GetPointerButtonMask() & 0x100) != 0)
-                {
-                    UpdateManualResize(false);
-                    return;
-                }
-                else
-                {
-                    UpdateManualResize(true); // Force final sync on release
-                    isNativeResizing = false;
-                }
-            }
-
-            if (!NativeWindow.IsApiAvailable || framed || maximized || isFullScreen || isDragging)
+            if (!NativeWindow.IsApiAvailable || framed || maximized || isFullScreen)
             {
                 ClearResizeCursor();
                 return;
@@ -236,98 +286,12 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
 
             if (Input.GetMouseButtonDown(0))
             {
-                targetWindow.StartResize(targetWindow.GetPointerPosition(), edge);
-                resizeStartPointer = targetWindow.GetPointerPosition();
-                resizeStartRect = targetWindow.Rect;
-                resizeEdge = edge;
-                isNativeResizing = true;
+                // Delegate the resize to the WM / compositor via EWMH _NET_WM_MOVERESIZE.
+                // Works on native X11 and XWayland on all compositors; min-size is enforced
+                // by the WM from the window's size hints (set via NativeWindow.MinSize).
+                targetWindow.StartResize(GetRootPointer(), edge);
                 EventSystem.current.SetSelectedGameObject(null);
             }
-        }
-
-        float lastResizeTime;
-        const float ResizeThrottleInterval = 0.05f; // 50ms
-
-        void UpdateManualResize(bool force)
-        {
-            if (!force && Time.realtimeSinceStartup - lastResizeTime < ResizeThrottleInterval)
-                return;
-
-            Vector2Int delta = targetWindow.GetPointerPosition() - resizeStartPointer;
-            RectInt rect = resizeStartRect;
-            Vector2Int minSize = targetWindow.MinSize;
-
-            switch (resizeEdge)
-            {
-                case WindowResizeEdge.TopLeft:
-                    rect.xMin += delta.x;
-                    rect.yMin += delta.y;
-                    break;
-                case WindowResizeEdge.Top:
-                    rect.yMin += delta.y;
-                    break;
-                case WindowResizeEdge.TopRight:
-                    rect.xMax += delta.x;
-                    rect.yMin += delta.y;
-                    break;
-                case WindowResizeEdge.Right:
-                    rect.xMax += delta.x;
-                    break;
-                case WindowResizeEdge.BottomRight:
-                    rect.xMax += delta.x;
-                    rect.yMax += delta.y;
-                    break;
-                case WindowResizeEdge.Bottom:
-                    rect.yMax += delta.y;
-                    break;
-                case WindowResizeEdge.BottomLeft:
-                    rect.xMin += delta.x;
-                    rect.yMax += delta.y;
-                    break;
-                case WindowResizeEdge.Left:
-                    rect.xMin += delta.x;
-                    break;
-            }
-
-            rect = ApplyResizeMinSize(rect, minSize, resizeEdge);
-            RectInt currentRect = targetWindow.Rect;
-
-            bool sizeChanged = rect.width != Screen.width || rect.height != Screen.height;
-            bool posChanged = rect.x != currentRect.x || rect.y != currentRect.y;
-
-            if (sizeChanged || posChanged || force)
-            {
-                lastResizeTime = Time.realtimeSinceStartup;
-                targetWindow.Rect = rect;
-                if (force)
-                {
-                    Screen.SetResolution(rect.width, rect.height, FullScreenMode.Windowed);
-                }
-            }
-        }
-
-        RectInt ApplyResizeMinSize(RectInt rect, Vector2Int minSize, WindowResizeEdge edge)
-        {
-            minSize.x = Mathf.Max(minSize.x, 1);
-            minSize.y = Mathf.Max(minSize.y, 1);
-
-            if (rect.width < minSize.x)
-            {
-                if (edge == WindowResizeEdge.Left || edge == WindowResizeEdge.TopLeft || edge == WindowResizeEdge.BottomLeft)
-                    rect.xMin = rect.xMax - minSize.x;
-                else
-                    rect.xMax = rect.xMin + minSize.x;
-            }
-
-            if (rect.height < minSize.y)
-            {
-                if (edge == WindowResizeEdge.Top || edge == WindowResizeEdge.TopLeft || edge == WindowResizeEdge.TopRight)
-                    rect.yMin = rect.yMax - minSize.y;
-                else
-                    rect.yMax = rect.yMin + minSize.y;
-            }
-
-            return rect;
         }
 
         bool TryGetResizeEdge(Vector2 mousePosition, out WindowResizeEdge edge)
@@ -404,27 +368,19 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             if (NativeWindow.IsApiAvailable) targetWindow.SetHitTestZone((int)WindowZone.Client);
         }
 
-        Vector2Int dragStartWindowPos;
-        Vector2Int dragStartPointer;
-        bool isDragging;
-
         public void OnBeginDrag(PointerEventData data)
         {
-            if (framed || maximized || isNativeResizing || TryGetResizeEdge(Input.mousePosition, out _) || !NativeWindow.IsApiAvailable) return;
+            if (framed || maximized || TryGetResizeEdge(Input.mousePosition, out _) || !NativeWindow.IsApiAvailable) return;
 
-            if (targetWindow.StartDrag(targetWindow.GetPointerPosition()))
-                return;
-
-            dragStartPointer = targetWindow.GetPointerPosition();
-            dragStartWindowPos = targetWindow.Position;
-            isDragging = true;
+            // Delegate the move to the WM / compositor via EWMH _NET_WM_MOVERESIZE.
+            // Works on native X11 and XWayland on all compositors.
+            targetWindow.StartDrag(GetRootPointer());
         }
 
         public void OnDrag(PointerEventData data) { }
 
         public void OnEndDrag(PointerEventData data)
         {
-            isDragging = false;
             if (!NativeWindow.IsApiAvailable) return;
             FinalizeDrag();
         }
