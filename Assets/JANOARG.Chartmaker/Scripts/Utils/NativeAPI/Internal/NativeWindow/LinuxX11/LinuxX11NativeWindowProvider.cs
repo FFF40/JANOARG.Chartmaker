@@ -546,6 +546,50 @@ namespace JANOARG.Chartmaker.Utils.NativeAPI.Internal.NativeWindow.LinuxX11
             return window;
         }
 
+        /// <summary>
+        /// Finds the window the WM actually manages, starting from <paramref name="window"/>
+        /// and walking up to the first ancestor that carries the WM_STATE property
+        /// (the standard XmuClientWindow semantics). On reparenting WMs (e.g. Mutter on
+        /// native Xorg) this stops at the client window rather than climbing into the WM's
+        /// frame window — and the client window is the one EWMH client messages such as
+        /// _NET_WM_MOVERESIZE must name, or the WM silently drops them. Falls back to
+        /// <see cref="GetToplevelParent"/> when no WM_STATE is found (window not yet
+        /// mapped/managed, or non-reparenting setups like XWayland where the toplevel is
+        /// already the client window).
+        /// </summary>
+        private nint GetClientWindow(nint window)
+        {
+            if (window == 0) return 0;
+
+            nint wmState = Atom("WM_STATE", true);
+            if (wmState == 0) return GetToplevelParent(window);
+
+            nint root = LibX11.XDefaultRootWindow(display);
+            nint current = window;
+            while (current != 0 && current != root)
+            {
+                if (HasProperty(current, wmState)) return current;
+
+                if (LibX11.XQueryTree(display, current, out nint rootReturn, out nint parent, out _, out _) == 0)
+                    break;
+                if (parent == 0 || parent == rootReturn)
+                    break; // reached the WM frame (child of root) without finding WM_STATE
+                current = parent;
+            }
+
+            return GetToplevelParent(window);
+        }
+
+        private bool HasProperty(nint window, nint property)
+        {
+            int result = LibX11.XGetWindowProperty(display, window, property, 0, 2, false, 0,
+                out nint actualType, out _, out nint itemCount, out _, out nint prop);
+            if (result != 0) return false;
+            bool exists = actualType != 0 && (long)itemCount > 0;
+            if (prop != 0) LibX11.XFree(prop);
+            return exists;
+        }
+
         public RectInt GetWindowRect(nint windowHandle)
         {
             if (!CanUseWindow(windowHandle)) return new(0, 0, 0, 0);
@@ -747,7 +791,8 @@ namespace JANOARG.Chartmaker.Utils.NativeAPI.Internal.NativeWindow.LinuxX11
             nint moveResize = Atom("_NET_WM_MOVERESIZE");
             if (moveResize == 0) return false;
 
-            nint toplevel = GetToplevelParent(windowHandle);
+            // Must name the managed *client* window, not the WM frame — see GetClientWindow.
+            nint client = GetClientWindow(windowHandle);
 
             var ev = new XEvent
             {
@@ -757,7 +802,7 @@ namespace JANOARG.Chartmaker.Utils.NativeAPI.Internal.NativeWindow.LinuxX11
                     type = 33,
                     send_event = 1,
                     display = display,
-                    window = toplevel,
+                    window = client,
                     message_type = moveResize,
                     format = 32,
                     data0 = pointerPosition.x,
