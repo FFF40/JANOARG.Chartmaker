@@ -124,17 +124,18 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                 }
                 case HierarchyPickerItem.Lane:
                 {
-                    string group = InspectorPanel.main.CurrentObject switch
+                    (string group, ulong groupUuid) = InspectorPanel.main.CurrentObject switch
                     {
-                        Lane laneCurrentObject => laneCurrentObject.Group,
-                        LaneGroup laneGroupCurrentObject => laneGroupCurrentObject.Name,
-                        _ => ""
+                        Lane laneCurrentObject => (laneCurrentObject.Group, laneCurrentObject.GroupUuid),
+                        LaneGroup laneGroupCurrentObject => (laneGroupCurrentObject.Name, laneGroupCurrentObject.UUID),
+                        _ => ("", 0UL)
                     };
 
                     Lane lane = new Lane 
                     {
                         Position = new(0, -4, 0),
                         Group = group,
+                        GroupUuid = groupUuid,
                     };
                     lane.LaneSteps.Add(new LaneStep 
                     { 
@@ -155,15 +156,16 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                 }
                 case HierarchyPickerItem.LaneGroup:
                 {
-                    string parent = InspectorPanel.main.CurrentObject switch
+                    (string parent, ulong parentUuid) = InspectorPanel.main.CurrentObject switch
                     {
-                        Lane laneCurrentObject => laneCurrentObject.Group,
-                        LaneGroup laneGroupCurrentObject => laneGroupCurrentObject.Group,
-                        _ => ""
+                        Lane laneCurrentObject => (laneCurrentObject.Group, laneCurrentObject.GroupUuid),
+                        LaneGroup laneGroupCurrentObject => (laneGroupCurrentObject.Group, laneGroupCurrentObject.GroupUuid),
+                        _ => ("", 0UL)
                     };
 
                     LaneGroup group = new LaneGroup {
                         Group = parent,
+                        GroupUuid = parentUuid,
                         Name = InspectorPanel.main.GetNewGroupName("Group 1"),
                     };
                     Chartmaker.main.AddItem(group);

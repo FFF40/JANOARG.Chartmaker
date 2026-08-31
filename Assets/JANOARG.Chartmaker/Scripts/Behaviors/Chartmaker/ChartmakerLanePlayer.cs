@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using JANOARG.Shared.Data.ChartInfo;
 using JANOARG.Chartmaker.Utils;
+using Unity.Collections;
 using Unity.Profiling;
 using UnityEngine;
 
@@ -8,6 +9,7 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
 {
     public class ChartmakerLanePlayer : MonoBehaviour
     {
+        
         public LaneManager    CurrentLane;
         public Transform      Holder;
         public MeshRenderer   Renderer;
@@ -15,6 +17,9 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
         public MeshCollider   Collider;
         public MeshRenderer   JudgeLine;
         public MeshRenderer[] JudgeEnds;
+
+        [SerializeField][ReadOnly]
+        private ulong Uuid;
 
         public List<ChartmakerHitPlayer> HitPlayers { get; private set; } = new();
 
@@ -38,6 +43,9 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
         public void UpdateObjects(LaneManager lane)
         {
             sr_LaneState.Begin();
+
+            if (CurrentLane != null && Uuid != CurrentLane.Uuid)
+                Uuid = CurrentLane.Uuid;
 
             CurrentLane = lane;
         

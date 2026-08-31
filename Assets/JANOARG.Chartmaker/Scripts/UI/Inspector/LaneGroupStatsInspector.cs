@@ -58,6 +58,7 @@ namespace JANOARG.Chartmaker.UI.Inspector
         
             var chart = Behaviors.Chartmaker.Chartmaker.main.CurrentChart;
             string groupName = HightlightedLaneGroup.Name;
+            ulong groupUuid = HightlightedLaneGroup.UUID;
         
             int laneCount = 0;
             int laneGroupCount = 0;
@@ -65,7 +66,7 @@ namespace JANOARG.Chartmaker.UI.Inspector
             // Single pass for lanes
             foreach (var lane in chart.Lanes)
             {
-                if (lane.Group == groupName)
+                if (lane.GroupUuid == groupUuid || lane.Group == groupName)
                 {
                     laneCount++;
                 }
@@ -74,16 +75,16 @@ namespace JANOARG.Chartmaker.UI.Inspector
             // Single pass for groups
             foreach (var group in chart.Groups)
             {
-                if (group.Group == groupName)
+                if (group.GroupUuid == groupUuid || group.Group == groupName)
                     laneGroupCount++;
             }
         
             LaneCount.text = laneCount.ToString();
             LaneGroupCount.text = laneGroupCount.ToString();
             
-            MaxNestingCount.text = CalculateMaxNestingDepth(groupName, chart).ToString();
+            MaxNestingCount.text = CalculateMaxNestingDepth(groupUuid, groupName, chart).ToString();
             
-            LaneCountRecursive.text = CalculateRecursiveLaneCount(groupName, chart, 
+            LaneCountRecursive.text = CalculateRecursiveLaneCount(groupUuid, groupName, chart, 
                 ref totalHitObjects,ref taps, ref catches, ref directionalFlickables, ref omniFlickables, ref holds).ToString();
             
             TotalHitObjects.text = totalHitObjects.ToString();
@@ -94,7 +95,7 @@ namespace JANOARG.Chartmaker.UI.Inspector
             Holds.text = holds.ToString();
         }
         
-        private int CalculateMaxNestingDepth(string groupName, Chart chart)
+        private int CalculateMaxNestingDepth(ulong groupUuid, string groupName, Chart chart)
         {
             // Find all direct children of this group
             bool hasChildren = false;
@@ -103,10 +104,10 @@ namespace JANOARG.Chartmaker.UI.Inspector
             // Check child groups
             foreach (var laneGroup in chart.Groups)
             {
-                if (laneGroup.Group == groupName)
+                if (laneGroup.GroupUuid == groupUuid || laneGroup.Group == groupName)
                 {
                     hasChildren = true;
-                    int childDepth = CalculateMaxNestingDepth(laneGroup.Name, chart);
+                    int childDepth = CalculateMaxNestingDepth(laneGroup.UUID, laneGroup.Name, chart);
                     if (childDepth > maxChildDepth)
                         maxChildDepth = childDepth;
                 }
@@ -115,7 +116,7 @@ namespace JANOARG.Chartmaker.UI.Inspector
             // Check child lanes (leaf nodes)
             foreach (var lane in chart.Lanes)
             {
-                if (lane.Group == groupName)
+                if (lane.GroupUuid == groupUuid || lane.Group == groupName)
                 {
                     hasChildren = true;
                     // Lanes are leaf nodes, depth is 0
@@ -127,7 +128,7 @@ namespace JANOARG.Chartmaker.UI.Inspector
             return hasChildren ? 1 + maxChildDepth : 0;
         }
         
-        private int CalculateRecursiveLaneCount(string groupName, Chart chart, 
+        private int CalculateRecursiveLaneCount(ulong groupUuid, string groupName, Chart chart, 
             ref int totalHitObjects, ref int taps, ref int catches, ref int directionalFlickables, ref int omniFlickables, ref int holds)
         {
             int totalLanes = 0;
@@ -135,7 +136,7 @@ namespace JANOARG.Chartmaker.UI.Inspector
             // Count direct child lanes
             foreach (var lane in chart.Lanes)
             {
-                if (lane.Group != groupName) 
+                if (lane.GroupUuid != groupUuid && lane.Group != groupName) 
                     continue;
 
                 totalLanes++;
@@ -169,8 +170,8 @@ namespace JANOARG.Chartmaker.UI.Inspector
     
             // Recursively count lanes in child groups
             foreach (var group in chart.Groups)
-                if (group.Group == groupName)
-                    totalLanes += CalculateRecursiveLaneCount(group.Name, chart, ref totalHitObjects,ref taps, ref catches, ref directionalFlickables, ref omniFlickables, ref holds);
+                if (group.GroupUuid == groupUuid || group.Group == groupName)
+                    totalLanes += CalculateRecursiveLaneCount(group.UUID, group.Name, chart, ref totalHitObjects,ref taps, ref catches, ref directionalFlickables, ref omniFlickables, ref holds);
     
             return totalLanes;
         }

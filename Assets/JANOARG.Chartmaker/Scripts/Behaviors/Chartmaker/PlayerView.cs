@@ -57,7 +57,7 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
         public Transform Holder;
         public ChartmakerLaneGroupPlayer LaneGroupPlayerSample;
         public ChartmakerLanePlayer LanePlayerSample;
-        public Dictionary<string, ChartmakerLaneGroupPlayer> LaneGroupPlayers { get; private set; } = new();
+        public Dictionary<ulong, ChartmakerLaneGroupPlayer> LaneGroupPlayers { get; private set; } = new();
         public List<ChartmakerLanePlayer> LanePlayers { get; private set; } = new();
         public ChartmakerHitPlayer HitPlayerSample;
         public MeshRenderer        HoldMeshSample;
@@ -89,14 +89,11 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
 
         public bool IsMaximised
         {
-            get
-            {
-                return
-                    HierarchyPanel.main.IsCollapsed
-                    && InspectorPanel.main.IsCollapsed
-                    && TimelinePanel.main.TimelineHeight <= 0
-                ;
-            }
+            get =>
+                HierarchyPanel.main.IsCollapsed
+                && InspectorPanel.main.IsCollapsed
+                && TimelinePanel.main.TimelineHeight <= 0;
+
             set
             {
                 if (value)
@@ -124,7 +121,7 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             }
         }
     
-        readonly List<string> _GroupRemovalScratch = new();
+        readonly List<ulong> _GroupRemovalScratch = new();
 
         // Which players exist and what they parent to only changes when the chart is edited,
         // so it is derived on the same signal as the lane windows and the storyboard clones.
@@ -132,10 +129,10 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
 
         Transform ResolveLaneParent(LaneManager lane)
         {
-            string groupName = lane.Current.Group;
+            ulong groupUuid = lane.Current.GroupUuid;
 
-            return !string.IsNullOrEmpty(groupName)
-                   && LaneGroupPlayers.TryGetValue(groupName, out ChartmakerLaneGroupPlayer player)
+            return groupUuid != 0
+                   && LaneGroupPlayers.TryGetValue(groupUuid, out ChartmakerLaneGroupPlayer player)
                 ? player.transform
                 : Holder;
         }
@@ -361,14 +358,14 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
 
                     foreach (var pair in Manager.Groups)
                     {
-                        string groupName = pair.Key;
-                        if (!LaneGroupPlayers.TryGetValue(groupName, out ChartmakerLaneGroupPlayer groupPlayer))
+                        ulong groupUuid = pair.Key;
+                        if (!LaneGroupPlayers.TryGetValue(groupUuid, out ChartmakerLaneGroupPlayer groupPlayer))
                         {
                             groupPlayer = Instantiate(LaneGroupPlayerSample, Holder);
                             #if UNITY_EDITOR
-                            groupPlayer.gameObject.name = $"Lane Group ({groupName})";
+                            groupPlayer.gameObject.name = $"Lane Group ({pair.Value.CurrentGroup.Name})";
                             #endif
-                            LaneGroupPlayers[groupName] = groupPlayer;
+                            LaneGroupPlayers[groupUuid] = groupPlayer;
                         }
                         groupPlayer.CurrentGroup = pair.Value;
                     }
@@ -378,13 +375,13 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                     var toRemove = _GroupRemovalScratch;
                     foreach (var pair in LaneGroupPlayers)
                         if (pair.Value.CurrentGroup == null) { Destroy(pair.Value.gameObject); toRemove.Add(pair.Key); }
-                    foreach (string key in toRemove) LaneGroupPlayers.Remove(key);
+                    foreach (ulong key in toRemove) LaneGroupPlayers.Remove(key);
 
                     // Pass 2: resolve GO parent hierarchy BEFORE applying any local transforms.
                     foreach (var pair in LaneGroupPlayers)
                     {
-                        string parentGroupName = pair.Value.CurrentGroup.CurrentGroup.Group;
-                        Transform desiredParent = !string.IsNullOrEmpty(parentGroupName) && LaneGroupPlayers.TryGetValue(parentGroupName, out ChartmakerLaneGroupPlayer parentPlayer)
+                        ulong parentGroupUuid = pair.Value.CurrentGroup.CurrentGroup.GroupUuid;
+                        Transform desiredParent = parentGroupUuid != 0 && LaneGroupPlayers.TryGetValue(parentGroupUuid, out ChartmakerLaneGroupPlayer parentPlayer)
                             ? parentPlayer.transform
                             : Holder;
                         if (pair.Value.transform.parent != desiredParent)
@@ -947,8 +944,8 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                     if (index < 0) return;
                     LaneManager laneManager = Manager.Lanes[index];
                     LaneGroupManager laneGroupManager = null;
-                    bool hasGroup = !string.IsNullOrEmpty(laneManager.Current.Group) 
-                                    && Manager.Groups.TryGetValue(laneManager.Current.Group, out laneGroupManager);
+                    bool hasGroup = laneManager.Current.GroupUuid != 0
+                                    && Manager.Groups.TryGetValue(laneManager.Current.GroupUuid, out laneGroupManager);
                 
                     Vector3 Inv(Vector3 x)      => Quaternion.Inverse(laneManager.FinalRotation) * (x - laneManager.FinalPosition);
                     Vector3 GroupInv(Vector3 x) => hasGroup ? Quaternion.Inverse(laneGroupManager.FinalRotation) * (x - laneGroupManager.FinalPosition) : x;

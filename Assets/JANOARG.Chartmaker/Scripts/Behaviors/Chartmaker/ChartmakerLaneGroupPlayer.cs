@@ -1,4 +1,5 @@
 using JANOARG.Shared.Data.ChartInfo;
+using Unity.Collections;
 using UnityEngine;
 
 namespace JANOARG.Chartmaker.Behaviors.Chartmaker
@@ -7,8 +8,14 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
     {
         public LaneGroupManager CurrentGroup;
 
+        [SerializeField] [ReadOnly]
+        private ulong Uuid;
+
         public void UpdateObjects(LaneGroupManager group)
         {
+            if (CurrentGroup != null && Uuid != CurrentGroup.Uuid)
+                Uuid = CurrentGroup.Uuid;
+
             CurrentGroup = group;
 
             // Apply only this group's own local transform — nesting is handled

@@ -11,6 +11,8 @@ using JANOARG.Chartmaker.UI.ContextMenu;
 using JANOARG.Chartmaker.UI.Form;
 using JANOARG.Chartmaker.UI.Form.FormTypes;
 using JANOARG.Chartmaker.UI.Inspector;
+using JANOARG.Chartmaker.UI.Modal;
+using JANOARG.Chartmaker.UI.Modal.ModalTypes;
 using JANOARG.Chartmaker.UI.Pickers.ObjectPicker;
 using JANOARG.Shared.Data.ChartInfo;
 using JANOARG.Chartmaker.Utils;
@@ -60,6 +62,8 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
         public bool IsCollapsed;
         public bool          IsCoverDirty;
         public RectTransform PanelHolder;
+
+        private List<float> _validRatios;
 
         public void Awake()
         {
@@ -388,8 +392,139 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                                         MakeOffsetEntry(() => stop.Offset, x => Chartmaker.main.SetItem(stop, "Offset", x));
 
                                         SpawnForm<FormEntryHeader>("Properties");
-                                        var bpm = SpawnForm<FormEntryFloat, float>("BPM",        () => stop.BPM, x => Chartmaker.main.SetItem(stop, "BPM", x));
-                                        var bpmTapper = SpawnForm<FormEntryBPMTapper, float>("", () => stop.BPM, x => { 
+                                        var bpm = SpawnForm<FormEntryFloat, float>("BPM",        () => stop.BPM, x =>
+                                        {
+                                            if (x <= 0.0001f)
+                                            {
+                                                Chartmaker.main.SetItem(stop, "BPM", stop.BPM);
+                                                return;
+                                            }
+
+                                            float deltaRatio = x / stop.BPM;
+
+                                            if (_validRatios == null)
+                                            {
+                                                _validRatios = new List<float>();
+                                                for (int n = -4; n <= 8; n++)
+                                                    _validRatios.Add(Mathf.Pow(2f, n));
+                                                _validRatios.AddRange(new[] { 1.5f, 0.75f, 4f / 3f, 2f / 3f });
+                                            }
+
+                                            float epsilon = 0.005f;
+                                            bool IsClose(float val) => _validRatios.Any(target => Mathf.Abs(val - target) < epsilon);
+
+                                            void PreserveTimingData()
+                                            {
+                                                if (Chartmaker.main.CurrentChart == null) return;
+
+                                                Chart currentChart = Chartmaker.main.CurrentChart;
+                                                Metronome beatClock = Chartmaker.main.CurrentSong.Timing;
+
+                                                Dictionary<ulong, float> timeDict = new();
+                                                BackupTimingToDictionary(timeDict, beatClock, currentChart);
+
+                                                Chartmaker.main.SetItem(stop, "BPM", x);
+                                                beatClock = Chartmaker.main.CurrentSong.Timing;
+
+                                                RestoreTimingFromDictionary(timeDict, beatClock, currentChart);
+                                            }
+
+                                            void BackupTimingToDictionary(Dictionary<ulong, float> timeDict, Metronome timing, Chart chart)
+                                            {
+                                                foreach (Lane lane in chart.Lanes)
+                                                {
+                                                    foreach (LaneStep step in lane.LaneSteps)
+                                                        timeDict[step.UUID] = timing.ToSeconds(step.Offset);
+                                                    foreach (HitObject hitobj in lane.Objects)
+                                                        timeDict[hitobj.UUID] = timing.ToSeconds(hitobj.Offset);
+                                                    foreach (Timestamp ts in lane.Storyboard.Timestamps)
+                                                        timeDict[ts.UUID] = timing.ToSeconds(ts.Offset);
+                                                }
+                                                foreach (LaneStyle style in chart.Palette.LaneStyles)
+                                                    foreach (Timestamp ts in style.Storyboard.Timestamps)
+                                                        timeDict[ts.UUID] = timing.ToSeconds(ts.Offset);
+                                                foreach (HitStyle style in chart.Palette.HitStyles)
+                                                    foreach (Timestamp ts in style.Storyboard.Timestamps)
+                                                        timeDict[ts.UUID] = timing.ToSeconds(ts.Offset);
+                                                foreach (Timestamp ts in chart.Palette.Storyboard.Timestamps)
+                                                    timeDict[ts.UUID] = timing.ToSeconds(ts.Offset);
+                                                foreach (Timestamp ts in chart.Camera.Storyboard.Timestamps)
+                                                    timeDict[ts.UUID] = timing.ToSeconds(ts.Offset);
+                                            }
+
+                                            void RestoreTimingFromDictionary(Dictionary<ulong, float> timeDict, Metronome timing, Chart chart)
+                                            {
+                                                try
+                                                {
+                                                    foreach (Lane lane in chart.Lanes)
+                                                    {
+                                                        foreach (LaneStep step in lane.LaneSteps)
+                                                            step.Offset = (BeatPosition)timing.ToBeat(timeDict[step.UUID]);
+                                                        foreach (HitObject hitobj in lane.Objects)
+                                                            hitobj.Offset = (BeatPosition)timing.ToBeat(timeDict[hitobj.UUID]);
+                                                        foreach (Timestamp ts in lane.Storyboard.Timestamps)
+                                                            ts.Offset = (BeatPosition)timing.ToBeat(timeDict[ts.UUID]);
+                                                    }
+                                                    foreach (LaneStyle style in chart.Palette.LaneStyles)
+                                                        foreach (Timestamp ts in style.Storyboard.Timestamps)
+                                                            ts.Offset = (BeatPosition)timing.ToBeat(timeDict[ts.UUID]);
+                                                    foreach (HitStyle style in chart.Palette.HitStyles)
+                                                        foreach (Timestamp ts in style.Storyboard.Timestamps)
+                                                            ts.Offset = (BeatPosition)timing.ToBeat(timeDict[ts.UUID]);
+                                                    foreach (Timestamp ts in chart.Palette.Storyboard.Timestamps)
+                                                        ts.Offset = (BeatPosition)timing.ToBeat(timeDict[ts.UUID]);
+                                                    foreach (Timestamp ts in chart.Camera.Storyboard.Timestamps)
+                                                        ts.Offset = (BeatPosition)timing.ToBeat(timeDict[ts.UUID]);
+                                                }
+                                                catch (KeyNotFoundException e)
+                                                {
+                                                    ModalHolder.main.Spawn<DialogModal>().SetDialog("Key not found", $"UUID {e.Message} was not found in the dictionary.\nOne or more events can't be adjusted properly due to missing object.", new[]{"OK"}, _ => {});
+                                                }
+                                            }
+
+                                            if (IsClose(deltaRatio))
+                                            {
+                                                PreserveTimingData();
+                                            }
+                                            else if (Mathf.Abs(deltaRatio - 1.0f) < 0.02f)
+                                            {
+                                                Chartmaker.main.SetItem(stop, "BPM", x);
+                                            }
+                                            else
+                                            {
+                                                DialogModal questionModal = ModalHolder.main.Spawn<DialogModal>();
+                                                questionModal.SetDialog("Decide action for BPM change",
+                                                    "The BPM has changed significantly and we cannot determine the right action to manage the timing events!\nWhat do you want to do?",
+                                                    new[] { "Revert BPM changes", "Keep event timing position", "Adjust event timing accordingly (default)" },
+                                                    i =>
+                                                    {
+                                                        switch (i)
+                                                        {
+                                                            case 0:
+                                                                Chartmaker.main.SetItem(stop, "BPM", stop.BPM);
+                                                                break;
+                                                            case 1:
+                                                                if (Chartmaker.main.CurrentChart == null)
+                                                                {
+                                                                    ModalHolder.main.Spawn<DialogModal>().SetDialog("No chart loaded", "Cannot adjust timing events without a chart loaded.", new[]{"OK"}, _ => {});
+                                                                    break;
+                                                                }
+                                                                PreserveTimingData();
+                                                                break;
+                                                            case 2:
+                                                            default:
+                                                                if (Chartmaker.main.CurrentChart == null)
+                                                                {
+                                                                    ModalHolder.main.Spawn<DialogModal>().SetDialog("No chart loaded", "Cannot adjust timing events without a chart loaded.", new[]{"OK"}, _ => {});
+                                                                    break;
+                                                                }
+                                                                Chartmaker.main.SetItem(stop, "BPM", x);
+                                                                break;
+                                                        }
+                                                    });
+                                            }
+                                        });
+                                        var bpmTapper = SpawnForm<FormEntryBPMTapper, float>("", () => stop.BPM, x => {
                                             Chartmaker.main.SetItem(stop, "BPM", x);
                                             bpm.Start();
                                             bpm.Reset();

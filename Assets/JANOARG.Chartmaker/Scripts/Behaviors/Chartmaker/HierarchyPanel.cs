@@ -242,23 +242,22 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
 
                         GroupItems = newGroupItems;
 
-                        // Resolve parent hierarchy using first-match by name, same as client.
+                        // Resolve parent hierarchy using UUID, falling back to name.
                         for (int gi = 0; gi < chart.Groups.Count; gi++)
                         {
                             LaneGroup data = chart.Groups[gi];
-                            if (!string.IsNullOrEmpty(data.Group))
+                            int parentIdx = data.GroupUuid != 0
+                                ? chart.Groups.FindIndex(g => g.UUID == data.GroupUuid)
+                                : (!string.IsNullOrEmpty(data.Group) ? chart.Groups.FindIndex(g => g.Name == data.Group) : -1);
+                            if (parentIdx >= 0)
                             {
-                                int parentIdx = chart.Groups.FindIndex(g => g.Name == data.Group);
-                                if (parentIdx >= 0)
-                                {
-                                    GroupItems[parentIdx].Children.Add(GroupItems[gi]);
-                                    continue;
-                                }
+                                GroupItems[parentIdx].Children.Add(GroupItems[gi]);
+                                continue;
                             }
                             worldItem.Children.Add(GroupItems[gi]);
                         }
 
-                        // Add lanes — first-match by group name, same as client.
+                        // Add lanes — resolve by UUID, falling back to name.
                         foreach (Lane lane in chart.Lanes)
                         {
                             HierarchyItem item = new () {
@@ -268,7 +267,9 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                                 Target = lane,
                             };
 
-                            int groupIdx = string.IsNullOrEmpty(lane.Group) ? -1 : chart.Groups.FindIndex(g => g.Name == lane.Group);
+                            int groupIdx = lane.GroupUuid != 0
+                                ? chart.Groups.FindIndex(g => g.UUID == lane.GroupUuid)
+                                : (!string.IsNullOrEmpty(lane.Group) ? chart.Groups.FindIndex(g => g.Name == lane.Group) : -1);
                             if (groupIdx >= 0)
                                 GroupItems[groupIdx].Children.Add(item);
                             else
@@ -604,17 +605,18 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                         {
                             new ContextMenuListAction("Lane", () =>
                             {
-                                string group = InspectorPanel.main.CurrentObject switch
+                                (string group, ulong groupUuid) = InspectorPanel.main.CurrentObject switch
                                 {
-                                    Lane laneCurrentObject => laneCurrentObject.Group,
-                                    LaneGroup laneGroupCurrentObject => laneGroupCurrentObject.Name,
-                                    _ => ""
+                                    Lane laneCurrentObject => (laneCurrentObject.Group, laneCurrentObject.GroupUuid),
+                                    LaneGroup laneGroupCurrentObject => (laneGroupCurrentObject.Name, laneGroupCurrentObject.UUID),
+                                    _ => ("", 0UL)
                                 };
 
                                 Lane lane = new Lane
                                 {
                                     Position = new(0, -4, 0),
                                     Group = group,
+                                    GroupUuid = groupUuid,
                                 };
 
                                 lane.LaneSteps.Add(new LaneStep
@@ -635,15 +637,16 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                             }),
                             new ContextMenuListAction("Lane Group", () =>
                             {
-                                string parent = InspectorPanel.main.CurrentObject switch
+                                (string parent, ulong parentUuid) = InspectorPanel.main.CurrentObject switch
                                 {
-                                    Lane laneCurrentObject => laneCurrentObject.Group,
-                                    LaneGroup laneGroupCurrentObject => laneGroupCurrentObject.Name,
-                                    _ => ""
+                                    Lane laneCurrentObject => (laneCurrentObject.Group, laneCurrentObject.GroupUuid),
+                                    LaneGroup laneGroupCurrentObject => (laneGroupCurrentObject.Group, laneGroupCurrentObject.GroupUuid),
+                                    _ => ("", 0UL)
                                 };
 
                                 LaneGroup group = new LaneGroup {
                                     Group = parent,
+                                    GroupUuid = parentUuid,
                                     Name = InspectorPanel.main.GetNewGroupName("Group 1"),
                                 };
                                 Chartmaker.main.AddItem(group);
@@ -787,11 +790,20 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
         bool IsLaneGroupDraggingIntoSelf(LaneGroup dragging, string target)
         {
             if (dragging.Name == target) return true;
-            while (!String.IsNullOrEmpty(target))
+            ulong targetUuid = dragging.GroupUuid;
+            while (targetUuid != 0 || !string.IsNullOrEmpty(target))
             {
-                LaneGroup group = PlayerView.main.Manager.Groups[target].CurrentGroup;
-                if (group.Group == dragging.Name) return true;
-                if (group.Group == dragging.Group) return false;
+                if (!PlayerView.main.Manager.Groups.TryGetValue(targetUuid, out var groupManager))
+                {
+                    // Fallback: find by name
+                    var found = PlayerView.main.Manager.Groups.Values.FirstOrDefault(g => g.CurrentGroup.Name == target);
+                    if (found == null) break;
+                    groupManager = found;
+                }
+                LaneGroup group = groupManager.CurrentGroup;
+                if (group.UUID == dragging.UUID) return true;
+                if (group.GroupUuid == dragging.GroupUuid) return false;
+                targetUuid = group.GroupUuid;
                 target = group.Group;
             }
             return false;
@@ -810,17 +822,21 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                     List<Lane> list = Chartmaker.main.CurrentChart.Lanes;
                     int index = list.IndexOf(lane);
 
-                    ChartmakerArrangeLaneAction rearrangeLaneAction(Lane adjacent, string group) => new () {
+                    ChartmakerArrangeLaneAction rearrangeLaneAction(Lane adjacent, string group, ulong groupUuid) => new () {
                         Target = lane,
                         BeforeAdjacent = index > 0 ? list[index - 1] : null,
+                        BeforeAdjacentUuid = index > 0 ? list[index - 1].UUID : 0,
                         BeforeGroup = lane.Group,
+                        BeforeGroupUuid = lane.GroupUuid,
                         AfterAdjacent = adjacent,
-                        AfterGroup = group
+                        AfterAdjacentUuid = adjacent?.UUID ?? 0,
+                        AfterGroup = group,
+                        AfterGroupUuid = groupUuid
                     };
 
                     if (item1.Target.Target is LaneGroup group1)
                     {
-                        return rearrangeLaneAction(list[^1], group1.Name);
+                        return rearrangeLaneAction(list[^1], group1.Name, group1.UUID);
                     }
                 }
                 else if (item.Target.Target is LaneGroup group) 
@@ -828,19 +844,23 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                     List<LaneGroup> list = Chartmaker.main.CurrentChart.Groups;
                     int index = list.IndexOf(group);
 
-                    ChartmakerArrangeLaneGroupAction rearrangeGroupAction(LaneGroup adjacent, string parent) => new () {
+                    ChartmakerArrangeLaneGroupAction rearrangeGroupAction(LaneGroup adjacent, string parent, ulong parentUuid) => new () {
                         Target = group,
                         BeforeAdjacent = index > 0 ? list[index - 1] : null,
+                        BeforeAdjacentUuid = index > 0 ? list[index - 1].UUID : 0,
                         BeforeGroup = group.Group,
+                        BeforeGroupUuid = group.GroupUuid,
                         AfterAdjacent = adjacent,
-                        AfterGroup = parent
+                        AfterAdjacentUuid = adjacent?.UUID ?? 0,
+                        AfterGroup = parent,
+                        AfterGroupUuid = parentUuid
                     };
 
 
                     if (item1.Target.Target is LaneGroup group1)
                     {
                         if (IsLaneGroupDraggingIntoSelf(group, group1.Group)) return null;
-                        return rearrangeGroupAction(list[^1], group1.Name);
+                        return rearrangeGroupAction(list[^1], group1.Name, group1.UUID);
                     }
                 }
             }
@@ -853,28 +873,32 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                     List<Lane> list = Chartmaker.main.CurrentChart.Lanes;
                     int index = list.IndexOf(lane);
 
-                    ChartmakerArrangeLaneAction rearrangeLaneAction(Lane adjacent, string group) => new () {
+                    ChartmakerArrangeLaneAction rearrangeLaneAction(Lane adjacent, string group, ulong groupUuid) => new () {
                         Target = lane,
                         BeforeAdjacent = index > 0 ? list[index - 1] : null,
+                        BeforeAdjacentUuid = index > 0 ? list[index - 1].UUID : 0,
                         BeforeGroup = lane.Group,
+                        BeforeGroupUuid = lane.GroupUuid,
                         AfterAdjacent = adjacent,
-                        AfterGroup = group
+                        AfterAdjacentUuid = adjacent?.UUID ?? 0,
+                        AfterGroup = group,
+                        AfterGroupUuid = groupUuid
                     };
 
                     if (item1.Target.Type == HierarchyItemType.World)
                     {
-                        return rearrangeLaneAction(list[^1], "");
+                        return rearrangeLaneAction(list[^1], "", 0);
                     }
                     if (item1.Target.Target is Lane lane1)
                     {
-                        return rearrangeLaneAction(lane1, lane1.Group);
+                        return rearrangeLaneAction(lane1, lane1.Group, lane1.GroupUuid);
                     }
                     if (item1.Target.Target is LaneGroup group1)
                     {
                         if (item1.Target.Children.Count > 0 && item1.Target.Expanded)
-                            return rearrangeLaneAction(null, group1.Name);
+                            return rearrangeLaneAction(null, group1.Name, group1.UUID);
                         else 
-                            return rearrangeLaneAction(null, group1.Group);
+                            return rearrangeLaneAction(null, group1.Group, group1.GroupUuid);
                     }
                 }
                 else if (item.Target.Target is LaneGroup group) 
@@ -882,26 +906,30 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                     List<LaneGroup> list = Chartmaker.main.CurrentChart.Groups;
                     int index = list.IndexOf(group);
 
-                    ChartmakerArrangeLaneGroupAction rearrangeGroupAction(LaneGroup adjacent, string parent) => 
+                    ChartmakerArrangeLaneGroupAction rearrangeGroupAction(LaneGroup adjacent, string parent, ulong parentUuid) => 
                         IsLaneGroupDraggingIntoSelf(group, parent) ? null : new () {
                             Target = group,
                             BeforeAdjacent = index > 0 ? list[index - 1] : null,
+                            BeforeAdjacentUuid = index > 0 ? list[index - 1].UUID : 0,
                             BeforeGroup = group.Group,
+                            BeforeGroupUuid = group.GroupUuid,
                             AfterAdjacent = adjacent,
-                            AfterGroup = parent
+                            AfterAdjacentUuid = adjacent?.UUID ?? 0,
+                            AfterGroup = parent,
+                            AfterGroupUuid = parentUuid
                         };
 
 
                     if (item1.Target.Type == HierarchyItemType.World)
                     {
-                        return rearrangeGroupAction(list[^1], "");
+                        return rearrangeGroupAction(list[^1], "", 0);
                     }
                     if (item1.Target.Target is LaneGroup group1)
                     {
                         if (item1.Target.Children.Count > 0 && item1.Target.Expanded)
-                            return rearrangeGroupAction(null, group1.Name);
+                            return rearrangeGroupAction(null, group1.Name, group1.UUID);
                         else 
-                            return rearrangeGroupAction(group1, group1.Group);
+                            return rearrangeGroupAction(group1, group1.Group, group1.GroupUuid);
                     }
                 }
             }

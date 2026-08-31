@@ -3335,9 +3335,11 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                                     {
                                         case Lane adjacentLane:
                                             lane.Group = adjacentLane.Group;
+                                            lane.GroupUuid = adjacentLane.GroupUuid;
                                             break;
                                         case LaneGroup parent:
                                             lane.Group = parent.Name;
+                                            lane.GroupUuid = parent.UUID;
                                             break;
                                     }
 
