@@ -1260,7 +1260,7 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
                 };
                 string audioQualityOptions = Prefs.AudioQualityMode switch
                 {
-                    AudioQualityMode.FixedBitrate => $"-b:v {Prefs.AudioBitRate}k",
+                    AudioQualityMode.FixedBitrate => $"-b:a {Prefs.AudioBitRate}k",
                     _ => "",
                 };
 
