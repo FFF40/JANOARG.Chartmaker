@@ -9,7 +9,10 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker.PickHandler
 
         public override bool Pick(PointerEventData eventData)
         {
-            if (TimelinePanel.main.CurrentMode == TimelineMode.Lanes || eventData.button == PointerEventData.InputButton.Right)
+            if (
+                (TimelinePanel.main.CurrentMode == TimelineMode.Lanes || Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift))
+                && eventData.button == PointerEventData.InputButton.Left
+            )
             {
                 InspectorPanel.main.SetObject(Instance.CurrentLane.Original);
 

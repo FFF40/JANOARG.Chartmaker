@@ -605,6 +605,27 @@ TextureImporter:
       indices: 
       edges: []
       weights: []
+    - serializedVersion: 2
+      name: Camera Handle
+      rect:
+        serializedVersion: 2
+        x: 480
+        y: 0
+        width: 24
+        height: 24
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 24f02fec4b3cd7b908b8db318aaea352
+      internalID: 1434421814
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
     outline: []
     physicsShape: []
     bones: []
@@ -617,6 +638,7 @@ TextureImporter:
     secondaryTextures: []
     nameFileIdTable:
       Analysis: -2068980047
+      Camera Handle: 1434421814
       Catch HIt: 1707754823
       Cover Layer: -649788852
       Cursor: -633373088
