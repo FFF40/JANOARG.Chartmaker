@@ -8,6 +8,8 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker.PlayerViewProps
     public class PlayerViewCamera : MonoBehaviour
     {
 
+        public bool DrawCamera { get; internal set; } = true;
+
         Material lineMaterial;
 
         public void Start()
@@ -25,7 +27,7 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker.PlayerViewProps
             var camRot = Quaternion.Euler(playerView.Manager.Camera.CameraRotation);
             var camPos = playerView.Manager.Camera.CameraPivot + camRot * new Vector3(0, 0, -playerView.Manager.Camera.PivotDistance);
             var camNear = camera.nearClipPlane;
-            var camFar = Mathf.Lerp(camera.nearClipPlane, camera.farClipPlane, .5f);
+            var camFar = PlayerView.BASE_CAMERA_RANGE;
 
             const float TAN_Y_MULT = 0.5773502483918941f;
             const float TAN_X_MULT = TAN_Y_MULT * PlayerView.GAME_FIELD_RATIO;
@@ -36,34 +38,37 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker.PlayerViewProps
             
             if (playerView.CurrentWorldViewMode == WorldViewMode.Freecam)
             {
-                GL.Begin(GL.LINES);
-                GL.Color((Color.white - playerView.Manager.PalleteManager.CurrentPallete.BackgroundColor) * new ColorFrag(a: 0.35f));
+                if (DrawCamera)
+                {
+                    GL.Begin(GL.LINES);
+                    GL.Color((Color.white - playerView.Manager.PalleteManager.CurrentPallete.BackgroundColor) * new ColorFrag(a: 0.35f));
 
-                GL.Vertex(camPos + camRot * new Vector3( TAN_X_MULT,  TAN_Y_MULT, 1) * camNear);
-                GL.Vertex(camPos + camRot * new Vector3( TAN_X_MULT,  TAN_Y_MULT, 1) * camFar);
-                GL.Vertex(camPos + camRot * new Vector3( TAN_X_MULT, -TAN_Y_MULT, 1) * camNear);
-                GL.Vertex(camPos + camRot * new Vector3( TAN_X_MULT, -TAN_Y_MULT, 1) * camFar);
-                GL.Vertex(camPos + camRot * new Vector3(-TAN_X_MULT,  TAN_Y_MULT, 1) * camNear);
-                GL.Vertex(camPos + camRot * new Vector3(-TAN_X_MULT,  TAN_Y_MULT, 1) * camFar);
-                GL.Vertex(camPos + camRot * new Vector3(-TAN_X_MULT, -TAN_Y_MULT, 1) * camNear);
-                GL.Vertex(camPos + camRot * new Vector3(-TAN_X_MULT, -TAN_Y_MULT, 1) * camFar);
+                    GL.Vertex(camPos + camRot * new Vector3( TAN_X_MULT,  TAN_Y_MULT, 1) * camNear);
+                    GL.Vertex(camPos + camRot * new Vector3( TAN_X_MULT,  TAN_Y_MULT, 1) * camFar);
+                    GL.Vertex(camPos + camRot * new Vector3( TAN_X_MULT, -TAN_Y_MULT, 1) * camNear);
+                    GL.Vertex(camPos + camRot * new Vector3( TAN_X_MULT, -TAN_Y_MULT, 1) * camFar);
+                    GL.Vertex(camPos + camRot * new Vector3(-TAN_X_MULT,  TAN_Y_MULT, 1) * camNear);
+                    GL.Vertex(camPos + camRot * new Vector3(-TAN_X_MULT,  TAN_Y_MULT, 1) * camFar);
+                    GL.Vertex(camPos + camRot * new Vector3(-TAN_X_MULT, -TAN_Y_MULT, 1) * camNear);
+                    GL.Vertex(camPos + camRot * new Vector3(-TAN_X_MULT, -TAN_Y_MULT, 1) * camFar);
 
-                GL.Vertex(camPos + camRot * new Vector3( TAN_X_MULT,  TAN_Y_MULT, 1) * camNear);
-                GL.Vertex(camPos + camRot * new Vector3( TAN_X_MULT, -TAN_Y_MULT, 1) * camNear);
-                GL.Vertex(camPos + camRot * new Vector3( TAN_X_MULT, -TAN_Y_MULT, 1) * camNear);
-                GL.Vertex(camPos + camRot * new Vector3(-TAN_X_MULT, -TAN_Y_MULT, 1) * camNear);
-                GL.Vertex(camPos + camRot * new Vector3(-TAN_X_MULT, -TAN_Y_MULT, 1) * camNear);
-                GL.Vertex(camPos + camRot * new Vector3(-TAN_X_MULT,  TAN_Y_MULT, 1) * camNear);
-                GL.Vertex(camPos + camRot * new Vector3(-TAN_X_MULT,  TAN_Y_MULT, 1) * camNear);
-                GL.Vertex(camPos + camRot * new Vector3( TAN_X_MULT,  TAN_Y_MULT, 1) * camNear);
-                GL.Vertex(camPos + camRot * new Vector3( TAN_X_MULT,  TAN_Y_MULT, 1) * camFar);
-                GL.Vertex(camPos + camRot * new Vector3( TAN_X_MULT, -TAN_Y_MULT, 1) * camFar);
-                GL.Vertex(camPos + camRot * new Vector3( TAN_X_MULT, -TAN_Y_MULT, 1) * camFar);
-                GL.Vertex(camPos + camRot * new Vector3(-TAN_X_MULT, -TAN_Y_MULT, 1) * camFar);
-                GL.Vertex(camPos + camRot * new Vector3(-TAN_X_MULT, -TAN_Y_MULT, 1) * camFar);
-                GL.Vertex(camPos + camRot * new Vector3(-TAN_X_MULT,  TAN_Y_MULT, 1) * camFar);
-                GL.Vertex(camPos + camRot * new Vector3(-TAN_X_MULT,  TAN_Y_MULT, 1) * camFar);
-                GL.Vertex(camPos + camRot * new Vector3( TAN_X_MULT,  TAN_Y_MULT, 1) * camFar);
+                    GL.Vertex(camPos + camRot * new Vector3( TAN_X_MULT,  TAN_Y_MULT, 1) * camNear);
+                    GL.Vertex(camPos + camRot * new Vector3( TAN_X_MULT, -TAN_Y_MULT, 1) * camNear);
+                    GL.Vertex(camPos + camRot * new Vector3( TAN_X_MULT, -TAN_Y_MULT, 1) * camNear);
+                    GL.Vertex(camPos + camRot * new Vector3(-TAN_X_MULT, -TAN_Y_MULT, 1) * camNear);
+                    GL.Vertex(camPos + camRot * new Vector3(-TAN_X_MULT, -TAN_Y_MULT, 1) * camNear);
+                    GL.Vertex(camPos + camRot * new Vector3(-TAN_X_MULT,  TAN_Y_MULT, 1) * camNear);
+                    GL.Vertex(camPos + camRot * new Vector3(-TAN_X_MULT,  TAN_Y_MULT, 1) * camNear);
+                    GL.Vertex(camPos + camRot * new Vector3( TAN_X_MULT,  TAN_Y_MULT, 1) * camNear);
+                    GL.Vertex(camPos + camRot * new Vector3( TAN_X_MULT,  TAN_Y_MULT, 1) * camFar);
+                    GL.Vertex(camPos + camRot * new Vector3( TAN_X_MULT, -TAN_Y_MULT, 1) * camFar);
+                    GL.Vertex(camPos + camRot * new Vector3( TAN_X_MULT, -TAN_Y_MULT, 1) * camFar);
+                    GL.Vertex(camPos + camRot * new Vector3(-TAN_X_MULT, -TAN_Y_MULT, 1) * camFar);
+                    GL.Vertex(camPos + camRot * new Vector3(-TAN_X_MULT, -TAN_Y_MULT, 1) * camFar);
+                    GL.Vertex(camPos + camRot * new Vector3(-TAN_X_MULT,  TAN_Y_MULT, 1) * camFar);
+                    GL.Vertex(camPos + camRot * new Vector3(-TAN_X_MULT,  TAN_Y_MULT, 1) * camFar);
+                    GL.Vertex(camPos + camRot * new Vector3( TAN_X_MULT,  TAN_Y_MULT, 1) * camFar);
+                }
             }
             
             GL.End();

@@ -16,15 +16,17 @@ using UnityEngine.UI;
 using JANOARG.Chartmaker.Behaviors.Chartmaker.PickHandler;
 using JANOARG.Chartmaker.Utils.NativeAPI;
 using JANOARG.Shared.Utils;
+using JANOARG.Chartmaker.Behaviors.Chartmaker.PlayerViewProps;
 
 namespace JANOARG.Chartmaker.Behaviors.Chartmaker
 {
-    public class PlayerView : MonoBehaviour, IPointerDownHandler, IPointerUpHandler, IPointerMoveHandler, IDragHandler, IEndDragHandler
+    public class PlayerView : MonoBehaviour, IPointerDownHandler, IPointerUpHandler, IPointerMoveHandler, IScrollHandler, IDragHandler, IEndDragHandler
     {
         public static PlayerView    main;
         public RectTransform playerViewBound;
 
         public Camera MainCamera;
+        public PlayerViewCamera CameraProps;
         public Image  BoundingBox;
         [Space]
         public ChartManager Manager;
@@ -89,6 +91,8 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
         public GameObject WorldToolbar;
         public GameObject GameplayViewButtonHighlight;
         public GameObject FreecamViewButtonHighlight;
+        public GameObject WorldViewOptionsToolbar;
+        public GameObject ShowCameraButtonHighlight;
 
         [Space]
         public float[] GridSize = {0.5f};
@@ -96,8 +100,9 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
 
         public float CurrentTime { get; private set; }
 
-        public const float BASE_FOV = 60;
-        public const float BASE_FOV_HALF = BASE_FOV / 2;
+        public const float BASE_CAMERA_FOV = 60;
+        public const float BASE_CAMERA_FOV_HALF = BASE_CAMERA_FOV / 2;
+        public const float BASE_CAMERA_RANGE = 200;
         public const float GAME_FIELD_RATIO = 7 / 4f;
         public const float PANORAMA_COVER_RATIO = 880 / 200f;
 
@@ -173,6 +178,7 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
         Vector3 freecamVelocity;
         Vector3 lastFreecamPosition;
         Quaternion lastFreecamRotation;
+        float freecamSpeedMulti = 15;
 
 
         public void Awake()
@@ -264,11 +270,11 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
 
             BoundingBox.rectTransform.sizeDelta = safeZone.size;
             float camRatio = targetAspect <= 0 ? 1 : safeZone.height / bound.height;
-            MainCamera.fieldOfView = Mathf.Atan2(Mathf.Tan(BASE_FOV_HALF * Mathf.Deg2Rad), camRatio) * 2 * Mathf.Rad2Deg;
+            MainCamera.fieldOfView = Mathf.Atan2(Mathf.Tan(BASE_CAMERA_FOV_HALF * Mathf.Deg2Rad), camRatio) * 2 * Mathf.Rad2Deg;
 
             if (freecamVelocity != Vector3.zero)
             {
-                MoveFreecam(freecamVelocity * Time.deltaTime);
+                MoveFreecam(freecamVelocity * Time.deltaTime * freecamSpeedMulti);
             }
 
             if (!Mathf.Approximately(CurrentTime, InformationBar.main.sec) || !Mathf.Approximately(targetAspect, lastTargetAspect))
@@ -378,13 +384,22 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
 
                 if (CurrentWorldViewMode == WorldViewMode.Gameplay)
                 {
+                    MainCamera.farClipPlane = BASE_CAMERA_RANGE;
                     MainCamera.transform.position = Manager.Camera.CameraPivot;
                     MainCamera.transform.eulerAngles = Manager.Camera.CameraRotation; 
                     MainCamera.transform.Translate(Vector3.back * Manager.Camera.PivotDistance);
+
+                    RenderSettings.fog = true;
+                }
+                else
+                {
+                    MainCamera.farClipPlane = BASE_CAMERA_RANGE * 10;
+
+                    RenderSettings.fog = false;
                 }
 
                 RenderSettings.fogColor = MainCamera.backgroundColor = Manager.PalleteManager.CurrentPallete.BackgroundColor;
-                BoundingBox.color = NotificationText.color = NotificationBox.color = Manager.PalleteManager.CurrentPallete.InterfaceColor;
+                BoundingBox.color = Manager.PalleteManager.CurrentPallete.InterfaceColor;
 
                 sr_GroupPlayers.Begin();
 
@@ -679,6 +694,9 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             {
                 GameplayViewButtonHighlight.SetActive(CurrentWorldViewMode == WorldViewMode.Gameplay);
                 FreecamViewButtonHighlight.SetActive(CurrentWorldViewMode == WorldViewMode.Freecam);
+
+                WorldViewOptionsToolbar.SetActive(CurrentWorldViewMode == WorldViewMode.Freecam);
+                ShowCameraButtonHighlight.SetActive(CameraProps.DrawCamera);
             }
         }
 
@@ -1286,6 +1304,15 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             }
         }
 
+        public void OnScroll(PointerEventData eventData)
+        {
+            if (CurrentDragMode == HandleDragMode.Camera)
+            {
+                freecamSpeedMulti = Mathf.Clamp(freecamSpeedMulti * Mathf.Pow(1.1f, Mathf.Sign(eventData.scrollDelta.y)), 1.5f, 150);
+                Chartmaker.main.NotifyNoFlash($"{freecamSpeedMulti / 15:G3}x", 1);
+            }
+        }
+
         public PointerEvent OnDragEvent;
 
         public void OnEndDrag(PointerEventData eventData)
@@ -1561,12 +1588,18 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
 
         public void AddFreecamVelocity(Vector3 delta)
         {
-            freecamVelocity += delta * 15;
+            freecamVelocity += delta;
         }
 
         public void RemoveFreecamVelocity(Vector3 delta)
         {
-            freecamVelocity -= delta * 15;
+            freecamVelocity -= delta;
+        }
+
+        public void ToggleCameraGizmos()
+        {
+            CameraProps.DrawCamera = !CameraProps.DrawCamera;
+            UpdateToolbars();
         }
 
         #endregion
