@@ -93,6 +93,7 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
         public GameObject FreecamViewButtonHighlight;
         public GameObject WorldViewOptionsToolbar;
         public GameObject ShowCameraButtonHighlight;
+        public GameObject ShowGridButtonHighlight;
 
         [Space]
         public float[] GridSize = {0.5f};
@@ -697,6 +698,7 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
 
                 WorldViewOptionsToolbar.SetActive(CurrentWorldViewMode == WorldViewMode.Freecam);
                 ShowCameraButtonHighlight.SetActive(CameraProps.DrawCamera);
+                ShowGridButtonHighlight.SetActive(CameraProps.DrawGrid);
             }
         }
 
@@ -1599,6 +1601,12 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
         public void ToggleCameraGizmos()
         {
             CameraProps.DrawCamera = !CameraProps.DrawCamera;
+            UpdateToolbars();
+        }
+
+        public void ToggleWorldGrid()
+        {
+            CameraProps.DrawGrid = !CameraProps.DrawGrid;
             UpdateToolbars();
         }
 
