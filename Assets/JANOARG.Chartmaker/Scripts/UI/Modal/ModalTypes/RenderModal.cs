@@ -1336,6 +1336,8 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
                     {
                         foreach (var hit in lane.Objects)
                         {
+                            if (hit.IsFake) continue;
+
                             float outputTime = timing.ToSeconds(hit.Offset) - timeRange.x;
                             if (outputTime < 0 || outputTime > renderDuration) continue;
                             hitSfxEvents.Add(new HitSfxEvent { Time = outputTime, Type = hit.Type, Flickable = hit.Flickable });

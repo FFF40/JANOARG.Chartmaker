@@ -35,7 +35,10 @@ namespace JANOARG.Chartmaker.Data.Chartmaker.MultiEdit
             LerpField = list.GetType().GetGenericArguments()[0].GetField(LerpSource);
        
             if (LerpField == null) 
+            {
+                UnityEngine.Debug.LogWarning($"SetLerp: LerpSource '{LerpSource}' not found on type {list.GetType().GetGenericArguments()[0].Name}. Select a valid scalar field in the Lerp Source dropdown.");
                 return;
+            }
      
             foreach (object item in list)
             {

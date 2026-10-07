@@ -236,6 +236,27 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
                     var prefs = Behaviors.Chartmaker.Chartmaker.Preferences;
                     var storage = Behaviors.Chartmaker.Chartmaker.PreferencesStorage;
 
+                    SpawnForm<FormEntryHeader>("Rendering");
+                    var graphicsApiDropdown = SpawnForm<FormEntryDropdown, object>("Graphics API", () => prefs.GraphicsAPI, x => {
+                        storage.Set("GS:GraphicsAPI", prefs.GraphicsAPI = (GraphicsAPI)x);
+                        IsDirty = true;
+                        Behaviors.Chartmaker.Chartmaker.main.Notify("Graphics API will be applied on the next restart.");
+                    });
+                    graphicsApiDropdown.ValidValues.Add(GraphicsAPI.Automatic, "Automatic");
+                    graphicsApiDropdown.ValidValues.Add(GraphicsAPI.OpenGLCore, "OpenGL Core");
+                    graphicsApiDropdown.ValidValues.Add(GraphicsAPI.Vulkan, "Vulkan");
+#if UNITY_STANDALONE_WIN || UNITY_EDITOR_WIN
+                    graphicsApiDropdown.ValidValues.Add(GraphicsAPI.Direct3D11, "Direct3D11");
+#endif
+#if UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX
+                    graphicsApiDropdown.ValidValues.Add(GraphicsAPI.Metal, "Metal");
+#endif
+                    Tooltipify(graphicsApiDropdown,
+                        "Select the graphics backend the app renders with. Changes take effect after restarting the app."
+                        + "\n- OpenGL Core: recommended on Linux to avoid a known Vulkan driver crash."
+                        + "\n- Automatic: let the engine pick (Vulkan on Linux)."
+                    );
+
                     SpawnForm<FormEntryHeader>("Display");
                     entry = SpawnForm<FormEntryBool, bool>("Vertical Sync", () => QualitySettings.vSyncCount > 0, x => {
                         storage.Set("GS:VSync", QualitySettings.vSyncCount = x ? 1 : 0); IsDirty = true;

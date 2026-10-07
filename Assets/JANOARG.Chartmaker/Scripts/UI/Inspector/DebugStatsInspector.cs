@@ -1,7 +1,9 @@
+using System;
 using System.Collections.Generic;
 using JANOARG.Chartmaker.Behaviors.Chartmaker;
 using JANOARG.Chartmaker.UI.Modal;
 using JANOARG.Chartmaker.UI.Modal.ModalTypes;
+using JANOARG.Chartmaker.Utils;
 using TMPro;
 using UnityEngine;
 using UnityEngine.Profiling;
@@ -33,14 +35,20 @@ namespace JANOARG.Chartmaker.UI.Inspector
         List<float> FrameMax     = new();
     
         [Space]
-        public TMP_Text AllocatedMemoryLabel;
+        public TMP_Text TotalMemoryLabel;
         public TMP_Text ReservedMemoryLabel;
-        public TMP_Text MonoMemoryLabel;
+        public TMP_Text AllocatedMemoryLabel;
+        public TMP_Text ManagedMemoryLabel;
         public Graphic  MemoryGraph;
 
-        List<float> AllocatedMemory = new();
+        List<float> TotalMemory     = new();
         List<float> ReservedMemory  = new();
-        List<float> MonoMemory      = new();
+        List<float> AllocatedMemory = new();
+        List<float> ManagedMemory   = new();
+
+        float MemoryScale;
+
+        float PeakTotal, PeakReserved, PeakAllocated, PeakManaged;
 
         Material FPSGraphMaterial, MemoryGraphMaterial;
 
@@ -56,6 +64,44 @@ namespace JANOARG.Chartmaker.UI.Inspector
             Destroy(MemoryGraphMaterial);
         }
 
+        const int SeriesLength = 64;
+
+        static void Push(List<float> series, float value)
+        {
+            series.Add(value);
+            while (series.Count > SeriesLength) series.RemoveAt(0);
+        }
+
+        static void FillSeries(List<float> series, float[] target, float scale)
+        {
+            int count = series.Count;
+            for (int a = 0; a < SeriesLength; a++)
+            {
+                int i = count - SeriesLength + a;
+                target[a] = i >= 0 ? series[i] / scale : -1e6f;
+            }
+        }
+
+        static string FormatMemory(float value, bool valid)
+        {
+            return valid && value > 0 ? value.ToString("0.0") : "N/A";
+        }
+
+        void SampleMemoryPeaks()
+        {
+            if (ProcessMemory.TryGet(out long workingSet, out _))
+                PeakTotal = Mathf.Max(PeakTotal, workingSet / 1048576f);
+
+            // Memory Profiler methods are available outside development builds too,
+            // so call them directly and only fall back when they report nothing.
+            PeakReserved  = Mathf.Max(PeakReserved,  Profiler.GetTotalReservedMemoryLong()  / 1048576f);
+            PeakAllocated = Mathf.Max(PeakAllocated, Profiler.GetTotalAllocatedMemoryLong() / 1048576f);
+
+            float managed = Profiler.GetMonoUsedSizeLong() / 1048576f;
+            if (managed <= 0) managed = GC.GetTotalMemory(false) / 1048576f;
+            PeakManaged = Mathf.Max(PeakManaged, managed);
+        }
+
         // Update is called once per frame
         void Update()
         {
@@ -63,6 +109,8 @@ namespace JANOARG.Chartmaker.UI.Inspector
             UpdateMin = Mathf.Max(UpdateMin, Time.unscaledDeltaTime);
             UpdateMax = Mathf.Min(UpdateMax, Time.unscaledDeltaTime);
             UpdateFrames++;
+
+            SampleMemoryPeaks();
 
             float cutoffThres = 108 - WindowHandler.main.NavBar.anchoredPosition.y;
 
@@ -79,22 +127,20 @@ namespace JANOARG.Chartmaker.UI.Inspector
                 FPSLabel.text = (1 / msAvg).ToString("0.0");
                 MSLabel.text = (msAvg * 1000).ToString("0.00");
 
-                FrameHistory.Add(msAvg);
-                FrameMin.Add(UpdateMin);
-                FrameMax.Add(UpdateMax);
-                while (FrameHistory.Count > 64) FrameHistory.RemoveAt(0);
-                while (FrameMin.Count > 64) FrameMin.RemoveAt(0);
-                while (FrameMax.Count > 64) FrameMax.RemoveAt(0);
+                Push(FrameHistory, msAvg);
+                Push(FrameMin, UpdateMin);
+                Push(FrameMax, UpdateMax);
                 float fpsheight = Mathf.Max(FrameMin.ToArray()); 
                 float[] fpslist = new float[64], fpsmin = new float[64], fpsmax = new float[64];
+                FillSeries(FrameHistory, fpslist, fpsheight);
+                FillSeries(FrameMin, fpsmin, fpsheight);
+                FillSeries(FrameMax, fpsmax, fpsheight);
                 float fpsSum = 0;
-                for (int a = 0; a < 64; a++) 
+                int frameCount = FrameHistory.Count;
+                for (int a = 0; a < SeriesLength; a++) 
                 {
-                    int i = FrameHistory.Count - 64 + a;
-                    fpslist[a] = i >= 0 ? FrameHistory[i] / fpsheight : -1e6f;
-                    fpsmin[a] = i >= 0 ? FrameMin[i] / fpsheight : -1e6f;
-                    fpsmax[a] = i >= 0 ? FrameMax[i] / fpsheight : -1e6f;
-                    fpsSum += i >= 0 ? FrameHistory[i] : 0;
+                    int i = frameCount - SeriesLength + a;
+                    if (i >= 0) fpsSum += FrameHistory[i];
                 }
                 FPSGraphMaterial.SetFloat("_CutoffThreshold", cutoffThres);
                 FPSGraphMaterial.SetFloatArray("_Values", fpslist);
@@ -113,32 +159,45 @@ namespace JANOARG.Chartmaker.UI.Inspector
                 UpdateMin = 0;
             
 
-                AllocatedMemory.Add(Profiler.GetTotalAllocatedMemoryLong() / 1048576f);
-                ReservedMemory.Add(Profiler.GetTotalReservedMemoryLong() / 1048576f);
-                MonoMemory.Add(Profiler.GetMonoUsedSizeLong() / 1048576f);
-                while (AllocatedMemory.Count > 64) AllocatedMemory.RemoveAt(0);
-                while (ReservedMemory.Count > 64) ReservedMemory.RemoveAt(0);
-                while (MonoMemory.Count > 64) MonoMemory.RemoveAt(0);
-                float memheight = Mathf.Max(ReservedMemory.ToArray()); 
-                float[] memall = new float[64], memres = new float[64], memmono = new float[64];
-                for (int a = 0; a < 64; a++) 
+                Push(TotalMemory, PeakTotal);
+                Push(ReservedMemory, PeakReserved);
+                Push(AllocatedMemory, PeakAllocated);
+                Push(ManagedMemory, PeakManaged);
+
+                PeakTotal = PeakReserved = PeakAllocated = PeakManaged = 0;
+
+                float memMax = Mathf.Max(
+                    Mathf.Max(TotalMemory.ToArray()),
+                    Mathf.Max(ReservedMemory.ToArray()),
+                    Mathf.Max(AllocatedMemory.ToArray()),
+                    Mathf.Max(ManagedMemory.ToArray()));
+                MemoryScale = Mathf.Max(MemoryScale, Mathf.Ceil(memMax / 64f) * 64f);
+                bool memValid = MemoryScale > 0.001f;
+                float[] memTotal = new float[64], memres = new float[64], memall = new float[64], memman = new float[64];
+                if (memValid)
                 {
-                    int i = FrameHistory.Count - 64 + a;
-                    memall[a] = i >= 0 ? AllocatedMemory[i] / memheight : -1e6f;
-                    memres[a] = i >= 0 ? ReservedMemory[i] / memheight : -1e6f;
-                    memmono[a] = i >= 0 ? MonoMemory[i] / memheight : -1e6f;
+                    FillSeries(TotalMemory, memTotal, MemoryScale);
+                    FillSeries(ReservedMemory, memres, MemoryScale);
+                    FillSeries(AllocatedMemory, memall, MemoryScale);
+                    FillSeries(ManagedMemory, memman, MemoryScale);
+                }
+                else
+                {
+                    for (int a = 0; a < SeriesLength; a++) memTotal[a] = memres[a] = memall[a] = memman[a] = -1e6f;
                 }
                 MemoryGraphMaterial.SetFloat("_CutoffThreshold", cutoffThres);
-                MemoryGraphMaterial.SetFloatArray("_Values1", memall);
-                MemoryGraphMaterial.SetFloatArray("_Values2", memmono);
-                MemoryGraphMaterial.SetFloatArray("_Values3", memres);
+                MemoryGraphMaterial.SetFloatArray("_Values1", memTotal);
+                MemoryGraphMaterial.SetFloatArray("_Values2", memres);
+                MemoryGraphMaterial.SetFloatArray("_Values3", memall);
+                MemoryGraphMaterial.SetFloatArray("_Values4", memman);
             
                 MemoryGraph.material = MemoryGraphMaterial;
                 MemoryGraph.SetMaterialDirty();
             
-                AllocatedMemoryLabel.text = AllocatedMemory[^1].ToString("0.0");
-                ReservedMemoryLabel.text = ReservedMemory[^1].ToString("0.0");
-                MonoMemoryLabel.text = MonoMemory[^1].ToString("0.0");
+                TotalMemoryLabel.text     = FormatMemory(TotalMemory[^1], true);
+                ReservedMemoryLabel.text  = FormatMemory(ReservedMemory[^1], true);
+                AllocatedMemoryLabel.text = FormatMemory(AllocatedMemory[^1], true);
+                ManagedMemoryLabel.text   = FormatMemory(ManagedMemory[^1], true);
             }
         }
     

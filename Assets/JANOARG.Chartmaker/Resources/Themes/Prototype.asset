@@ -101,6 +101,8 @@ MonoBehaviour:
     Value: {r: 0, g: 0, b: 0, a: 0.5}
   - Key: TimelineBackgroundStart
     Value: {r: 0.010196081, g: 0.03313726, b: 0.101960786, a: 0.5019608}
+  - Key: TimelineBackgroundStartSoft
+    Value: {r: 0.010196081, g: 0.03313726, b: 0.101960786, a: 0.2509804}
   - Key: TimelineBackgroundEnd
     Value: {r: 0.1, g: 0, b: 0, a: 0.5019608}
   - Key: TimelineBorderStart

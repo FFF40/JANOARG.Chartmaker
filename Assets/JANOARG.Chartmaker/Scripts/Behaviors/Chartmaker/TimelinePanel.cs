@@ -9,6 +9,7 @@ using JANOARG.Chartmaker.Data.Chartmaker.Actions;
 using JANOARG.Chartmaker.UI;
 using JANOARG.Chartmaker.UI.ContextMenu;
 using JANOARG.Chartmaker.UI.Themeable;
+using JANOARG.Chartmaker.UI.Themeable.ThemeableTypes;
 using JANOARG.Chartmaker.UI.Timeline;
 using JANOARG.Chartmaker.Utils;
 using JANOARG.Shared.Data.ChartInfo;
@@ -188,15 +189,37 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
 
         public void Start()
         {
+            EnsureSoftStartTint();
             UpdateTabs();
             UpdateScrollbar();
             Options.OnEnable();
             UpdateTimeline(true);
         }
 
+        // A fainter companion to the "Song Start" tint, covering the soft-limit stretch from the
+        // hard limit (PreSongLimit) up to the audio start. It is cloned from the hard tint at
+        // runtime so it picks up that tint's border and layout, and it takes its own theme colour
+        // so the soft limit reads as a uniform band with a hard edge rather than a fade.
+        RectTransform _SoftStartRect;
+
+        void EnsureSoftStartTint()
+        {
+            if (_SoftStartRect || !SongStartRect) return;
+
+            _SoftStartRect = Instantiate(SongStartRect, SongStartRect.parent);
+            _SoftStartRect.name = "Song Start Soft";
+            _SoftStartRect.SetSiblingIndex(SongStartRect.GetSiblingIndex() + 1);
+
+            if (_SoftStartRect.TryGetComponent(out GraphicThemeable themeable))
+            {
+                themeable.ID = "TimelineBackgroundStartSoft";
+                themeable.SetColors();
+            }
+        }
+
         public void UpdatePeekLimit()
         {
-            PeekLimit.x = -5;
+            PeekLimit.x = Chartmaker.PreSongLimit;
             PeekLimit.y = Chartmaker.main.CurrentSong.Clip.length + 5;
         }
 
@@ -207,7 +230,7 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                     Mathf.Max(PeekRange.y, PeekLimit.y)
                 );
 
-                float time = Chartmaker.main.SongSource.time;
+                float time = Chartmaker.main.SongTime;
 
                 if (isDragged && (int)dragMode % 2 == 1 && dragMode != TimelineDragMode.TimelineDrag)
                 {
@@ -228,7 +251,7 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                         OnDrag(lastDrag);
                     }
                 } 
-                else if (Options.FollowSeekLine && Chartmaker.main.SongSource.isPlaying)
+                else if (Options.FollowSeekLine && Chartmaker.main.IsPlaying)
                 {
                     float mid = (PeekRange.x + PeekRange.y) / 2;
                     float offset = Mathf.Clamp(time - mid, limit.x - PeekRange.x, limit.y - PeekRange.y);
@@ -390,24 +413,33 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                 SetDensityGraphDirty(0.1f);
             }
 
-            if (lastLimit != PeekRange || lastPlayed != Chartmaker.main.SongSource.isPlaying || forced)
+            if (lastLimit != PeekRange || lastPlayed != Chartmaker.main.IsPlaying || forced)
             {
                 _RangeMoved = lastLimit != PeekRange;
                 lastLimit = PeekRange;
-                lastPlayed = Chartmaker.main.SongSource.isPlaying;
+                lastPlayed = Chartmaker.main.IsPlaying;
                 Metronome metronome = Chartmaker.main.CurrentSong.Timing;
 
                 UpdateTickTexture(metronome);
 
                 // Update border rects
                 SongStartRect.anchorMax = new (
-                    Mathf.InverseLerp(PeekRange.x, PeekRange.y, 0), 
+                    Mathf.InverseLerp(PeekRange.x, PeekRange.y, Chartmaker.PreSongLimit), 
                     SongStartRect.anchorMax.y
                 );
                 SongEndRect.anchorMin = new (
                     Mathf.InverseLerp(PeekRange.x, PeekRange.y, Chartmaker.main.CurrentSong.Clip.length), 
                     SongEndRect.anchorMin.y
                 );
+
+                // The soft-limit tint fills the gap the hard tint leaves behind.
+                if (_SoftStartRect)
+                {
+                    float hardLimit = Mathf.InverseLerp(PeekRange.x, PeekRange.y, Chartmaker.PreSongLimit);
+
+                    _SoftStartRect.anchorMin = new (hardLimit, 0);
+                    _SoftStartRect.anchorMax = new (Mathf.InverseLerp(PeekRange.x, PeekRange.y, 0), 1);
+                }
 
                 UpdateItems();
                 UpdateWaveform();
@@ -1607,7 +1639,7 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                 return;
             }
 
-            if (!isDragged && Options.WaveformIdle < (Chartmaker.main.SongSource.isPlaying ? 1 : 0))
+            if (!isDragged && Options.WaveformIdle < (Chartmaker.main.IsPlaying ? 1 : 0))
             {
                 // Scrolling range needs a re-bake every frame to stay aligned; hide instead.
                 if (_RangeMoved)
@@ -2189,6 +2221,36 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             }
         }
 
+        /// <summary>
+        /// Stops a beat-position drag once its earliest hit object would cross into the
+        /// pre-song break. The whole selection shares one delta, so the delta is trimmed
+        /// rather than the individual offsets, keeping the drag undoable as one move.
+        /// </summary>
+        BeatPosition ClampHitObjectDrag(IList targets, BeatPosition delta)
+        {
+            Chartmaker chartmaker = Chartmaker.main;
+
+            if (chartmaker.CurrentSong == null)
+                return delta;
+
+            BeatPosition earliest = default;
+            bool found = false;
+
+            foreach (object item in targets)
+                if (item is HitObject hit && (!found || hit.Offset < earliest))
+                {
+                    earliest = hit.Offset;
+                    found = true;
+                }
+
+            if (!found)
+                return delta;
+
+            BeatPosition floor = chartmaker.EarliestHitOffset;
+
+            return earliest + delta < floor ? floor - earliest : delta;
+        }
+
         #endregion
 
         #region Beat Utils
@@ -2365,15 +2427,9 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                 }
                 
                 AudioSource source = Chartmaker.main.SongSource;
-                float time = Mathf.Clamp(metronome.ToSeconds(beatStart), 0, Chartmaker.main.SongSource.clip.length);
+                float time = Mathf.Clamp(metronome.ToSeconds(beatStart), Chartmaker.PreSongLimit, source.clip.length);
 
-                if (source.time == 0)
-                {
-                    source.Play();
-                    source.Pause();
-                }
-            
-                source.time = time;
+                Chartmaker.main.SeekTo(time);
 
             }
             else if (eventData.button == PointerEventData.InputButton.Right) 
@@ -2928,7 +2984,7 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                                     };
                                     history.ActionsBehind.Push(action);
                                 }
-                                action.Value = ToRoundedBeat(beatEnd - beatStart + DraggingItemOffset);
+                                action.Value = ClampHitObjectDrag(DraggingItem, ToRoundedBeat(beatEnd - beatStart + DraggingItemOffset));
                                 action.Redo();
 
                                 break;
@@ -3278,7 +3334,7 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                     }
                     case TimelineDragMode.Timeline:
                     {
-                        if (!Chartmaker.main.SongSource.isPlaying)
+                        if (!Chartmaker.main.IsPlaying)
                         {
                             TimelinePickerMode pickMode = PickerPanel.main.CurrentTimelinePickerMode;
                     
@@ -3400,6 +3456,12 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                                     hit.Type = PickerPanel.main.CurrentTimelinePickerMode == TimelinePickerMode.CatchHit 
                                         ? HitObject.HitType.Catch : HitObject.HitType.Normal;
 
+                                    if (hit.Offset < Chartmaker.main.EarliestHitOffset)
+                                    {
+                                        Chartmaker.main.Notify("Hit objects can't be placed before the song starts.");
+                                        break;
+                                    }
+
                                     Chartmaker.main.AddItem(hit);
 
                                     break;
@@ -3480,16 +3542,16 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                 PeekRange.y = Mathf.Clamp(currentYRange, PeekRange.x, PeekLimit.y);
             }
             // Alt modifier = Seek current time
-            else if (isAlt || (Options.FollowSeekLine && chartmaker.SongSource.isPlaying))
+            else if (isAlt || (Options.FollowSeekLine && chartmaker.IsPlaying))
             {
 
                 Metronome metronome = chartmaker.CurrentSong.Timing;
-                float bpm = metronome.GetStop(chartmaker.SongSource.time, out _).BPM;
+                float bpm = metronome.GetStop(chartmaker.SongTime, out _).BPM;
                 float density = (PeekRange.y - PeekRange.x) * bpm / TicksHolder.rect.width / 8;
                 float factor = Mathf.Floor(Mathf.Log(density, SeparationFactor));
                 float step = Mathf.Pow(SeparationFactor, factor + 1);
 
-                float time = chartmaker.SongSource.time + (-eventData.scrollDelta.y * step / bpm * 240);
+                float time = chartmaker.SongTime + (-eventData.scrollDelta.y * step / bpm * 240);
                 chartmaker.SeekTo(time);
             }
             // No modifier = Horizontal scroll
@@ -3516,7 +3578,7 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             }
             else
             {
-                return chartmaker.SongSource.time;
+                return chartmaker.SongTime;
             }
         }
 

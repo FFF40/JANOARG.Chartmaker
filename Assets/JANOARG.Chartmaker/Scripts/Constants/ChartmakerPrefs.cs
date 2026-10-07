@@ -20,6 +20,9 @@ namespace JANOARG.Chartmaker.Constants
         public bool   CustomCursors    = true;
         public bool   UseDefaultWindow = false;
         public PreferredCursorMode PreferredCursorMode = PreferredCursorMode.PreferCustom;
+        public GraphicsAPI GraphicsAPI = Application.platform == RuntimePlatform.LinuxPlayer
+            ? GraphicsAPI.OpenGLCore
+            : GraphicsAPI.Automatic;
 
         public FileSizeBase   FileSizeBase   = Application.platform == RuntimePlatform.WindowsPlayer ? FileSizeBase.Binary : FileSizeBase.Decimal;
         public FFTWindow      FFTWindow      = FFTWindow.Hann;
@@ -50,6 +53,7 @@ namespace JANOARG.Chartmaker.Constants
             PreferredCursorMode = storage.Get("AP:PreferredCursorMode", CustomCursors ? PreferredCursorMode.PreferCustom : PreferredCursorMode.PreferNative);
             UseDefaultWindow = storage.Get("LA:UseDefaultWindow", UseDefaultWindow);
             ForceNavigationBar = storage.Get("LA:ForceNavigationBar", true);
+            GraphicsAPI = storage.Get("GS:GraphicsAPI", GraphicsAPI);
             
             InterfaceScaling = storage.Get("LA:UIScalingFactor", InterfaceScaling);
 

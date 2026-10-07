@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using JANOARG.Chartmaker.UI.Cursor;
 using JANOARG.Chartmaker.UI.NativeUI;
 using JANOARG.Chartmaker.UI.Tooltip;
+using JANOARG.Chartmaker.Utils;
 using JANOARG.Chartmaker.Utils.NativeAPI;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -60,6 +61,10 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             Chartmaker.PreferencesStorage = new("cm_prefs");
             Chartmaker.Preferences.Load(Chartmaker.PreferencesStorage);
 
+            // Unity picked the rendering backend before this ran; restart into the
+            // user's chosen one if it differs.
+            GraphicsAPIUtils.ApplyPreferenceOnStartup(Chartmaker.Preferences);
+
             if (!NativeWindow.IsApiAvailable) return;
 
             NativeWindow window = NativeWindow.MainWindow;
@@ -89,14 +94,28 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             var prefs = Chartmaker.Preferences;
             if (prefs.WindowWidth <= 0 || prefs.WindowHeight <= 0) return; // nothing saved yet
 
-            Screen.SetResolution(prefs.WindowWidth, prefs.WindowHeight, FullScreenMode.Windowed);
+            var size = new Vector2Int(prefs.WindowWidth, prefs.WindowHeight);
 
-            // Position is compositor-owned under XWayland; only meaningful on native X11.
+            // Cap to the display so a stale value saved on a larger monitor (or by an
+            // older build that stored render pixels) can't open a window bigger than
+            // the screen.
+            int maxWidth = Mathf.Max(Display.main.systemWidth, Screen.currentResolution.width);
+            int maxHeight = Mathf.Max(Display.main.systemHeight, Screen.currentResolution.height);
+            if (maxWidth > 0) size.x = Mathf.Clamp(size.x, 1, maxWidth);
+            if (maxHeight > 0) size.y = Mathf.Clamp(size.y, 1, maxHeight);
+
+            // Resize the window natively instead of through Screen.SetResolution. The latter
+            // forces a runtime resolution-mode change / full swapchain reset, which crashes
+            // the Vulkan driver on some Linux setups. A native resize lets the engine react
+            // to the resulting window configure event -- the same path a user-driven resize
+            // takes. Position is compositor-owned under XWayland, so only size is set there.
             if (targetWindow.SupportsClientPositioning)
-                targetWindow.Position = new Vector2Int(prefs.WindowX, prefs.WindowY);
+                targetWindow.Rect = new RectInt(prefs.WindowX, prefs.WindowY, size.x, size.y);
+            else
+                targetWindow.Size = size;
 
             lastFloatingPos = new Vector2Int(prefs.WindowX, prefs.WindowY);
-            lastFloatingSize = new Vector2Int(prefs.WindowWidth, prefs.WindowHeight);
+            lastFloatingSize = size;
             hasFloatingRect = true;
 
             if (prefs.WindowMaximized)
@@ -156,12 +175,18 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
 
             // Remember the latest floating geometry so a maximized-at-close still saves a
             // sane restore size, and so position survives across launches (native X11).
-            if (NativeWindow.IsApiAvailable && !maximized && !isFullScreen
-                && Screen.width > 0 && Screen.height > 0)
+            // Track the native window rect, not Screen.width/height: the latter is the
+            // render/backbuffer size, which differs from window-manager coordinates under
+            // display scaling and made the saved size grow on every launch.
+            if (NativeWindow.IsApiAvailable && !maximized && !isFullScreen)
             {
-                lastFloatingPos = targetWindow.Position;
-                lastFloatingSize = new Vector2Int(Screen.width, Screen.height);
-                hasFloatingRect = true;
+                RectInt rect = targetWindow.Rect;
+                if (rect.width > 0 && rect.height > 0)
+                {
+                    lastFloatingPos = new Vector2Int(rect.x, rect.y);
+                    lastFloatingSize = new Vector2Int(rect.width, rect.height);
+                    hasFloatingRect = true;
+                }
             }
         }
 

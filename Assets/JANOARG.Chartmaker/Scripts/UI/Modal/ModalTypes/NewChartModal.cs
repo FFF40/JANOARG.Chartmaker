@@ -137,6 +137,8 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
                 DifficultyIndex = InitialValues.DifficultyIndex,
                 DifficultyLevel = InitialValues.DifficultyLevel,
                 ChartConstant   = InitialValues.ChartConstant,
+                CharterName     = InitialValues.CharterName,
+                AltCharterName  = InitialValues.AltCharterName,
             });
 
             File.WriteAllText(path, JACEncoder.Encode(InitialValues));

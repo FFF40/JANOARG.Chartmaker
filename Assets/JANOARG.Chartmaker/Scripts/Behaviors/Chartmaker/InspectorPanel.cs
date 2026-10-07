@@ -396,8 +396,9 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                                         });
                                         bpmTapper.OnStartTap.AddListener(() =>
                                         {
-                                            if (Chartmaker.main.SongSource.clip && !Chartmaker.main.SongSource.isPlaying)
+                                            if (Chartmaker.main.SongSource.clip && !Chartmaker.main.IsPlaying)
                                             {
+                                                Chartmaker.main.SeekTo(0);
                                                 Chartmaker.main.SongSource.Play();
                                                 bpmTapper.Reset();
                                             }
@@ -1066,6 +1067,12 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
         /// </summary>
         public static string GetNewUniqueName(string name, Func<string, bool> nameExists)
         {
+            // Unnamed objects (e.g. LaneStyle/HitStyle, whose Name is null on new or
+            // decoded charts) have nothing to deduplicate and are displayed by index.
+            // Returning early also avoids a NullReferenceException in name.Trim().
+            if (string.IsNullOrWhiteSpace(name))
+                return name;
+
             int index = 0;
             name = name.Trim();
             Match match = Regex.Match(name, @"^(.*) (\d+)$");

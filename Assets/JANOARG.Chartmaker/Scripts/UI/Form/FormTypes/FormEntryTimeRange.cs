@@ -37,7 +37,7 @@ namespace JANOARG.Chartmaker.UI.Form.FormTypes
     
         public void SetToCurrentTime(int index) 
         {
-            CurrentValue[index] = Behaviors.Chartmaker.Chartmaker.main.SongSource.time;
+            CurrentValue[index] = Behaviors.Chartmaker.Chartmaker.main.SongTime;
             SetValue(CurrentValue);
             Reset();
         }

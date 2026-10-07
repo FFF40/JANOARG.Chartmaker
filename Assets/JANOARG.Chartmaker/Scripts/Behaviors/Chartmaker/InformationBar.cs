@@ -49,6 +49,23 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
 
         public float MetronomeIndex { get; private set; }
 
+        // The audio clock only advances once per DSP buffer (~47 Hz at the default
+        // 1024-sample / 48 kHz buffer), so a scene driven straight from timeSamples
+        // steps in ~21 ms jumps however fast the renderer runs. The preview is driven
+        // from this clock instead: a free-running copy of the audio position that
+        // ramps every frame and is re-anchored to the audio clock on state changes.
+        float _SmoothSec;
+        bool  _WasPlaying;
+
+        // Comfortably wider than one DSP buffer so the per-buffer step is not mistaken
+        // for a seek, but narrow enough that a real seek is caught the frame it lands.
+        const float MaxDrift = 0.15f;
+
+        // Fraction of the remaining error bled off per second. Small enough to be
+        // invisible against the per-buffer sawtooth, large enough that a sub-threshold
+        // offset (a frame-step seek, for instance) does not persist.
+        const float DriftCorrectionRate = 2f;
+
         public void Awake()
         {
             main = this;
@@ -68,7 +85,7 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             if (Chartmaker.main?.CurrentSong == null)
                 return;
 
-            sec = Chartmaker.main.SongSource.timeSamples / (float)Chartmaker.main.SongSource.clip.frequency;
+            sec = GetSmoothSeconds();
             beat = Chartmaker.main.CurrentSong.Timing.ToBeat(sec);
             barPos = Chartmaker.main.CurrentSong.Timing.ToDividedBeat(sec);
 
@@ -81,6 +98,48 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             MetronomeIndex = Mathf.Floor(beat);
 
             UpdateVisualizer();
+        }
+
+        /// <summary>
+        /// The audio clock sampled at render rate. Paused, just-started, or jumped by more
+        /// than <see cref="MaxDrift"/> reads straight from the source so scrubbing and
+        /// frame-stepping stay sample-accurate; otherwise it advances in real time at the
+        /// playback rate and bleeds off its separation from the audio clock so the two
+        /// cannot separate over a long song.
+        /// </summary>
+        float GetSmoothSeconds()
+        {
+            // In the pre-song break there is no audio to anchor to; the virtual clock is
+            // already smooth, so hand its value straight through.
+            if (Chartmaker.main.IsPreSong)
+            {
+                _WasPlaying = false;
+                _SmoothSec   = Chartmaker.main.SongTime;
+                return _SmoothSec;
+            }
+
+            AudioSource source = Chartmaker.main.SongSource;
+
+            float audioSec = source.timeSamples / (float)source.clip.frequency;
+            bool  playing  = source.isPlaying;
+
+            if (!playing || !_WasPlaying || Mathf.Abs(audioSec - _SmoothSec) > MaxDrift)
+            {
+                _SmoothSec = audioSec;
+            }
+            else
+            {
+                _SmoothSec += Time.unscaledDeltaTime * source.pitch;
+                _SmoothSec += (audioSec - _SmoothSec) * Mathf.Clamp01(Time.unscaledDeltaTime * DriftCorrectionRate);
+
+                // isPlaying can stay true for a moment with timeSamples frozen at the end
+                // of a non-looping clip; clamp so the free-running clock cannot overshoot.
+                _SmoothSec = Mathf.Clamp(_SmoothSec, 0, source.clip.length);
+            }
+
+            _WasPlaying = playing;
+
+            return _SmoothSec;
         }
 
         private IEnumerator UpdateTimeLabel()
@@ -172,32 +231,30 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             if (Chartmaker.main == null)
                 return;
 
-            PlayIcon.SetActive(!Chartmaker.main.SongSource.isPlaying);
-            PauseIcon.SetActive(Chartmaker.main.SongSource.isPlaying);
+            PlayIcon.SetActive(!Chartmaker.main.IsPlaying);
+            PauseIcon.SetActive(Chartmaker.main.IsPlaying);
         }
     
         public void ToggleSong()
         {
-            if (Chartmaker.main.SongSource.isPlaying)
+            Chartmaker.main.TogglePlay();
+
+            if (Chartmaker.main.IsPlaying)
             {
-                Chartmaker.main.SongSource.Pause();
-            
-                if (Chartmaker.Preferences.MaximizeOnPlay)
-                {
-                    TimelinePanel.main.Restore();
-                    HierarchyPanel.main.Restore();
-                    InspectorPanel.main.Restore();
-                }
-            }
-            else 
-            {
-                Chartmaker.main.SongSource.Play();
-            
                 if (Chartmaker.Preferences.MaximizeOnPlay)
                 {
                     TimelinePanel.main.Collapse();
                     HierarchyPanel.main.Collapse();
                     InspectorPanel.main.Collapse();
+                }
+            }
+            else 
+            {
+                if (Chartmaker.Preferences.MaximizeOnPlay)
+                {
+                    TimelinePanel.main.Restore();
+                    HierarchyPanel.main.Restore();
+                    InspectorPanel.main.Restore();
                 }
             }
             UpdatePlayButton();

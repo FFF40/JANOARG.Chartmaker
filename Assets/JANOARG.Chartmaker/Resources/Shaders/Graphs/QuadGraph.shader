@@ -1,4 +1,4 @@
-Shader "UI/Triple Graph"
+Shader "UI/Quad Graph"
 {
     Properties
     {
@@ -85,6 +85,7 @@ Shader "UI/Triple Graph"
             float _Values1[64];
             float _Values2[64];
             float _Values3[64];
+            float _Values4[64];
 
             v2f vert(appdata_t v)
             {
@@ -108,11 +109,13 @@ Shader "UI/Triple Graph"
                 float y1 = _Values1[floor(colPos)] + (_Values1[ceil(colPos)] - _Values1[floor(colPos)]) * (colPos % 1);
                 float y2 = _Values2[floor(colPos)] + (_Values2[ceil(colPos)] - _Values2[floor(colPos)]) * (colPos % 1);
                 float y3 = _Values3[floor(colPos)] + (_Values3[ceil(colPos)] - _Values3[floor(colPos)]) * (colPos % 1);
+                float y4 = _Values4[floor(colPos)] + (_Values4[ceil(colPos)] - _Values4[floor(colPos)]) * (colPos % 1);
                 
                 color.a = 0;
                 if (IN.texcoord.y < y1) color.a += 1;
                 if (IN.texcoord.y < y2) color.a += 2;
                 if (IN.texcoord.y < y3) color.a += 0.5;
+                if (IN.texcoord.y < y4) color.a += 0.25;
 
                 color.a *= IN.texcoord.x * IN.texcoord.x * IN.texcoord.y;
                 if (IN.worldPos.y > _ScreenParams.y * 0.5 - _CutoffThreshold) 

@@ -76,6 +76,28 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
 
         bool lastPlayed;
 
+        // The editing playhead while it sits in the pre-song break. An AudioSource cannot
+        // hold a position before the clip, so there the source is parked at 0 and this
+        // carries the real (negative) time instead. NaN means the source owns the clock.
+        float _PreSongTime = float.NaN;
+        bool  _PreSongPlaying;
+
+        /// <summary>How far before the audio the pre-song break reaches, in seconds.</summary>
+        public const float PreSongLimit = -5f;
+
+        public bool  IsPreSong => !float.IsNaN(_PreSongTime);
+        public bool  IsPlaying => (SongSource && SongSource.isPlaying) || _PreSongPlaying;
+
+        /// <summary>The editing playhead in seconds, negative in the pre-song break.</summary>
+        public float SongTime  => IsPreSong ? _PreSongTime : (SongSource ? SongSource.time : 0);
+
+        /// <summary>
+        /// The earliest beat a hit object may occupy - the audio start. The pre-song break is
+        /// for setting up lanes and storyboards; a hit placed there has no approach and would
+        /// never be reachable.
+        /// </summary>
+        public BeatPosition EarliestHitOffset => CurrentSong == null ? default : (BeatPosition)CurrentSong.Timing.ToBeat(0);
+
         public void Awake()
         {
             main = this;
@@ -141,11 +163,28 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             NotificationTime -= Time.deltaTime;
             NotificationFlashTime -= Time.deltaTime;
 
-            if (Preferences.SaveOnPlay && SongSource.isPlaying && !lastPlayed && IsDirty && ActiveTask?.IsCompleted != false)
+            // Playing through the pre-song break advances the virtual clock until the audio
+            // starts, then hands the position over and lets the source take it from there.
+            if (IsPreSong && _PreSongPlaying)
+            {
+                _PreSongTime += Time.unscaledDeltaTime * SongSource.pitch;
+
+                if (_PreSongTime >= 0)
+                {
+                    float carry = _PreSongTime;
+
+                    _PreSongTime = float.NaN;
+                    _PreSongPlaying = false;
+                    SongSource.timeSamples = (int)Mathf.Clamp(carry * SongSource.clip.frequency, 0, SongSource.clip.samples - 1);
+                    SongSource.Play();
+                }
+            }
+
+            if (Preferences.SaveOnPlay && IsPlaying && !lastPlayed && IsDirty && ActiveTask?.IsCompleted != false)
             {
                 StartSaveRoutine();
             }
-            lastPlayed = SongSource.isPlaying;
+            lastPlayed = IsPlaying;
 
             if (HomeBackground.activeSelf)
             {
@@ -393,6 +432,7 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                 HomeModal.main.Close();
 
             SongSource.time = 0;
+            ResetPreSong();
         
             InformationBar.main.UpdateSongButton();
             InformationBar.main.UpdateChartButton();
@@ -593,6 +633,7 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
 
             SongSource.time = 0;
             SongSource.Stop();
+            ResetPreSong();
             SetEditorActive(false);
             PlayerView.main.MainCamera.rect = new (0, 0, 1, 1);
             Resources.UnloadUnusedAssets();
@@ -655,6 +696,20 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             if (!SongSource || !SongSource.clip)
                 return;
 
+            // Before the audio: the source cannot go there, so park it and hold the position
+            // virtually. The preview and the timeline read SongTime, which returns this.
+            if (seconds < 0)
+            {
+                SongSource.Pause();
+                _PreSongTime = Mathf.Max(seconds, PreSongLimit);
+                return;
+            }
+
+            bool resume = _PreSongPlaying;
+
+            _PreSongTime = float.NaN;
+            _PreSongPlaying = false;
+
             // A source that has never played ignores a position written to it, so prime it.
             if (SongSource.time == 0 && !SongSource.isPlaying)
             {
@@ -666,6 +721,37 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             SongSource.timeSamples = (int)Mathf.Clamp(
                 seconds * SongSource.clip.frequency, 0, SongSource.clip.samples - 1
             );
+
+            // A seek made while the lead-in was playing hands the clock back to the source.
+            if (resume)
+                SongSource.Play();
+        }
+
+        public void TogglePlay()
+        {
+            if (!SongSource || !SongSource.clip)
+                return;
+
+            if (IsPlaying)
+            {
+                SongSource.Pause();
+                _PreSongPlaying = false;
+            }
+            else if (IsPreSong)
+            {
+                // Nothing to play yet - the Update lead-in advances the virtual clock to 0.
+                _PreSongPlaying = true;
+            }
+            else
+            {
+                SongSource.Play();
+            }
+        }
+
+        void ResetPreSong()
+        {
+            _PreSongTime = float.NaN;
+            _PreSongPlaying = false;
         }
 
         public static string GetItemName(object item) => item switch
@@ -1097,15 +1183,31 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
 
         public void Paste()
         {
-            if (!CanPaste()) 
+            if (!CanPaste() || CurrentSong == null) 
                 return;
         
             object obj = SmartClone(ClipboardItem);
         
             if (obj is BPMStop or List<BPMStop> || obj is IList list && list[0] is BPMStop)
-                AddItem(obj, SongSource.time);
+            {
+                AddItem(obj, SongTime);
+            }
             else 
-                AddItem(obj, TimelinePanel.main.ToRoundedBeat(CurrentSong.Timing.ToBeat(SongSource.time)));
+            {
+                BeatPosition target = TimelinePanel.main.ToRoundedBeat(CurrentSong.Timing.ToBeat(SongTime));
+
+                // Hit objects are gameplay and cannot live before the audio starts.
+                bool isHitObject = obj is HitObject
+                    || (obj is IList hits && hits.Count > 0 && hits[0] is HitObject);
+
+                if (isHitObject && target < EarliestHitOffset)
+                {
+                    Notify("Hit objects can't be placed before the song starts.");
+                    return;
+                }
+
+                AddItem(obj, target);
+            }
         
             InspectorPanel.main.SetObject(obj, false);
         }
