@@ -963,7 +963,7 @@ TextureImporter:
       edges: []
       weights: []
     - serializedVersion: 2
-      name: Panoram
+      name: Panorama
       rect:
         serializedVersion: 2
         x: 32
@@ -1517,7 +1517,7 @@ TextureImporter:
         width: 16
         height: 16
       alignment: 0
-      pivot: {x: 0, y: 0}
+      pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
       outline: []
       physicsShape: []
@@ -1538,7 +1538,7 @@ TextureImporter:
         width: 16
         height: 16
       alignment: 0
-      pivot: {x: 0, y: 0}
+      pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
       outline: []
       physicsShape: []
@@ -1546,6 +1546,132 @@ TextureImporter:
       bones: []
       spriteID: 76748b99729aef27699697e88f743c75
       internalID: 839257546
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Scene View
+      rect:
+        serializedVersion: 2
+        x: 64
+        y: 432
+        width: 16
+        height: 16
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 3565d49a71fd57b53b21663c39cce773
+      internalID: -189218204
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Game View
+      rect:
+        serializedVersion: 2
+        x: 80
+        y: 432
+        width: 16
+        height: 16
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 1ebf244f91f0a3107807c32f74027e33
+      internalID: 1832302144
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Fog
+      rect:
+        serializedVersion: 2
+        x: 96
+        y: 432
+        width: 16
+        height: 16
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: f4fcd3205d6eb46b5844162117d673e3
+      internalID: -1216209170
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Post Effects
+      rect:
+        serializedVersion: 2
+        x: 112
+        y: 432
+        width: 16
+        height: 16
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: f4a9c92d783b80b3f8b935321362a86a
+      internalID: 1689697742
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Projection
+      rect:
+        serializedVersion: 2
+        x: 128
+        y: 432
+        width: 16
+        height: 16
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: d4e92f09f53981ee0b0ea215a0ff666a
+      internalID: -1014729284
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Grid
+      rect:
+        serializedVersion: 2
+        x: 144
+        y: 432
+        width: 16
+        height: 16
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: b0d5bafd6d7d47364a7913657f1b9fa1
+      internalID: 1428310234
       vertices: []
       indices: 
       edges: []
@@ -1583,10 +1709,13 @@ TextureImporter:
       File: 1622769349
       Filter: -2139277041
       Filter Filled: -1775433027
+      Fog: -1216209170
       Folder: -117557889
       Function: -280284442
       Function Warning: 839257546
+      Game View: 1832302144
       Github Icon: 1533055934
+      Grid: 1428310234
       Group: 441202879
       Guilded Icon: 1108116061
       Hierarchy: -206182379
@@ -1608,14 +1737,17 @@ TextureImporter:
       New Hit Object Length: 1171336760
       Next: -46201198
       Palette: -844261610
-      Panoram: -170275677
+      Panorama: -170275677
       Paste: -1684136540
       Pencil: -48574982
       Playable Song: 2108899617
+      Post Effects: 1689697742
+      Projection: -1014729284
       Reddit Icon: -1754122059
       Redo: -1018057754
       Reset: -730381560
       Restore: 129690667
+      Scene View: -189218204
       Search: -2128552433
       Separator: -1993552242
       Speed: -401747491

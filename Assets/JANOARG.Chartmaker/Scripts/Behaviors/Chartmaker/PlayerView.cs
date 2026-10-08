@@ -15,15 +15,18 @@ using UnityEngine.EventSystems;
 using UnityEngine.UI;
 using JANOARG.Chartmaker.Behaviors.Chartmaker.PickHandler;
 using JANOARG.Chartmaker.Utils.NativeAPI;
+using JANOARG.Shared.Utils;
+using JANOARG.Chartmaker.Behaviors.Chartmaker.PlayerViewProps;
 
 namespace JANOARG.Chartmaker.Behaviors.Chartmaker
 {
-    public class PlayerView : MonoBehaviour, IPointerDownHandler, IPointerUpHandler, IPointerMoveHandler, IDragHandler, IEndDragHandler
+    public class PlayerView : MonoBehaviour, IPointerDownHandler, IPointerUpHandler, IPointerMoveHandler, IScrollHandler, IDragHandler, IEndDragHandler
     {
         public static PlayerView    main;
         public RectTransform playerViewBound;
 
         public Camera MainCamera;
+        public PlayerViewCamera CameraProps;
         public Image  BoundingBox;
         [Space]
         public ChartManager Manager;
@@ -82,10 +85,28 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
         public RectTransform StartHandle;
         public RectTransform CenterHandle;
         public RectTransform EndHandle;
+        public RectTransform CameraHandle;
+        [Space]
+        public WorldViewMode CurrentWorldViewMode;
+        public GameObject WorldToolbar;
+        public GameObject GameplayViewButtonHighlight;
+        public GameObject FreecamViewButtonHighlight;
+        public GameObject WorldViewOptionsToolbar;
+        public GameObject ShowCameraButtonHighlight;
+        public GameObject ShowGridButtonHighlight;
+
         [Space]
         public float[] GridSize = {0.5f};
 
+
         public float CurrentTime { get; private set; }
+
+        public const float BASE_CAMERA_FOV = 60;
+        public const float BASE_CAMERA_FOV_HALF = BASE_CAMERA_FOV / 2;
+        public const float BASE_CAMERA_RANGE = 200;
+        public const float GAME_FIELD_RATIO = 7 / 4f;
+        public const float PANORAMA_COVER_RATIO = 880 / 200f;
+
 
         public bool IsMaximised
         {
@@ -123,7 +144,7 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                 }
             }
         }
-    
+
         readonly List<string> _GroupRemovalScratch = new();
 
         // Which players exist and what they parent to only changes when the chart is edited,
@@ -154,6 +175,12 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
         bool                  isAnimating;
         float                 lastTargetAspect;
         Vector2               CoverPosition;
+
+        Vector3 freecamVelocity;
+        Vector3 lastFreecamPosition;
+        Quaternion lastFreecamRotation;
+        float freecamSpeedMulti = 15;
+
 
         public void Awake()
         {
@@ -208,7 +235,7 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
 
             Rect safeZone = new(
                 bound.x + 12,
-                bound.y + 12,
+                bound.y + 32,
                 bound.width - 24,
                 bound.height - 24
             );
@@ -216,19 +243,28 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             float targetAspect;
             if (HierarchyPanel.main.CurrentMode == HierarchyMode.PlayableSong)
             {
-                safeZone.yMin += 32;
-
                 targetAspect = CurrentCoverViewMode switch
                 {
-                    CoverViewMode.Panorama => 880 / 200f,
+                    CoverViewMode.Panorama => PANORAMA_COVER_RATIO,
                     CoverViewMode.Icon => 1,
-                    _ => 880 / 200f
+                    _ => PANORAMA_COVER_RATIO
                 };
             }
             else 
-                targetAspect = 7 / 4f;
+            {
+                targetAspect = CurrentWorldViewMode switch
+                {
+                    WorldViewMode.Gameplay => GAME_FIELD_RATIO,
+                    WorldViewMode.Freecam => 0,
+                    _ => GAME_FIELD_RATIO
+                };
+            }
 
-            if (safeZone.width / safeZone.height > targetAspect)
+            if (targetAspect <= 0)
+            {
+                safeZone = new Rect(0, 0, 0, 0);
+            }
+            else if (safeZone.width / safeZone.height > targetAspect)
             {
                 float width = safeZone.height * targetAspect;
                 safeZone.x += (safeZone.width - width) / 2;
@@ -242,8 +278,13 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             }
 
             BoundingBox.rectTransform.sizeDelta = safeZone.size;
-            float camRatio = safeZone.height / bound.height;
-            MainCamera.fieldOfView = Mathf.Atan2(Mathf.Tan(30 * Mathf.Deg2Rad), camRatio) * 2 * Mathf.Rad2Deg;
+            float camRatio = targetAspect <= 0 ? 1 : safeZone.height / bound.height;
+            MainCamera.fieldOfView = Mathf.Atan2(Mathf.Tan(BASE_CAMERA_FOV_HALF * Mathf.Deg2Rad), camRatio) * 2 * Mathf.Rad2Deg;
+
+            if (freecamVelocity != Vector3.zero)
+            {
+                MoveFreecam(freecamVelocity * Time.deltaTime * freecamSpeedMulti);
+            }
 
             // Exact comparison: sec is the smooth playback clock and advances every render
             // frame, and its per-frame step can fall under Mathf.Approximately's growing
@@ -252,6 +293,9 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                 UpdateObjectsForFrame();
             lastTargetAspect = targetAspect;
         }
+
+
+        #region Objects
 
         /// <summary>
         /// The ultimate invalidator. Call this when you mess with the datas and
@@ -349,13 +393,25 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                 }
 
                 ReturnHitPositionPreview();
-            
-                MainCamera.transform.position = Manager.Camera.CameraPivot;
-                MainCamera.transform.eulerAngles = Manager.Camera.CameraRotation; 
-                MainCamera.transform.Translate(Vector3.back * Manager.Camera.PivotDistance);
+
+                if (CurrentWorldViewMode == WorldViewMode.Gameplay)
+                {
+                    MainCamera.farClipPlane = BASE_CAMERA_RANGE;
+                    MainCamera.transform.position = Manager.Camera.CameraPivot;
+                    MainCamera.transform.eulerAngles = Manager.Camera.CameraRotation; 
+                    MainCamera.transform.Translate(Vector3.back * Manager.Camera.PivotDistance);
+
+                    RenderSettings.fog = true;
+                }
+                else
+                {
+                    MainCamera.farClipPlane = BASE_CAMERA_RANGE * 10;
+
+                    RenderSettings.fog = false;
+                }
 
                 RenderSettings.fogColor = MainCamera.backgroundColor = Manager.PalleteManager.CurrentPallete.BackgroundColor;
-                BoundingBox.color = NotificationText.color = NotificationBox.color = Manager.PalleteManager.CurrentPallete.InterfaceColor;
+                BoundingBox.color = Manager.PalleteManager.CurrentPallete.InterfaceColor;
 
                 sr_GroupPlayers.Begin();
 
@@ -484,11 +540,11 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             }
 
             UpdateHandles();
+            UpdateToolbars();
 
             if (HierarchyPanel.main.CurrentMode == HierarchyMode.PlayableSong) 
             {
                 DarkBackground.SetActive(true);
-                CoverToolbar.SetActive(true);
 
                 CoverBackground.rectTransform.sizeDelta = CurrentCoverViewMode switch
                 {
@@ -511,7 +567,7 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                     : Vector2.zero;
 
                 BoundingBox.color = NotificationText.color = NotificationBox.color = Color.white;
-                BoundingBox.rectTransform.anchoredPosition = new Vector2 (0, 16) + CoverPosition;
+                BoundingBox.rectTransform.anchoredPosition = CoverPosition;
 
                 int index = 0;
                 foreach (CoverLayer layer in Chartmaker.main.CurrentSong.Cover.Layers)
@@ -562,13 +618,12 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                     CoverLayers.RemoveAt(CoverLayers.Count - 1);
                 }
 
-                UpdateCoverToolbar();
+                UpdateToolbars();
             }
             else 
             {
                 BoundingBox.rectTransform.anchoredPosition = new (0, 0);
                 DarkBackground.SetActive(false);
-                CoverToolbar.SetActive(false);
             }
 
             // Offsets the previewed hit objects in the chart, recording what they held. Position timestamps move
@@ -635,18 +690,33 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             }
         }
 
-        private void UpdateCoverToolbar()
+        private void UpdateToolbars()
         {
-            MaskButtonHighlight.SetActive(CoverMask.enabled);
+            CoverToolbar.SetActive(HierarchyPanel.main.CurrentMode == HierarchyMode.PlayableSong);
+            WorldToolbar.SetActive(HierarchyPanel.main.CurrentMode == HierarchyMode.Chart);
 
-            PanoramaButtonHighlight.SetActive(CurrentCoverViewMode == CoverViewMode.Panorama);
-            IconButtonHighlight.SetActive(CurrentCoverViewMode == CoverViewMode.Icon);
+            if (HierarchyPanel.main.CurrentMode == HierarchyMode.PlayableSong)
+            {
+                PanoramaButtonHighlight.SetActive(CurrentCoverViewMode == CoverViewMode.Panorama);
+                IconButtonHighlight.SetActive(CurrentCoverViewMode == CoverViewMode.Icon);
+
+                MaskButtonHighlight.SetActive(CoverMask.enabled);
+            }
+            else
+            {
+                GameplayViewButtonHighlight.SetActive(CurrentWorldViewMode == WorldViewMode.Gameplay);
+                FreecamViewButtonHighlight.SetActive(CurrentWorldViewMode == WorldViewMode.Freecam);
+
+                WorldViewOptionsToolbar.SetActive(CurrentWorldViewMode == WorldViewMode.Freecam);
+                ShowCameraButtonHighlight.SetActive(CameraProps.DrawCamera);
+                ShowGridButtonHighlight.SetActive(CameraProps.DrawGrid);
+            }
         }
 
         public void ToggleCoverMask()
         {
             CoverMask.enabled = !CoverMask.enabled;
-            UpdateCoverToolbar();
+            UpdateToolbars();
         }
 
         public void UpdateHandles() 
@@ -656,6 +726,7 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             StartHandle.gameObject.SetActive(false);
             CenterHandle.gameObject.SetActive(false);
             EndHandle.gameObject.SetActive(false);
+            CameraHandle.gameObject.SetActive(false);
 
             if (Chartmaker.main.IsPlaying)
                 return;
@@ -692,6 +763,7 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
 #pragma warning disable CS0164 // This label has not been referenced
                     endSel: ;
 #pragma warning restore CS0164 // This label has not been referenced
+
                     break;
                 case HierarchyMode.Chart:
                 {
@@ -705,18 +777,33 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                             LaneManager laneManager = Manager.Lanes[index];
                             if ((laneManager.CurrentMesh?.vertexCount ?? 0) > 2)
                             {
-                                Vector2 start = MainCamera.WorldToScreenPoint(laneManager.StartPos);
-                                Vector2 end = MainCamera.WorldToScreenPoint(laneManager.EndPos);
+                                Vector3 start = MainCamera.WorldToScreenPoint(laneManager.StartPos);
+                                Vector3 end = MainCamera.WorldToScreenPoint(laneManager.EndPos);
+                                bool hasLine = NormalizeLine(ref start, ref end);
                         
-                                CurrentLaneLine.gameObject.SetActive(true);
-                                CurrentLaneLine.position = (start + end) / 2;
+                                CurrentLaneLine.gameObject.SetActive(hasLine);
+                                CurrentLaneLine.position = (Vector2)(start + end) / 2;
                                 CurrentLaneLine.sizeDelta = new(Vector2.Distance(start, end), CurrentLaneLine.sizeDelta.y);
                                 CurrentLaneLine.eulerAngles = new(0, 0, Vector2.SignedAngle(Vector2.left, end - start));
                             }
                         }
                     }
-
                     endLane: 
+
+                    {
+                        if (CurrentWorldViewMode == WorldViewMode.Freecam && Manager != null)
+                        {
+                            var camRot = Quaternion.Euler(Manager.Camera.CameraRotation);
+                            var camPos = Manager.Camera.CameraPivot + camRot * new Vector3(0, 0, -Manager.Camera.PivotDistance);
+                            if (Vector3.SqrMagnitude(MainCamera.transform.position - camPos) < 1)
+                                goto endCamera;
+                            
+                            Vector3 center = MainCamera.WorldToScreenPoint(camPos);
+                            CameraHandle.gameObject.SetActive(CurrentDragMode is HandleDragMode.None or HandleDragMode.Camera && center.z > 0);
+                            CameraHandle.position = (Vector2)center;
+                        }
+                    }
+                    endCamera:
 
                     switch (InspectorPanel.main.CurrentObject)
                     {
@@ -728,27 +815,28 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                     
                             LaneManager laneManager = Manager.Lanes[index];
                     
-                            Vector2 center = MainCamera.WorldToScreenPoint(laneManager.FinalPosition);
-                            CenterHandle.gameObject.SetActive(CurrentDragMode is HandleDragMode.None or HandleDragMode.Center);
-                            CenterHandle.position = center;
+                            Vector3 center = MainCamera.WorldToScreenPoint(laneManager.FinalPosition);
+                            CenterHandle.gameObject.SetActive(CurrentDragMode is HandleDragMode.None or HandleDragMode.Center && center.z > 0);
+                            CenterHandle.position = (Vector2)center;
 
                             if ((laneManager.CurrentMesh?.vertexCount ?? 0) > 2)
                             {
-                                Vector2 start = MainCamera.WorldToScreenPoint(laneManager.StartPos);
-                                Vector2 end = MainCamera.WorldToScreenPoint(laneManager.EndPos);
+                                Vector3 start = MainCamera.WorldToScreenPoint(laneManager.StartPos);
+                                Vector3 end = MainCamera.WorldToScreenPoint(laneManager.EndPos);
+                                bool hasLine = NormalizeLine(ref start, ref end);
                         
-                                SelectedItemLine.gameObject.SetActive(true);
-                                SelectedItemLine.position = (start + end) / 2;
+                                SelectedItemLine.gameObject.SetActive(hasLine);
+                                SelectedItemLine.position = (Vector2)(start + end) / 2;
                                 SelectedItemLine.sizeDelta = new(Vector2.Distance(start, end), SelectedItemLine.sizeDelta.y);
                                 SelectedItemLine.eulerAngles = new(0, 0, Vector2.SignedAngle(Vector3.left, end - start));
                         
                                 if (SelectedItemLine.sizeDelta.x > 20) 
                                 {
-                                    StartHandle.gameObject.SetActive(CurrentDragMode is HandleDragMode.None or HandleDragMode.Start);
-                                    StartHandle.position = start;
+                                    StartHandle.gameObject.SetActive(CurrentDragMode is HandleDragMode.None or HandleDragMode.Start && start.z > 0);
+                                    StartHandle.position = (Vector2)start;
                             
-                                    EndHandle.gameObject.SetActive(CurrentDragMode is HandleDragMode.None or HandleDragMode.End);
-                                    EndHandle.position = end;
+                                    EndHandle.gameObject.SetActive(CurrentDragMode is HandleDragMode.None or HandleDragMode.End && end.z > 0);
+                                    EndHandle.position = (Vector2)end;
                                     EndHandle.eulerAngles = new(0, 0, Vector2.SignedAngle(Vector2.up, end - start));
                                 }
                             }
@@ -774,24 +862,25 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                                 Vector3 offset = laneManager.FinalRotation * Vector3.forward * (laneStepManager.Distance - laneManager.CurrentDistance) + laneManager.FinalPosition;
                                 Vector2 middlePointPosition = (laneStepManager.CurrentStep.StartPointPosition + laneStepManager.CurrentStep.EndPointPosition) / 2;
                         
-                                Vector2 start = MainCamera.WorldToScreenPoint(laneManager.FinalRotation * laneStepManager.CurrentStep.StartPointPosition + offset);
-                                Vector2 end  = MainCamera.WorldToScreenPoint(laneManager.FinalRotation * laneStepManager.CurrentStep.EndPointPosition + offset);
-                                Vector2 center = MainCamera.WorldToScreenPoint(laneManager.FinalRotation * middlePointPosition + offset);
+                                Vector3 start = MainCamera.WorldToScreenPoint(laneManager.FinalRotation * laneStepManager.CurrentStep.StartPointPosition + offset);
+                                Vector3 end  = MainCamera.WorldToScreenPoint(laneManager.FinalRotation * laneStepManager.CurrentStep.EndPointPosition + offset);
+                                Vector3 center = MainCamera.WorldToScreenPoint(laneManager.FinalRotation * middlePointPosition + offset);
+                                bool hasLine = NormalizeLine(ref start, ref end);
                         
-                                SelectedItemLine.gameObject.SetActive(true);
-                                SelectedItemLine.position = (start + end) / 2;
+                                SelectedItemLine.gameObject.SetActive(hasLine);
+                                SelectedItemLine.position = (Vector2)(start + end) / 2;
                                 SelectedItemLine.sizeDelta = new(Vector2.Distance(start, end), SelectedItemLine.sizeDelta.y);
                                 SelectedItemLine.eulerAngles = new(0, 0, Vector2.SignedAngle(Vector3.left, end - start));
                         
-                                CenterHandle.gameObject.SetActive(CurrentDragMode is HandleDragMode.None or HandleDragMode.Center);
+                                CenterHandle.gameObject.SetActive(CurrentDragMode is HandleDragMode.None or HandleDragMode.Center && center.z > 0);
                                 CenterHandle.position = center;
                         
                                 if (SelectedItemLine.sizeDelta.x > 20) 
                                 {
-                                    StartHandle.gameObject.SetActive(CurrentDragMode is HandleDragMode.None or HandleDragMode.Start);
+                                    StartHandle.gameObject.SetActive(CurrentDragMode is HandleDragMode.None or HandleDragMode.Start && start.z > 0);
                                     StartHandle.position = start;
                            
-                                    EndHandle.gameObject.SetActive(CurrentDragMode is HandleDragMode.None or HandleDragMode.End);
+                                    EndHandle.gameObject.SetActive(CurrentDragMode is HandleDragMode.None or HandleDragMode.End && end.z > 0);
                                     EndHandle.position = end;
                                     EndHandle.eulerAngles = new(0, 0, Vector2.SignedAngle(Vector2.up, end - start));
                             
@@ -816,24 +905,26 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
 
                             if (hitObjectManager.TimeEnd >= Chartmaker.main.SongTime)
                             {
-                                Vector2 start = MainCamera.WorldToScreenPoint(laneManager.FinalRotation * (hitObjectManager.StartPos + laneManager.CurrentDistance * Vector3.back) + laneManager.FinalPosition);
-                                Vector2 end = MainCamera.WorldToScreenPoint(laneManager.FinalRotation * (hitObjectManager.EndPos + laneManager.CurrentDistance * Vector3.back) + laneManager.FinalPosition);
-                                Vector2 center = MainCamera.WorldToScreenPoint(laneManager.FinalRotation * (hitObjectManager.Position + laneManager.CurrentDistance * Vector3.back) + laneManager.FinalPosition);
+                                Vector3 start = MainCamera.WorldToScreenPoint(laneManager.FinalRotation * (hitObjectManager.StartPos + laneManager.CurrentDistance * Vector3.back) + laneManager.FinalPosition);
+                                Vector3 end = MainCamera.WorldToScreenPoint(laneManager.FinalRotation * (hitObjectManager.EndPos + laneManager.CurrentDistance * Vector3.back) + laneManager.FinalPosition);
+                                Vector3 center = MainCamera.WorldToScreenPoint(laneManager.FinalRotation * (hitObjectManager.Position + laneManager.CurrentDistance * Vector3.back) + laneManager.FinalPosition);
+                                bool hasLine = NormalizeLine(ref start, ref end);
                         
-                                SelectedItemLine.gameObject.SetActive(true);
-                                SelectedItemLine.position = (start + end) / 2;
+
+                                SelectedItemLine.gameObject.SetActive(hasLine);
+                                SelectedItemLine.position = (Vector2)(start + end) / 2;
                                 SelectedItemLine.sizeDelta = new(Vector2.Distance(start, end), SelectedItemLine.sizeDelta.y);
                                 SelectedItemLine.eulerAngles = new(0, 0, Vector2.SignedAngle(Vector3.left, end - start));
                         
-                                CenterHandle.gameObject.SetActive(CurrentDragMode is HandleDragMode.None or HandleDragMode.Center);
+                                CenterHandle.gameObject.SetActive(CurrentDragMode is HandleDragMode.None or HandleDragMode.Center && center.z > 0);
                                 CenterHandle.position = center;
                         
                                 if (SelectedItemLine.sizeDelta.x > 20) 
                                 {
-                                    StartHandle.gameObject.SetActive(CurrentDragMode is HandleDragMode.None or HandleDragMode.Start);
+                                    StartHandle.gameObject.SetActive(CurrentDragMode is HandleDragMode.None or HandleDragMode.Start && start.z > 0);
                                     StartHandle.position = start;
                         
-                                    EndHandle.gameObject.SetActive(CurrentDragMode is HandleDragMode.None or HandleDragMode.End);
+                                    EndHandle.gameObject.SetActive(CurrentDragMode is HandleDragMode.None or HandleDragMode.End && end.z > 0);
                                     EndHandle.position = end;
                                     EndHandle.eulerAngles = new(0, 0, Vector2.SignedAngle(Vector2.up, end - start));
                                 }
@@ -882,6 +973,10 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             }
         }
         float holdDurationThreshold = 0.8f;
+
+        #endregion
+
+        #region Pointer Events
         
         public void OnPointerDown(PointerEventData eventData)
         {
@@ -900,6 +995,8 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                 CurrentDragMode = HandleDragMode.Center;
             else if (Contains(EndHandle))
                 CurrentDragMode = HandleDragMode.End;
+            else if (eventData.button == PointerEventData.InputButton.Right)
+                CurrentDragMode = HandleDragMode.Camera;
             else if (HierarchyPanel.main.CurrentMode == HierarchyMode.PlayableSong)
                 CurrentDragMode = HandleDragMode.Background;
 
@@ -922,11 +1019,18 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                 return;
             }
 
-            if (HierarchyPanel.main.CurrentMode == HierarchyMode.PlayableSong && CurrentDragMode == HandleDragMode.Background)
+            if (CurrentDragMode == HandleDragMode.Background)
             {
                 OnDragEvent += (ev) =>
                 {
                     CoverPosition += ev.delta;
+                };
+            }
+            else if (CurrentDragMode == HandleDragMode.Camera)
+            {
+                OnDragEvent += (ev) =>
+                {
+                    RotateFreecam(new Vector3(-ev.delta.y, ev.delta.x) * 0.4f);
                 };
             }
             else switch (InspectorPanel.main.CurrentObject)
@@ -1208,6 +1312,15 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             }
         }
 
+        public void OnScroll(PointerEventData eventData)
+        {
+            if (CurrentDragMode == HandleDragMode.Camera)
+            {
+                freecamSpeedMulti = Mathf.Clamp(freecamSpeedMulti * Mathf.Pow(1.1f, Mathf.Sign(eventData.scrollDelta.y)), 1.5f, 150);
+                Chartmaker.main.NotifyNoFlash($"{freecamSpeedMulti / 15:G3}x", 1);
+            }
+        }
+
         public PointerEvent OnDragEvent;
 
         public void OnEndDrag(PointerEventData eventData)
@@ -1223,6 +1336,11 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             UpdateHandles();
             UpdateCursor(eventData.position, eventData.pressEventCamera);
         }
+
+        #endregion
+
+        #region Utils
+
     
         /// <summary>
         /// Maps a screen-space pointer delta back onto the plane spanned by the two unit world
@@ -1249,7 +1367,20 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             );
         }
 
-        public Rect Rect2UV(Rect parent, Rect child) 
+        public static bool NormalizeLine(ref Vector3 start, ref Vector3 end)
+        {
+            bool startBack = start.z <= 0;
+            bool endBack = end.z <= 0;
+            if (startBack && endBack) return false;
+            if (!startBack && !endBack) return true;
+
+            if (startBack) start = end - (start - end) * 2;
+            if (endBack) end = start - (end - start) * 2;
+
+            return true;
+        }
+
+        public static Rect Rect2UV(Rect parent, Rect child) 
         {
             return new(
                 (parent.min - child.min) / child.size,
@@ -1257,7 +1388,7 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             );
         }
 
-        public void DoMove<TAction, TTarget>(TTarget item, Vector3 offset) where TAction : ChartmakerMoveAction<TTarget>, new()
+        public static void DoMove<TAction, TTarget>(TTarget item, Vector3 offset) where TAction : ChartmakerMoveAction<TTarget>, new()
         {
             if (offset == Vector3.zero) return;
 
@@ -1286,6 +1417,10 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
 
             Chartmaker.main.OnHistoryUpdate();
         }
+
+        #endregion
+
+        #region Cover
 
         public void SetCoverViewMode(int mode) 
         {
@@ -1419,14 +1554,92 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             UpdateObjects();
         }
 
-            // Time windows telling the view which lanes are worth updating on a given frame.
-            // 
-            // The Client solves this with a forward-only cursor over lanes sorted by cue time,
-            // destroying each lane once passed. The Chartmaker cannot: time scrubs backwards, so
-            // a passed lane has to be able to come back. This keeps every lane's window in a
-            // sorted list instead and answers "which lanes overlap this instant" by binary
-            // search. Windows are in seconds, matching LaneStepManager.Offset and the cue
-            // formula below.
+        #endregion
+
+        #region World View
+
+        public void SetWorldViewMode(int mode) 
+        {
+            SetWorldViewMode((WorldViewMode)mode);
+        }
+
+        public void SetWorldViewMode(WorldViewMode mode) 
+        {
+            if (CurrentWorldViewMode == mode) return;
+            CurrentWorldViewMode = mode;
+
+            if (mode == WorldViewMode.Freecam)
+            {
+                MainCamera.transform.position = lastFreecamPosition;
+                MainCamera.transform.rotation = lastFreecamRotation;
+            }
+            else
+            {
+                lastFreecamPosition = MainCamera.transform.position;
+                lastFreecamRotation = MainCamera.transform.rotation;
+            }
+            
+            UpdateObjects();
+        }
+
+        public void MoveFreecam(Vector3 delta)
+        {
+            if (CurrentWorldViewMode == WorldViewMode.Gameplay)
+            {
+                CurrentWorldViewMode = WorldViewMode.Freecam;
+            }
+            MainCamera.transform.Translate(delta);
+            UpdateHandles();
+        }
+
+        public void RotateFreecam(Vector3 delta)
+        {
+            if (CurrentWorldViewMode == WorldViewMode.Gameplay)
+            {
+                CurrentWorldViewMode = WorldViewMode.Freecam;
+            }
+            var rotation = MainCamera.transform.eulerAngles;
+            if (rotation.x > 160) rotation.x -= 360;
+            MainCamera.transform.eulerAngles = new (
+                Mathf.Clamp(rotation.x + delta.x, -85, 85),
+                rotation.y + delta.y,
+                0
+            );
+            UpdateHandles();
+        }
+
+        public void AddFreecamVelocity(Vector3 delta)
+        {
+            freecamVelocity += delta;
+        }
+
+        public void RemoveFreecamVelocity(Vector3 delta)
+        {
+            freecamVelocity -= delta;
+        }
+
+        public void ToggleCameraGizmos()
+        {
+            CameraProps.DrawCamera = !CameraProps.DrawCamera;
+            UpdateToolbars();
+        }
+
+        public void ToggleWorldGrid()
+        {
+            CameraProps.DrawGrid = !CameraProps.DrawGrid;
+            UpdateToolbars();
+        }
+
+        #endregion
+
+        // Time windows telling the view which lanes are worth updating on a given frame.
+        // 
+        // The Client solves this with a forward-only cursor over lanes sorted by cue time,
+        // destroying each lane once passed. The Chartmaker cannot: time scrubs backwards, so
+        // a passed lane has to be able to come back. This keeps every lane's window in a
+        // sorted list instead and answers "which lanes overlap this instant" by binary
+        // search. Windows are in seconds, matching LaneStepManager.Offset and the cue
+        // formula below.
         class LaneWindowIndex
         {
             // Ported from PlayerScreen.cs in the Client, which arrived at these by playtesting.
@@ -1627,11 +1840,18 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
         Center,
         End,
         Background,
+        Camera,
     }
 
     public enum CoverViewMode 
     {
         Panorama = 0,
         Icon     = 1
+    }
+
+    public enum WorldViewMode 
+    {
+        Gameplay = 0,
+        Freecam  = 1
     }
 }

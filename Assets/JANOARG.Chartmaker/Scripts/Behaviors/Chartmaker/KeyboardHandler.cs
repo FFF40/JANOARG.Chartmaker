@@ -96,7 +96,7 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             { "SE:PreviousLane", new KeybindAction {
                 Category = "Select",
                 Name = "Previous in Hierarchy",
-                Keybind = new Keybind(KeyCode.W),
+                Keybind = new Keybind(KeyCode.UpArrow),
                 Invoke = () => {
                     HierarchyPanel.main.SelectAdjacent(-1);
                 },
@@ -104,7 +104,7 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             { "SE:NextLane", new KeybindAction {
                 Category = "Select",
                 Name = "Next in Hierarchy",
-                Keybind = new Keybind(KeyCode.S),
+                Keybind = new Keybind(KeyCode.DownArrow),
                 Invoke = () => {
                     HierarchyPanel.main.SelectAdjacent(1);
                 },
@@ -112,7 +112,7 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             { "SE:PreviousTimeline", new KeybindAction {
                 Category = "Select",
                 Name = "Previous in Timeline",
-                Keybind = new Keybind(KeyCode.A),
+                Keybind = new Keybind(KeyCode.LeftArrow),
                 Invoke = () => {
                     TimelinePanel.main.SelectAdjacent(-1);
                 },
@@ -120,7 +120,7 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             { "SE:NextTimeline", new KeybindAction {
                 Category = "Select",
                 Name = "Next in Timeline",
-                Keybind = new Keybind(KeyCode.D),
+                Keybind = new Keybind(KeyCode.RightArrow),
                 Invoke = () => {
                     TimelinePanel.main.SelectAdjacent(1);
                 },
@@ -297,6 +297,52 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                         PickerPanel.main.SetTimelinePickerMode(TimelinePickerMode.CatchHit);
                 }
             }},
+
+            // -------------------------------------------------- Play View
+            { "PV:FreecamForward", new KeybindAction {
+                Category = "Player View",
+                Name = "Freecam Forward",
+                Keybind = new Keybind(KeyCode.W),
+                InvokeDown = () => {
+                    PlayerView.main.AddFreecamVelocity(Vector3.forward);
+                },
+                InvokeUp = () => {
+                    PlayerView.main.RemoveFreecamVelocity(Vector3.forward);
+                },
+            }},
+            { "PV:FreecamBack", new KeybindAction {
+                Category = "Select",
+                Name = "Freecam Back",
+                Keybind = new Keybind(KeyCode.S),
+                InvokeDown = () => {
+                    PlayerView.main.AddFreecamVelocity(Vector3.back);
+                },
+                InvokeUp = () => {
+                    PlayerView.main.RemoveFreecamVelocity(Vector3.back);
+                },
+            }},
+            { "PV:FreecamLeft", new KeybindAction {
+                Category = "Select",
+                Name = "Freecam Left",
+                Keybind = new Keybind(KeyCode.A),
+                InvokeDown = () => {
+                    PlayerView.main.AddFreecamVelocity(Vector3.left);
+                },
+                InvokeUp = () => {
+                    PlayerView.main.RemoveFreecamVelocity(Vector3.left);
+                },
+            }},
+            { "PV:FreecamRight", new KeybindAction {
+                Category = "Select",
+                Name = "Freecam Right",
+                Keybind = new Keybind(KeyCode.D),
+                InvokeDown = () => {
+                    PlayerView.main.AddFreecamVelocity(Vector3.right);
+                },
+                InvokeUp = () => {
+                    PlayerView.main.RemoveFreecamVelocity(Vector3.right);
+                },
+            }},
         };
     
         public void Awake() 
@@ -317,12 +363,13 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             }
             if (Event.current.type == EventType.KeyDown)
             {
-                if (!ChangingKeybind) Keybindings.HandleEvent(Event.current);
+                if (!ChangingKeybind) Keybindings.HandleEvent(Event.current, false);
                 Event.current.Use();
             }
             else if (Event.current.type == EventType.KeyUp)
             {
                 if (ChangingKeybind) EndKeybindChange(new (Event.current));
+                else Keybindings.HandleEvent(Event.current, true);
                 Event.current.Use();
             }
         }

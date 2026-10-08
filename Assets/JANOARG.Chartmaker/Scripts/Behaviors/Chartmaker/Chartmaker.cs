@@ -24,6 +24,7 @@ using UnityEngine;
 using UnityEngine.Android;
 using UnityEngine.Assertions;
 using UnityEngine.Networking;
+using JANOARG.Shared.Utils;
 
 namespace JANOARG.Chartmaker.Behaviors.Chartmaker
 {
@@ -49,10 +50,8 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
         public GameObject    HomeBackground;
         [Space]
         public TMP_Text NotificationLabel;
-        public CanvasGroup NotificationText;
-        public CanvasGroup NotificationBox;
-        public float       NotificationTime;
-        public float       NotificationFlashTime;
+        public RectTransform NotificationHolder;
+        public CanvasGroup NotificationFlash;
         [Space]
         public GameObject Loader;
         public LoaderPanel LoaderPanel;
@@ -97,6 +96,8 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
         /// never be reachable.
         /// </summary>
         public BeatPosition EarliestHitOffset => CurrentSong == null ? default : (BeatPosition)CurrentSong.Timing.ToBeat(0);
+        public float NotificationTime { get; private set; }
+        public float NotificationFlashTime { get; private set; }
 
         public void Awake()
         {
@@ -158,8 +159,10 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
 
         public void Update()
         {
-            NotificationText.alpha = NotificationTime;
-            NotificationBox.alpha = NotificationFlashTime / .5f;
+            NotificationHolder.anchoredPosition *= new Vector2Frag( 
+                y: Mathf.Clamp(NotificationHolder.anchoredPosition.y + 200 * Time.deltaTime * Mathf.Sign(NotificationTime - 0.1f), 0, NotificationHolder.rect.height) 
+            );
+            NotificationFlash.alpha = NotificationFlashTime / .25f;
             NotificationTime -= Time.deltaTime;
             NotificationFlashTime -= Time.deltaTime;
 
@@ -1167,7 +1170,7 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
         {
             if (!CanCopy())
             {
-                Notify("This object cannot be copied.");
+                NotifyNoFlash("This object cannot be copied");
                 return;
             }
 
@@ -1176,7 +1179,7 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             else
                 ClipboardItem = InspectorPanel.main.CurrentObject;
             
-            Notify("Copied " + GetItemName(ClipboardItem) + " to clipboard.");
+            Notify(GetItemName(ClipboardItem) + " copied to clipboard");
         
             OnClipboardUpdate();
         }
@@ -1218,7 +1221,13 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             NotificationTime = time;
         }
 
-        public void Notify(string text, float time = 3, float flashTime = 0.5f)
+        public void NotifyNoFlash(string text, float time = 2)
+        {
+            NotificationLabel.text = text;
+            NotificationTime = time;
+        }
+
+        public void Notify(string text, float time = 2, float flashTime = 0.25f)
         {
             NotificationLabel.text = text;
             NotificationTime = time;

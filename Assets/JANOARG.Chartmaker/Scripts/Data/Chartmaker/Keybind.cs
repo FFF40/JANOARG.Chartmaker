@@ -1,5 +1,7 @@
 using System.Collections.Generic;
+using Unity.VisualScripting;
 using UnityEngine;
+using UnityEngine.Analytics;
 
 namespace JANOARG.Chartmaker.Data.Chartmaker
 {
@@ -155,12 +157,17 @@ namespace JANOARG.Chartmaker.Data.Chartmaker
         public string Name;
         public string Category;
  
-        public Keybind       Keybind;
-        public System.Action Invoke;
+        public Keybind           Keybind;
+        public System.Func<bool> Context;
+        public System.Action     Invoke;
+        public System.Action     InvokeDown;
+        public System.Action     InvokeUp;
     }
 
     public class KeybindActionList: Dictionary<string, KeybindAction>
     {
+
+        HashSet<KeybindAction> downedActions = new ();
 
         public void LoadKeys()
         {
@@ -173,17 +180,34 @@ namespace JANOARG.Chartmaker.Data.Chartmaker
             }
         }
 
-        public void HandleEvent(Event ev)
+        public void HandleEvent(Event ev, bool isUp)
         {
             foreach (KeybindAction action in this.Values)
             {
-                if (!action.Keybind.Matches(ev)) 
-                    continue;
+                if (isUp) {
+                    if (!(ev.keyCode == action.Keybind.KeyCode && downedActions.Contains(action)))
+                        continue;
 
-                action.Invoke();
+                    action.InvokeUp?.Invoke();
+                    downedActions.Remove(action);
+                }
+                else
+                {
+                    if (action.Context != null && !action.Context()) 
+                        continue;
+                    if (!action.Keybind.Matches(ev)) 
+                        continue;
+
+                    action.Invoke?.Invoke();
+                    if (Input.GetKeyDown(ev.keyCode)) 
+                    {
+                        action.InvokeDown?.Invoke();
+                        downedActions.Add(action);
+                    }
+
+                    ev.Use();
+                }
            
-                ev.Use();
-                break;
             }
         }
 
