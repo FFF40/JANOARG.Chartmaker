@@ -1239,9 +1239,11 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
                 // since yuv420p subsamples chroma by half in each dimension -- an odd
                 // value makes libx264 fail to open the encoder at all, which otherwise
                 // just surfaces as the generic "process ended prematurely" error.
+                // Don't bail out on this, just silently fix the resolution instead
                 if (resolution.x % 2 != 0 || resolution.y % 2 != 0)
                 {
-                    throw new Exception($"Resolution {resolution.x}x{resolution.y} has an odd width or height. Most video encoders require both to be even numbers -- adjust the Resolution field and try again.");
+                    resolution.x = resolution.x / 2 * 2;
+                    resolution.y = resolution.y / 2 * 2;
                 }
 
                 float delta = 1f / frameRate;
