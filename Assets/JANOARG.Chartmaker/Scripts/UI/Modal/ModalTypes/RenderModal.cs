@@ -1189,7 +1189,7 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
 
         private string _EtaString;
 
-        private Queue<float> _RecentFrameTimes;
+        private Queue<(float time, float msPerFrame)> _RecentFrameTimes;
         public async Task RenderRoutine()
         {
             IsAnimating = true;
@@ -1511,6 +1511,13 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
                 double avgWaitMs = 0;
                 double lastPacingLogSec = 0;
 
+                var updateSceneTimer = new System.Diagnostics.Stopwatch();
+                var renderTimer = new System.Diagnostics.Stopwatch();
+                var requestTimer = new System.Diagnostics.Stopwatch();
+                var collectTimer = new System.Diagnostics.Stopwatch();
+                double updateSceneMs = 0, renderMs = 0, requestMs = 0, collectMs = 0;
+                int pacingFrameCount = 0;
+
                 loaderPanel.ProgressLabel.text = $"Streaming frames... (0/{totalFrames})";
 
                 ConcurrentQueue<byte[]> frameQueue = new();
@@ -1616,10 +1623,18 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
                 // can be read off a render that gets cancelled part way through.
                 void LogPacing()
                 {
+                    string stages = pacingFrameCount > 0
+                        ? $", update {updateSceneMs / pacingFrameCount:F1}ms, render {renderMs / pacingFrameCount:F1}ms, " +
+                          $"request {requestMs / pacingFrameCount:F1}ms, collect {collectMs / pacingFrameCount:F1}ms"
+                        : "";
+
                     UnityEngine.Debug.Log(
                         $"Render yield pacing: player loop {avgYieldMs:F1}ms, capture {avgCaptureMs:F1}ms, " +
                         $"encoder wait {avgWaitMs:F1}ms, interval {YieldInterval()} frames, " +
-                        $"progress every {(avgYieldMs / yieldOverheadBudget):F0}ms");
+                        $"progress every {(avgYieldMs / yieldOverheadBudget):F0}ms{stages}");
+
+                    updateSceneMs = renderMs = requestMs = collectMs = 0;
+                    pacingFrameCount = 0;
                 }
 
                 // Folds the work done since the last yield into the frame-cost estimate,
@@ -1656,7 +1671,11 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
                     songSource.time = audioTime;
                     float sec  = time >= 0f ? audioTime : time;
                     float beat = chartmaker.CurrentSong.Timing.ToBeat(sec);
+
+                    updateSceneTimer.Restart();
                     playerView.UpdateObjects(sec, beat);
+                    updateSceneTimer.Stop();
+                    updateSceneMs += updateSceneTimer.Elapsed.TotalMilliseconds;
                 }
 
                 void CheckErrors()
@@ -1747,6 +1766,19 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
                     frameQueue.Enqueue(frameBuffer);
                 }
 
+                {
+                    int warmupStep = Mathf.Max(1, totalFrames / 8);
+                    for (int i = 0; i < totalFrames; i += warmupStep)
+                    {
+                        UpdateScene(i);
+                        RenderTexture.active = rtex;
+                        _Camera.Render();
+                    }
+
+                    captureTimer.Restart();
+                    updateSceneMs = 0;
+                }
+
                 if (useAsyncReadback)
                 {
                     // Pipelined async path:
@@ -1765,6 +1797,8 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
                         // pending readback first to avoid capturing the wrong content.
                         if (hasPending)
                         {
+                            collectTimer.Restart();
+
                             AsyncGPUReadback.WaitAllRequests();
                             // Wait for previous flip task before reusing staging buffer.
                             pendingFlipTask?.Wait();
@@ -1783,6 +1817,10 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
                                 // Copy NativeArray → staging on main thread, schedule flip on worker.
                                 ScheduleFlip(pendingRequest.GetData<byte>());
                             }
+
+                            collectTimer.Stop();
+                            collectMs += collectTimer.Elapsed.TotalMilliseconds;
+
                             hasPending = false;
                         }
 
@@ -1791,14 +1829,23 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
                             // Render next frame into the RT now that the previous
                             // readback has been collected.
                             UpdateScene(frameIndex);
+
+                            renderTimer.Restart();
                             RenderTexture.active = rtex;
                             _Camera.Render();
+                            renderTimer.Stop();
+                            renderMs += renderTimer.Elapsed.TotalMilliseconds;
 
                             // Issue readback for the frame we just rendered.
+                            requestTimer.Restart();
                             pendingRequest = AsyncGPUReadback.Request(rtex, 0, GraphicsFormat.R8G8B8_UNorm);
+                            requestTimer.Stop();
+                            requestMs += requestTimer.Elapsed.TotalMilliseconds;
+
                             hasPending = true;
                             frameIndex++;
                             frameYieldIndex++;
+                            pacingFrameCount++;
                         }
 
                         CheckErrors();
@@ -1817,16 +1864,24 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
                         await WaitForQueueAsync();
 
                         UpdateScene(frameIndex);
+
+                        renderTimer.Restart();
                         RenderTexture.active = rtex;
                         _Camera.Render();
+                        renderTimer.Stop();
+                        renderMs += renderTimer.Elapsed.TotalMilliseconds;
 
+                        collectTimer.Restart();
                         tex.ReadPixels(rectConfig, 0, 0);
                         FlipAndEnqueueManaged(tex.GetRawTextureData());
+                        collectTimer.Stop();
+                        collectMs += collectTimer.Elapsed.TotalMilliseconds;
 
                         CheckErrors();
 
                         frameIndex++;
                         frameYieldIndex++;
+                        pacingFrameCount++;
 
                         if (frameYieldIndex >= YieldInterval() || frameIndex == totalFrames)
                         {
@@ -2013,13 +2068,13 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
         private System.Diagnostics.Stopwatch renderStopwatch;
         private int lastEtaFrame;
         private float lastEtaUpdateTime;
-        private const int ETA_SAMPLE_SIZE = 30; // Number of frames to average for ETA calculation
+        private const float ETA_WINDOW_SECONDS = 3f;
 
         // Initialize ETA tracking (add this at the start of RenderRoutine)
         private void InitializeETATracking()
         {
             renderStopwatch = System.Diagnostics.Stopwatch.StartNew();
-            _RecentFrameTimes = new Queue<float>(ETA_SAMPLE_SIZE);
+            _RecentFrameTimes = new Queue<(float, float)>();
             lastEtaUpdateTime = 0f;
             lastEtaFrame = 0;
         }
@@ -2039,17 +2094,17 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
                 float frameTime = currentTime - lastEtaUpdateTime;
                 int frameCount = currentFrame - lastEtaFrame;
                 float msPerFrame = frameTime / frameCount;
-                _RecentFrameTimes.Enqueue(msPerFrame);
-
-                if (_RecentFrameTimes.Count > ETA_SAMPLE_SIZE)
-                {
-                    _RecentFrameTimes.Dequeue();
-                }
+                _RecentFrameTimes.Enqueue((currentTime, msPerFrame));
             }
             else
             {
                 // First frame, add a reasonable initial estimate
-                _RecentFrameTimes.Enqueue(0.1f);
+                _RecentFrameTimes.Enqueue((currentTime, 0.1f));
+            }
+
+            while (_RecentFrameTimes.Count > 0 && currentTime - _RecentFrameTimes.Peek().time > ETA_WINDOW_SECONDS)
+            {
+                _RecentFrameTimes.Dequeue();
             }
 
             lastEtaUpdateTime = currentTime;
@@ -2069,8 +2124,11 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
                 return $"{currentFrame} / {totalFrames} | --- fps | --- remaining ";
             }
             
-            float averageFrameTime = _RecentFrameTimes.Average();
-            
+            float averageFrameTime = 0f;
+            foreach ((float _, float msPerFrame) in _RecentFrameTimes)
+                averageFrameTime += msPerFrame;
+            averageFrameTime /= _RecentFrameTimes.Count;
+
             int remainingFrames = totalFrames - currentFrame;
             float estimatedTimeRemaining = remainingFrames * averageFrameTime;
             
