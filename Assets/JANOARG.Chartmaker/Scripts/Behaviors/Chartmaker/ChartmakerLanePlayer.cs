@@ -143,7 +143,10 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
         
             while (HitPlayers.Count > count)
             {
-                Destroy(HitPlayers[count].gameObject);
+                ChartmakerHitPlayer hitPlayer = HitPlayers[count];
+                hitPlayer.gameObject.SetActive(false);
+                if (hitPlayer.HoldTail) hitPlayer.HoldTail.gameObject.SetActive(false);
+                Destroy(hitPlayer.gameObject);
                 HitPlayers.RemoveAt(count);
             }
 
