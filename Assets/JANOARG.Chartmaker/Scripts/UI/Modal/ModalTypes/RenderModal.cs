@@ -1245,7 +1245,7 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
                 }
 
                 float delta = 1f / frameRate;
-                int totalFrames = Mathf.CeilToInt((timeRange.y - timeRange.x) * frameRate);
+                int totalFrames = Mathf.CeilToInt((float)((timeRange.y - timeRange.x) * (double)frameRate));
                 float camHeight = Mathf.Min(1f, 7f / 4f * resolution.x / resolution.y) * 0.9f;
                 float fov = Mathf.Atan2(Mathf.Tan(30f * Mathf.Deg2Rad), camHeight) * 2f * Mathf.Rad2Deg;
 
@@ -1312,7 +1312,7 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
 
                 float leadIn = timeRange.x < 0 ? -timeRange.x : 0f;
                 float audioStart = leadIn > 0 ? 0f : timeRange.x;
-                float renderDuration = timeRange.y - timeRange.x;
+                float renderDuration = totalFrames / frameRate;
                 var invariant = System.Globalization.CultureInfo.InvariantCulture;
 
                 // If hit SFX are enabled, pre-mix the song + hit sounds into a single
@@ -1447,12 +1447,15 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
                     : (leadIn > 0 ? $"-itsoffset {leadIn.ToString(invariant)} " : "") +
                       $"-ss {audioStart.ToString(invariant)} -t {renderDuration.ToString(invariant)} -i \"{audioPath}\" ";
 
-                string ffmpegArgs = $"-f rawvideo -pix_fmt rgb24 -s {resolution.x}x{resolution.y} -r {frameRate} -i pipe:0 " +
+                string frameRateArg = frameRate.ToString(invariant);
+
+                string ffmpegArgs = $"-f rawvideo -pix_fmt rgb24 -s {resolution.x}x{resolution.y} -r {frameRateArg} -i pipe:0 " +
                                     audioInputArgs +
                                     $"-map 0:v -map 1:a " +
                                     $"-vcodec {videoFormatArg} -vf format=rgb24 -pix_fmt yuv420p -acodec {audioFormatArg} " +
                                     presetOption +
                                     $"{videoQualityOptions} {audioQualityOptions} " +
+                                    $"-r {frameRateArg} -fps_mode cfr " +
                                     $"-y \"{outputPath}\"";
 
                 UnityEngine.Debug.Log("FFmpeg args: " + ffmpegArgs);
