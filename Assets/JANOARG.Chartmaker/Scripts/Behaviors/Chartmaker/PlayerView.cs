@@ -485,7 +485,8 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                 FlicksRemaining = Manager.FlicksRemaining;
             }
 
-            UpdateHandles();
+            if (!MainCamera.targetTexture)
+                UpdateHandles();
 
             if (HierarchyPanel.main.CurrentMode == HierarchyMode.PlayableSong) 
             {
