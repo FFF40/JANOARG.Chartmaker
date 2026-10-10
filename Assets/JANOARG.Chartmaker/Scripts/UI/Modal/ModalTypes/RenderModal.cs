@@ -1317,6 +1317,11 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
 
             chartmaker.RenderInProgress = true;
 
+            // The render drives songSource.time each frame; put the playhead back where it was
+            // when the render ends (completed or cancelled), so the editor isn't left at the
+            // render's last frame.
+            float restorePlayhead = chartmaker.SongTime;
+
             bool chartmakerCanvasWasEnabled = chartmaker.ChartmakerCanvas.enabled;
 
             bool cancelFlag = false;
@@ -1591,20 +1596,24 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
                 FFmpegProcess.Start();
                 ffmpegInputStream = FFmpegProcess.StandardInput.BaseStream;
 
-                // Start async task to read FFmpeg output (for debugging/logging)
+                // Start async task to read FFmpeg output (for debugging/logging). The reader is
+                // captured locally: KillFFmpegProcess() nulls the process field, so reading it
+                // here would only throw once the encode is cancelled.
+                StreamReader errorReader = FFmpegProcess.StandardError;
+
                 ffmpegTask = Task.Run(() =>
                 {
                     try
                     {
                         string line;
-                        while ((line = FFmpegProcess.StandardError.ReadLine()) != null)
+                        while ((line = errorReader.ReadLine()) != null)
                         {
                             UnityEngine.Debug.Log($"FFmpeg: {line}");
                         }
                     }
-                    catch (Exception e)
+                    catch (Exception)
                     {
-                        UnityEngine.Debug.LogError($"FFmpeg output reading error: {e.Message}");
+                        // The stream is closed when the encode ends or is cancelled; nothing to read.
                     }
                 });
 
@@ -2076,6 +2085,10 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
                 EndRenderOverlay(chartmaker);
 
                 chartmaker.RenderInProgress = false;
+
+                if (chartmaker.CurrentSong != null && chartmaker.SongSource != null && chartmaker.SongSource.clip != null)
+                    chartmaker.SeekTo(restorePlayhead);
+
                 QualitySettings.vSyncCount = previousVSyncCount;
 
                 KillFFmpegProcess();
