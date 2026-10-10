@@ -15,6 +15,7 @@ using JANOARG.Chartmaker.UI.ContextMenu;
 using JANOARG.Chartmaker.UI.Form;
 using JANOARG.Chartmaker.UI.Form.FormTypes;
 using JANOARG.Shared.Data.ChartInfo;
+using JANOARG.Shared.Utils.Animation;
 using JANOARG.Chartmaker.Utils;
 using TMPro;
 using Unity.Collections;
@@ -490,6 +491,9 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
         };
 
         private Camera _Camera;
+
+        Transform _LoaderParent;
+        int       _LoaderSibling;
 
 
         Vector2 GetCRFRange(MediaFormat format) => format switch
@@ -1190,6 +1194,111 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
         private string _EtaString;
 
         private Queue<(float time, float msPerFrame)> _RecentFrameTimes;
+        async Task BeginRenderOverlay(Behaviors.Chartmaker.Chartmaker chartmaker)
+        {
+            // Snapshot the whole editor (canvas included).
+            Texture2D colorShot = ScreenCapture.CaptureScreenshotAsTexture();
+
+            // The screenshot is filled at the end of the frame the capture was requested.
+            await Task.Yield();
+
+            int width = colorShot.width;
+            int height = colorShot.height;
+
+            Texture2D monoShot = new Texture2D(width, height, TextureFormat.RGB24, false);
+
+            Color32[] pixels = colorShot.GetPixels32();
+            for (int i = 0; i < pixels.Length; i++)
+            {
+                byte luma = (byte)(0.299f * pixels[i].r + 0.587f * pixels[i].g + 0.114f * pixels[i].b);
+                pixels[i] = new Color32(luma, luma, luma, 255);
+            }
+            BoxBlur(pixels, width, height, 8);
+            monoShot.SetPixels32(pixels);
+            monoShot.Apply();
+
+            chartmaker.RenderOverlayColor.texture = colorShot;
+            chartmaker.RenderOverlayMono.texture = monoShot;
+            chartmaker.RenderOverlayMono.color = new Color(1, 1, 1, 0);
+            chartmaker.RenderOverlayCanvas.gameObject.SetActive(true);
+
+            float interfaceScale = chartmaker.ChartmakerCanvas.scaleFactor;
+            CanvasScaler overlayScaler = chartmaker.RenderOverlayCanvas.GetComponent<CanvasScaler>();
+            if (overlayScaler) overlayScaler.scaleFactor = interfaceScale;
+            chartmaker.RenderOverlayCanvas.scaleFactor = interfaceScale;
+
+            _LoaderParent = chartmaker.Loader.transform.parent;
+            _LoaderSibling = chartmaker.Loader.transform.GetSiblingIndex();
+            chartmaker.Loader.transform.SetParent(chartmaker.RenderOverlayCanvas.transform, false);
+
+            // Fade the desaturated (blurred) layer in over the colour one.
+            await Ease.Animate(0.5f, t =>
+            {
+                float eased = Ease.Get(t, EaseFunction.Cubic, EaseMode.Out);
+                if (chartmaker.RenderOverlayMono)
+                    chartmaker.RenderOverlayMono.color = new Color(1, 1, 1, eased);
+            }, System.Threading.CancellationToken.None);
+        }
+
+        static void BoxBlur(Color32[] pixels, int width, int height, int radius)
+        {
+            if (radius < 1 || width < 1 || height < 1)
+                return;
+
+            Color32[] temp = new Color32[pixels.Length];
+
+            for (int y = 0; y < height; y++)
+            {
+                int row = y * width;
+                int r = 0, g = 0, b = 0, count = 0;
+
+                for (int x = -radius; x <= radius; x++)
+                {
+                    Color32 c = pixels[row + Mathf.Clamp(x, 0, width - 1)];
+                    r += c.r; g += c.g; b += c.b; count++;
+                }
+
+                for (int x = 0; x < width; x++)
+                {
+                    temp[row + x] = new Color32((byte)(r / count), (byte)(g / count), (byte)(b / count), 255);
+                    Color32 add = pixels[row + Mathf.Clamp(x + radius + 1, 0, width - 1)];
+                    Color32 sub = pixels[row + Mathf.Clamp(x - radius, 0, width - 1)];
+                    r += add.r - sub.r; g += add.g - sub.g; b += add.b - sub.b;
+                }
+            }
+
+            for (int x = 0; x < width; x++)
+            {
+                int r = 0, g = 0, b = 0, count = 0;
+
+                for (int y = -radius; y <= radius; y++)
+                {
+                    Color32 c = temp[Mathf.Clamp(y, 0, height - 1) * width + x];
+                    r += c.r; g += c.g; b += c.b; count++;
+                }
+
+                for (int y = 0; y < height; y++)
+                {
+                    pixels[y * width + x] = new Color32((byte)(r / count), (byte)(g / count), (byte)(b / count), 255);
+                    Color32 add = temp[Mathf.Clamp(y + radius + 1, 0, height - 1) * width + x];
+                    Color32 sub = temp[Mathf.Clamp(y - radius, 0, height - 1) * width + x];
+                    r += add.r - sub.r; g += add.g - sub.g; b += add.b - sub.b;
+                }
+            }
+        }
+
+        void EndRenderOverlay(Behaviors.Chartmaker.Chartmaker chartmaker)
+        {
+            if (chartmaker.Loader && _LoaderParent)
+            {
+                chartmaker.Loader.transform.SetParent(_LoaderParent, false);
+                chartmaker.Loader.transform.SetSiblingIndex(_LoaderSibling);
+            }
+
+            if (chartmaker.RenderOverlayCanvas)
+                chartmaker.RenderOverlayCanvas.gameObject.SetActive(false);
+        }
+
         public async Task RenderRoutine()
         {
             IsAnimating = true;
@@ -1205,6 +1314,10 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
             
             var chartmaker = Behaviors.Chartmaker.Chartmaker.main;
             var loaderPanel = chartmaker.LoaderPanel;
+
+            chartmaker.RenderInProgress = true;
+
+            bool chartmakerCanvasWasEnabled = chartmaker.ChartmakerCanvas.enabled;
 
             bool cancelFlag = false;
 
@@ -1229,6 +1342,9 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
                 loaderPanel.SetCancelButton(() => cancelFlag = true);
 
                 await Task.Delay(300);
+
+                await BeginRenderOverlay(chartmaker);
+                chartmaker.ChartmakerCanvas.enabled = false;
 
                 // Pre-calculate constants
                 var resolution = Prefs.Resolution;
@@ -1954,6 +2070,12 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
             }
             finally
             {
+                if (chartmaker.ChartmakerCanvas)
+                    chartmaker.ChartmakerCanvas.enabled = chartmakerCanvasWasEnabled;
+
+                EndRenderOverlay(chartmaker);
+
+                chartmaker.RenderInProgress = false;
                 QualitySettings.vSyncCount = previousVSyncCount;
 
                 KillFFmpegProcess();

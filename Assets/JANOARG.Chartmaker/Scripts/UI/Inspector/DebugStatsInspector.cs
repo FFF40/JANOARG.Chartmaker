@@ -105,6 +105,8 @@ namespace JANOARG.Chartmaker.UI.Inspector
         // Update is called once per frame
         void Update()
         {
+            if (Behaviors.Chartmaker.Chartmaker.main.RenderInProgress) return;
+
             UpdateClock += Time.unscaledDeltaTime;
             UpdateMin = Mathf.Max(UpdateMin, Time.unscaledDeltaTime);
             UpdateMax = Mathf.Min(UpdateMax, Time.unscaledDeltaTime);
