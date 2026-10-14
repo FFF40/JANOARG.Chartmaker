@@ -14,7 +14,10 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
 
         public MeshRenderer HoldTail;
         public MeshRenderer FlickEmblem;
-        
+
+        MeshFilter _HoldTailFilter;
+        MeshFilter _FlickEmblemFilter;
+
         public Transform HitObjectPosition;
 
         public void OnDestroy()
@@ -82,13 +85,16 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             if (hit.HoldMesh && visible)
             {
                 if (!HoldTail)
+                {
                     HoldTail = Instantiate(PlayerView.main.HoldMeshSample, transform.parent);
+                    _HoldTailFilter = HoldTail.GetComponent<MeshFilter>();
+                }
 
                 if (!HoldTail.gameObject.activeSelf)
                     HoldTail.gameObject.SetActive(true);
 
                 HoldTail.sharedMaterial = styles[index].HoldTailMaterial;
-                HoldTail.GetComponent<MeshFilter>().sharedMesh = hit.HoldMesh;
+                _HoldTailFilter.sharedMesh = hit.HoldMesh;
             }
             else if (HoldTail && HoldTail.gameObject.activeSelf)
             {
@@ -101,6 +107,7 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             { 
                 if (!FlickEmblem) {
                     FlickEmblem = Instantiate(PlayerView.main.HoldMeshSample, transform);
+                    _FlickEmblemFilter = FlickEmblem.GetComponent<MeshFilter>();
                 } 
             
                 
@@ -110,7 +117,7 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             
                 bool directional = float.IsFinite(hit.Current.FlickDirection);
             
-                FlickEmblem.GetComponent<MeshFilter>().sharedMesh = directional 
+                _FlickEmblemFilter.sharedMesh = directional 
                     ? PlayerView.main.ArrowFlickIndicator : PlayerView.main.FreeFlickIndicator;
             
                 if (directional)

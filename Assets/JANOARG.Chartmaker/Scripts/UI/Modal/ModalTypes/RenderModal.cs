@@ -15,6 +15,7 @@ using JANOARG.Chartmaker.UI.ContextMenu;
 using JANOARG.Chartmaker.UI.Form;
 using JANOARG.Chartmaker.UI.Form.FormTypes;
 using JANOARG.Shared.Data.ChartInfo;
+using JANOARG.Shared.Utils.Animation;
 using JANOARG.Chartmaker.Utils;
 using TMPro;
 using Unity.Collections;
@@ -490,6 +491,9 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
         };
 
         private Camera _Camera;
+
+        Transform _LoaderParent;
+        int       _LoaderSibling;
 
 
         Vector2 GetCRFRange(MediaFormat format) => format switch
@@ -1189,7 +1193,112 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
 
         private string _EtaString;
 
-        private Queue<float> _RecentFrameTimes;
+        private Queue<(float time, float msPerFrame)> _RecentFrameTimes;
+        async Task BeginRenderOverlay(Behaviors.Chartmaker.Chartmaker chartmaker)
+        {
+            // Snapshot the whole editor (canvas included).
+            Texture2D colorShot = ScreenCapture.CaptureScreenshotAsTexture();
+
+            // The screenshot is filled at the end of the frame the capture was requested.
+            await Task.Yield();
+
+            int width = colorShot.width;
+            int height = colorShot.height;
+
+            Texture2D monoShot = new Texture2D(width, height, TextureFormat.RGB24, false);
+
+            Color32[] pixels = colorShot.GetPixels32();
+            for (int i = 0; i < pixels.Length; i++)
+            {
+                byte luma = (byte)(0.299f * pixels[i].r + 0.587f * pixels[i].g + 0.114f * pixels[i].b);
+                pixels[i] = new Color32(luma, luma, luma, 255);
+            }
+            BoxBlur(pixels, width, height, 8);
+            monoShot.SetPixels32(pixels);
+            monoShot.Apply();
+
+            chartmaker.RenderOverlayColor.texture = colorShot;
+            chartmaker.RenderOverlayMono.texture = monoShot;
+            chartmaker.RenderOverlayMono.color = new Color(1, 1, 1, 0);
+            chartmaker.RenderOverlayCanvas.gameObject.SetActive(true);
+
+            float interfaceScale = chartmaker.ChartmakerCanvas.scaleFactor;
+            CanvasScaler overlayScaler = chartmaker.RenderOverlayCanvas.GetComponent<CanvasScaler>();
+            if (overlayScaler) overlayScaler.scaleFactor = interfaceScale;
+            chartmaker.RenderOverlayCanvas.scaleFactor = interfaceScale;
+
+            _LoaderParent = chartmaker.Loader.transform.parent;
+            _LoaderSibling = chartmaker.Loader.transform.GetSiblingIndex();
+            chartmaker.Loader.transform.SetParent(chartmaker.RenderOverlayCanvas.transform, false);
+
+            // Fade the desaturated (blurred) layer in over the colour one.
+            await Ease.Animate(0.5f, t =>
+            {
+                float eased = Ease.Get(t, EaseFunction.Cubic, EaseMode.Out);
+                if (chartmaker.RenderOverlayMono)
+                    chartmaker.RenderOverlayMono.color = new Color(1, 1, 1, eased);
+            }, System.Threading.CancellationToken.None);
+        }
+
+        static void BoxBlur(Color32[] pixels, int width, int height, int radius)
+        {
+            if (radius < 1 || width < 1 || height < 1)
+                return;
+
+            Color32[] temp = new Color32[pixels.Length];
+
+            for (int y = 0; y < height; y++)
+            {
+                int row = y * width;
+                int r = 0, g = 0, b = 0, count = 0;
+
+                for (int x = -radius; x <= radius; x++)
+                {
+                    Color32 c = pixels[row + Mathf.Clamp(x, 0, width - 1)];
+                    r += c.r; g += c.g; b += c.b; count++;
+                }
+
+                for (int x = 0; x < width; x++)
+                {
+                    temp[row + x] = new Color32((byte)(r / count), (byte)(g / count), (byte)(b / count), 255);
+                    Color32 add = pixels[row + Mathf.Clamp(x + radius + 1, 0, width - 1)];
+                    Color32 sub = pixels[row + Mathf.Clamp(x - radius, 0, width - 1)];
+                    r += add.r - sub.r; g += add.g - sub.g; b += add.b - sub.b;
+                }
+            }
+
+            for (int x = 0; x < width; x++)
+            {
+                int r = 0, g = 0, b = 0, count = 0;
+
+                for (int y = -radius; y <= radius; y++)
+                {
+                    Color32 c = temp[Mathf.Clamp(y, 0, height - 1) * width + x];
+                    r += c.r; g += c.g; b += c.b; count++;
+                }
+
+                for (int y = 0; y < height; y++)
+                {
+                    pixels[y * width + x] = new Color32((byte)(r / count), (byte)(g / count), (byte)(b / count), 255);
+                    Color32 add = temp[Mathf.Clamp(y + radius + 1, 0, height - 1) * width + x];
+                    Color32 sub = temp[Mathf.Clamp(y - radius, 0, height - 1) * width + x];
+                    r += add.r - sub.r; g += add.g - sub.g; b += add.b - sub.b;
+                }
+            }
+        }
+
+        void EndRenderOverlay(Behaviors.Chartmaker.Chartmaker chartmaker)
+        {
+            if (chartmaker.Loader && _LoaderParent)
+            {
+                chartmaker.Loader.transform.SetParent(_LoaderParent, false);
+                chartmaker.Loader.transform.SetSiblingIndex(_LoaderSibling);
+            }
+
+            if (chartmaker.RenderOverlayCanvas)
+                chartmaker.RenderOverlayCanvas.gameObject.SetActive(false);
+        }
+
         public async Task RenderRoutine()
         {
             IsAnimating = true;
@@ -1205,6 +1314,15 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
             
             var chartmaker = Behaviors.Chartmaker.Chartmaker.main;
             var loaderPanel = chartmaker.LoaderPanel;
+
+            chartmaker.RenderInProgress = true;
+
+            // The render drives songSource.time each frame; put the playhead back where it was
+            // when the render ends (completed or cancelled), so the editor isn't left at the
+            // render's last frame.
+            float restorePlayhead = chartmaker.SongTime;
+
+            bool chartmakerCanvasWasEnabled = chartmaker.ChartmakerCanvas.enabled;
 
             bool cancelFlag = false;
 
@@ -1230,6 +1348,9 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
 
                 await Task.Delay(300);
 
+                await BeginRenderOverlay(chartmaker);
+                chartmaker.ChartmakerCanvas.enabled = false;
+
                 // Pre-calculate constants
                 var resolution = Prefs.Resolution;
                 var frameRate = Prefs.FrameRate;
@@ -1247,7 +1368,7 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
                 }
 
                 float delta = 1f / frameRate;
-                int totalFrames = Mathf.CeilToInt((timeRange.y - timeRange.x) * frameRate);
+                int totalFrames = Mathf.CeilToInt((float)((timeRange.y - timeRange.x) * (double)frameRate));
                 float camHeight = Mathf.Min(1f, 7f / 4f * resolution.x / resolution.y) * 0.9f;
                 float fov = Mathf.Atan2(Mathf.Tan(30f * Mathf.Deg2Rad), camHeight) * 2f * Mathf.Rad2Deg;
 
@@ -1314,7 +1435,7 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
 
                 float leadIn = timeRange.x < 0 ? -timeRange.x : 0f;
                 float audioStart = leadIn > 0 ? 0f : timeRange.x;
-                float renderDuration = timeRange.y - timeRange.x;
+                float renderDuration = totalFrames / frameRate;
                 var invariant = System.Globalization.CultureInfo.InvariantCulture;
 
                 // If hit SFX are enabled, pre-mix the song + hit sounds into a single
@@ -1449,12 +1570,15 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
                     : (leadIn > 0 ? $"-itsoffset {leadIn.ToString(invariant)} " : "") +
                       $"-ss {audioStart.ToString(invariant)} -t {renderDuration.ToString(invariant)} -i \"{audioPath}\" ";
 
-                string ffmpegArgs = $"-f rawvideo -pix_fmt rgb24 -s {resolution.x}x{resolution.y} -r {frameRate} -i pipe:0 " +
+                string frameRateArg = frameRate.ToString(invariant);
+
+                string ffmpegArgs = $"-f rawvideo -pix_fmt rgb24 -s {resolution.x}x{resolution.y} -r {frameRateArg} -i pipe:0 " +
                                     audioInputArgs +
                                     $"-map 0:v -map 1:a " +
                                     $"-vcodec {videoFormatArg} -vf format=rgb24 -pix_fmt yuv420p -acodec {audioFormatArg} " +
                                     presetOption +
                                     $"{videoQualityOptions} {audioQualityOptions} " +
+                                    $"-r {frameRateArg} -fps_mode cfr " +
                                     $"-y \"{outputPath}\"";
 
                 UnityEngine.Debug.Log("FFmpeg args: " + ffmpegArgs);
@@ -1474,20 +1598,24 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
                 FFmpegProcess.Start();
                 ffmpegInputStream = FFmpegProcess.StandardInput.BaseStream;
 
-                // Start async task to read FFmpeg output (for debugging/logging)
+                // Start async task to read FFmpeg output (for debugging/logging). The reader is
+                // captured locally: KillFFmpegProcess() nulls the process field, so reading it
+                // here would only throw once the encode is cancelled.
+                StreamReader errorReader = FFmpegProcess.StandardError;
+
                 ffmpegTask = Task.Run(() =>
                 {
                     try
                     {
                         string line;
-                        while ((line = FFmpegProcess.StandardError.ReadLine()) != null)
+                        while ((line = errorReader.ReadLine()) != null)
                         {
                             UnityEngine.Debug.Log($"FFmpeg: {line}");
                         }
                     }
-                    catch (Exception e)
+                    catch (Exception)
                     {
-                        UnityEngine.Debug.LogError($"FFmpeg output reading error: {e.Message}");
+                        // The stream is closed when the encode ends or is cancelled; nothing to read.
                     }
                 });
 
@@ -1509,6 +1637,13 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
                 double avgYieldMs = 0;
                 double avgWaitMs = 0;
                 double lastPacingLogSec = 0;
+
+                var updateSceneTimer = new System.Diagnostics.Stopwatch();
+                var renderTimer = new System.Diagnostics.Stopwatch();
+                var requestTimer = new System.Diagnostics.Stopwatch();
+                var collectTimer = new System.Diagnostics.Stopwatch();
+                double updateSceneMs = 0, renderMs = 0, requestMs = 0, collectMs = 0;
+                int pacingFrameCount = 0;
 
                 loaderPanel.ProgressLabel.text = $"Streaming frames... (0/{totalFrames})";
 
@@ -1615,10 +1750,18 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
                 // can be read off a render that gets cancelled part way through.
                 void LogPacing()
                 {
+                    string stages = pacingFrameCount > 0
+                        ? $", update {updateSceneMs / pacingFrameCount:F1}ms, render {renderMs / pacingFrameCount:F1}ms, " +
+                          $"request {requestMs / pacingFrameCount:F1}ms, collect {collectMs / pacingFrameCount:F1}ms"
+                        : "";
+
                     UnityEngine.Debug.Log(
                         $"Render yield pacing: player loop {avgYieldMs:F1}ms, capture {avgCaptureMs:F1}ms, " +
                         $"encoder wait {avgWaitMs:F1}ms, interval {YieldInterval()} frames, " +
-                        $"progress every {(avgYieldMs / yieldOverheadBudget):F0}ms");
+                        $"progress every {(avgYieldMs / yieldOverheadBudget):F0}ms{stages}");
+
+                    updateSceneMs = renderMs = requestMs = collectMs = 0;
+                    pacingFrameCount = 0;
                 }
 
                 // Folds the work done since the last yield into the frame-cost estimate,
@@ -1655,7 +1798,11 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
                     songSource.time = audioTime;
                     float sec  = time >= 0f ? audioTime : time;
                     float beat = chartmaker.CurrentSong.Timing.ToBeat(sec);
+
+                    updateSceneTimer.Restart();
                     playerView.UpdateObjects(sec, beat);
+                    updateSceneTimer.Stop();
+                    updateSceneMs += updateSceneTimer.Elapsed.TotalMilliseconds;
                 }
 
                 void CheckErrors()
@@ -1746,6 +1893,19 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
                     frameQueue.Enqueue(frameBuffer);
                 }
 
+                {
+                    int warmupStep = Mathf.Max(1, totalFrames / 8);
+                    for (int i = 0; i < totalFrames; i += warmupStep)
+                    {
+                        UpdateScene(i);
+                        RenderTexture.active = rtex;
+                        _Camera.Render();
+                    }
+
+                    captureTimer.Restart();
+                    updateSceneMs = 0;
+                }
+
                 if (useAsyncReadback)
                 {
                     // Pipelined async path:
@@ -1764,6 +1924,8 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
                         // pending readback first to avoid capturing the wrong content.
                         if (hasPending)
                         {
+                            collectTimer.Restart();
+
                             AsyncGPUReadback.WaitAllRequests();
                             // Wait for previous flip task before reusing staging buffer.
                             pendingFlipTask?.Wait();
@@ -1782,6 +1944,10 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
                                 // Copy NativeArray → staging on main thread, schedule flip on worker.
                                 ScheduleFlip(pendingRequest.GetData<byte>());
                             }
+
+                            collectTimer.Stop();
+                            collectMs += collectTimer.Elapsed.TotalMilliseconds;
+
                             hasPending = false;
                         }
 
@@ -1790,14 +1956,23 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
                             // Render next frame into the RT now that the previous
                             // readback has been collected.
                             UpdateScene(frameIndex);
+
+                            renderTimer.Restart();
                             RenderTexture.active = rtex;
                             _Camera.Render();
+                            renderTimer.Stop();
+                            renderMs += renderTimer.Elapsed.TotalMilliseconds;
 
                             // Issue readback for the frame we just rendered.
+                            requestTimer.Restart();
                             pendingRequest = AsyncGPUReadback.Request(rtex, 0, GraphicsFormat.R8G8B8_UNorm);
+                            requestTimer.Stop();
+                            requestMs += requestTimer.Elapsed.TotalMilliseconds;
+
                             hasPending = true;
                             frameIndex++;
                             frameYieldIndex++;
+                            pacingFrameCount++;
                         }
 
                         CheckErrors();
@@ -1816,16 +1991,24 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
                         await WaitForQueueAsync();
 
                         UpdateScene(frameIndex);
+
+                        renderTimer.Restart();
                         RenderTexture.active = rtex;
                         _Camera.Render();
+                        renderTimer.Stop();
+                        renderMs += renderTimer.Elapsed.TotalMilliseconds;
 
+                        collectTimer.Restart();
                         tex.ReadPixels(rectConfig, 0, 0);
                         FlipAndEnqueueManaged(tex.GetRawTextureData());
+                        collectTimer.Stop();
+                        collectMs += collectTimer.Elapsed.TotalMilliseconds;
 
                         CheckErrors();
 
                         frameIndex++;
                         frameYieldIndex++;
+                        pacingFrameCount++;
 
                         if (frameYieldIndex >= YieldInterval() || frameIndex == totalFrames)
                         {
@@ -1898,6 +2081,16 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
             }
             finally
             {
+                if (chartmaker.ChartmakerCanvas)
+                    chartmaker.ChartmakerCanvas.enabled = chartmakerCanvasWasEnabled;
+
+                EndRenderOverlay(chartmaker);
+
+                chartmaker.RenderInProgress = false;
+
+                if (chartmaker.CurrentSong != null && chartmaker.SongSource != null && chartmaker.SongSource.clip != null)
+                    chartmaker.SeekTo(restorePlayhead);
+
                 QualitySettings.vSyncCount = previousVSyncCount;
 
                 KillFFmpegProcess();
@@ -2012,13 +2205,13 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
         private System.Diagnostics.Stopwatch renderStopwatch;
         private int lastEtaFrame;
         private float lastEtaUpdateTime;
-        private const int ETA_SAMPLE_SIZE = 30; // Number of frames to average for ETA calculation
+        private const float ETA_WINDOW_SECONDS = 3f;
 
         // Initialize ETA tracking (add this at the start of RenderRoutine)
         private void InitializeETATracking()
         {
             renderStopwatch = System.Diagnostics.Stopwatch.StartNew();
-            _RecentFrameTimes = new Queue<float>(ETA_SAMPLE_SIZE);
+            _RecentFrameTimes = new Queue<(float, float)>();
             lastEtaUpdateTime = 0f;
             lastEtaFrame = 0;
         }
@@ -2038,17 +2231,17 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
                 float frameTime = currentTime - lastEtaUpdateTime;
                 int frameCount = currentFrame - lastEtaFrame;
                 float msPerFrame = frameTime / frameCount;
-                _RecentFrameTimes.Enqueue(msPerFrame);
-
-                if (_RecentFrameTimes.Count > ETA_SAMPLE_SIZE)
-                {
-                    _RecentFrameTimes.Dequeue();
-                }
+                _RecentFrameTimes.Enqueue((currentTime, msPerFrame));
             }
             else
             {
                 // First frame, add a reasonable initial estimate
-                _RecentFrameTimes.Enqueue(0.1f);
+                _RecentFrameTimes.Enqueue((currentTime, 0.1f));
+            }
+
+            while (_RecentFrameTimes.Count > 0 && currentTime - _RecentFrameTimes.Peek().time > ETA_WINDOW_SECONDS)
+            {
+                _RecentFrameTimes.Dequeue();
             }
 
             lastEtaUpdateTime = currentTime;
@@ -2068,8 +2261,11 @@ namespace JANOARG.Chartmaker.UI.Modal.ModalTypes
                 return $"{currentFrame} / {totalFrames} | --- fps | --- remaining ";
             }
             
-            float averageFrameTime = _RecentFrameTimes.Average();
-            
+            float averageFrameTime = 0f;
+            foreach ((float _, float msPerFrame) in _RecentFrameTimes)
+                averageFrameTime += msPerFrame;
+            averageFrameTime /= _RecentFrameTimes.Count;
+
             int remainingFrames = totalFrames - currentFrame;
             float estimatedTimeRemaining = remainingFrames * averageFrameTime;
             

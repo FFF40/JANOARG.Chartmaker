@@ -225,6 +225,8 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
 
         public void Update()
         {
+            if (Chartmaker.main.RenderInProgress) return;
+
             Vector2 limit = new(
                     Mathf.Min(PeekRange.x, PeekLimit.x),
                     Mathf.Max(PeekRange.y, PeekLimit.y)

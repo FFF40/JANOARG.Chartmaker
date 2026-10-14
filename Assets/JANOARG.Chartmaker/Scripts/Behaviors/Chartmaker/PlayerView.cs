@@ -511,7 +511,9 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
 
                 while (LanePlayers.Count > Manager.Lanes.Count)
                 {
-                    Destroy(LanePlayers[Manager.Lanes.Count].gameObject);
+                    ChartmakerLanePlayer lanePlayer = LanePlayers[Manager.Lanes.Count];
+                    lanePlayer.gameObject.SetActive(false);
+                    Destroy(lanePlayer.gameObject);
                     LanePlayers.RemoveAt(Manager.Lanes.Count);
                 }
 
@@ -539,8 +541,11 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                 FlicksRemaining = Manager.FlicksRemaining;
             }
 
-            UpdateHandles();
-            UpdateToolbars();
+            if (!MainCamera.targetTexture)
+            {
+                UpdateHandles();
+                UpdateToolbars();
+            }
 
             if (HierarchyPanel.main.CurrentMode == HierarchyMode.PlayableSong) 
             {
@@ -857,7 +862,7 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                     
                             LaneStepManager laneStepManager = laneManager.Steps[index];
 
-                            if (laneStepManager.Offset >= Chartmaker.main.SongTime)
+                            if (laneStepManager.Offset >= CurrentTime)
                             {
                                 Vector3 offset = laneManager.FinalRotation * Vector3.forward * (laneStepManager.Distance - laneManager.CurrentDistance) + laneManager.FinalPosition;
                                 Vector2 middlePointPosition = (laneStepManager.CurrentStep.StartPointPosition + laneStepManager.CurrentStep.EndPointPosition) / 2;
@@ -903,7 +908,7 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                     
                             HitObjectManager hitObjectManager = laneManager.Objects[index];
 
-                            if (hitObjectManager.TimeEnd >= Chartmaker.main.SongTime)
+                            if (hitObjectManager.TimeEnd >= CurrentTime)
                             {
                                 Vector3 start = MainCamera.WorldToScreenPoint(laneManager.FinalRotation * (hitObjectManager.StartPos + laneManager.CurrentDistance * Vector3.back) + laneManager.FinalPosition);
                                 Vector3 end = MainCamera.WorldToScreenPoint(laneManager.FinalRotation * (hitObjectManager.EndPos + laneManager.CurrentDistance * Vector3.back) + laneManager.FinalPosition);

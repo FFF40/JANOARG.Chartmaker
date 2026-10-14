@@ -25,6 +25,7 @@ using UnityEngine.Android;
 using UnityEngine.Assertions;
 using UnityEngine.Networking;
 using JANOARG.Shared.Utils;
+using UnityEngine.UI;
 
 namespace JANOARG.Chartmaker.Behaviors.Chartmaker
 {
@@ -32,6 +33,9 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
     {
         public static Chartmaker main;
         public Canvas ChartmakerCanvas;
+        public Canvas RenderOverlayCanvas;
+        public RawImage RenderOverlayColor;
+        public RawImage RenderOverlayMono;
 
         public string CurrentSongPath;
         public string CurrentChartPath;
@@ -74,6 +78,7 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
         private Task ActiveTask;
 
         bool lastPlayed;
+        public bool RenderInProgress;
 
         // The editing playhead while it sits in the pre-song break. An AudioSource cannot
         // hold a position before the clip, so there the source is parked at 0 and this

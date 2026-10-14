@@ -80,6 +80,8 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
 
         public void Update()
         {
+            if (Chartmaker.main.RenderInProgress) return;
+
             UpdatePlayButton();
 
             if (Chartmaker.main?.CurrentSong == null)
