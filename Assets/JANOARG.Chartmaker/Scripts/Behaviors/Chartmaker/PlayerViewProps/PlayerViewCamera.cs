@@ -50,7 +50,7 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker.PlayerViewProps
                     Color colFar = baseColor * new ColorFrag(a: 0);
 
                     if (lastCamY != camPos.y) UpdateGridParams();
-                    if (gridRange == 0) return;
+                    if (gridRange == 0) goto endDrawGrid;
 
                     GL.Begin(GL.LINES);
 
@@ -86,6 +86,8 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker.PlayerViewProps
                         GL.Vertex(new Vector3(camPos.x - gridRange, 0, z));
                     }
                 }
+                endDrawGrid:
+
                 if (DrawCamera)
                 {
                     var camRot = Quaternion.Euler(playerView.Manager.Camera.CameraRotation);
@@ -139,8 +141,9 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker.PlayerViewProps
         void UpdateGridParams()
         {
             lastCamY = transform.position.y;
-            gridRange = BASE_GRID_RANGE * lastCamY;
-            float log10 = Mathf.Max(0, Mathf.Log10(lastCamY) - 0.25f);
+            float lastCamYAbs = Mathf.Abs(lastCamY);
+            gridRange = BASE_GRID_RANGE * lastCamYAbs;
+            float log10 = Mathf.Max(0, Mathf.Log10(lastCamYAbs) - 0.25f);
             gridSpacing = Mathf.Pow(10, Mathf.Floor(log10));
             gridMinorAlpha = Mathf.Min((Mathf.Pow(0.1f, (log10 % 1 + 1) % 1) - 0.1f) / 0.9f, 1);
         }
