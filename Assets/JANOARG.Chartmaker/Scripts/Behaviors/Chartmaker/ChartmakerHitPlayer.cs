@@ -8,6 +8,7 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
     public class ChartmakerHitPlayer : MonoBehaviour
     {
         public HitObjectManager CurrentHit;
+        public SpriteRenderer SimultaneousIndicator;
         public MeshRenderer     Renderer;
         [FormerlySerializedAs("IndicatohRenderers")] 
         public MeshRenderer[] IndicatorRenderers;
@@ -38,9 +39,8 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             int index = hit.Current.StyleIndex;
             bool visible = index >= 0 && index < styles.Count;
 
-            Material material = null, mainMaterial;
-            mainMaterial = visible 
-                ? styles[index].NormalMaterial : null;
+            Material material = null, mainMaterial, highlightMaterial = null;
+            mainMaterial = visible ? styles[index].NormalMaterial : null;
 
             switch (hit.Current.Type)
             {
@@ -53,6 +53,8 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
             
                     material = visible 
                         ? styles[index].NormalMaterial : null;
+                    highlightMaterial = visible 
+                        ? styles[index].NormalHighlightGlowMaterial : null;
                 
                     break;
             
@@ -66,6 +68,8 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                 
                     material = visible 
                         ? styles[index].CatchMaterial : null;
+                    highlightMaterial = visible 
+                        ? styles[index].CatchHighlightGlowMaterial : null;
                 
                     break;
             }
@@ -101,6 +105,16 @@ namespace JANOARG.Chartmaker.Behaviors.Chartmaker
                 // Hidden, not destroyed — notes cross in and out of range constantly while
                 // scrubbing, and the flick emblem below already works this way.
                 HoldTail.gameObject.SetActive(false);
+            }
+            
+            if (hit.IsSimultaneous && hit.TimeStart >= PlayerView.main.CurrentTime && visible)
+            {
+                SimultaneousIndicator.gameObject.SetActive(true);
+                SimultaneousIndicator.sharedMaterial = highlightMaterial;
+            }
+            else
+            {
+                SimultaneousIndicator.gameObject.SetActive(false);
             }
 
             if (hit.Current.Flickable) 
